@@ -14,9 +14,9 @@ from alphacsc.loss_and_gradient import _l2_gradient_d
 from simulate import simulate_data
 
 T = 10_000  # signal length
-L = 100  # n times atom
+L = 200  # n times atom
 W = 1_000  # window size
-list_W = np.arange(100, T-L, 100)
+list_W = np.arange(2*L, T-L, L)
 n_times_valid = T - L + 1
 n_acti_atom = 500
 
@@ -60,6 +60,7 @@ X, D, z = simulate_data(
 full_grad = compute_grad(X, z, D)
 
 dict_error = []
+dict_esp = []
 
 for W in list_W:
     # compute grad on window partition
@@ -70,17 +71,20 @@ for W in list_W:
 
     for is_partition, this_list_i in zip([True, False], [list_i_part, list_i_rnd]):
         for is_extended in [True, False]:
-            win_grad = [compute_grad(X, z, D, i, W, extended=is_extended)
-                        for i in this_list_i]
+            win_grad = np.array([compute_grad(X, z, D, i, W, extended=is_extended)
+                                 for i in this_list_i])
             # compute error to full grad
             dict_error.extend([{
                 'partition': is_partition, 'W': W, 'extended': is_extended,
                 'error': norm(this_win_grad/W - full_grad/T)}
                 for this_win_grad in win_grad])
+            dict_esp.append({
+                'partition': is_partition, 'W': W, 'extended': is_extended,
+                'mean': norm(win_grad.mean(axis=0)/W - full_grad/T)})
 
 
 df_err = pd.DataFrame(dict_error)
-
+df_esp = pd.DataFrame(dict_esp)
 
 # sns.lineplot(data=df_err, x="W", y="error", hue="extended", style="partition")
 # plt.plot(list_W, [len(range(T//W)) for W in list_W])
@@ -91,11 +95,17 @@ sns.relplot(
 )
 plt.xscale('log')
 plt.xlim(min(list_W), None)
+plt.subplots_adjust(top=0.85)
+plt.suptitle('Error between sub-window gradient and full signal one')
+plt.show()
 
-# %%
-plt.plot(list_W, [len(range(T//W)) for W in list_W])
-plt.xlabel('W')
+sns.relplot(
+    data=df_esp, x="W", y="mean",
+    col="partition", hue="extended",
+    kind="line"
+)
 plt.xscale('log')
 plt.xlim(min(list_W), None)
-plt.title("Number of sub-windows in the partition")
+plt.show()
+
 # %%
