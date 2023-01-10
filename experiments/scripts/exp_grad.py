@@ -80,14 +80,13 @@ for W in list_W:
                 for this_win_grad in win_grad])
             dict_esp.append({
                 'partition': is_partition, 'W': W, 'extended': is_extended,
-                'mean': norm(win_grad.mean(axis=0)/W - full_grad/T)})
+                'mean': norm(win_grad.sum(axis=0)/W - full_grad/T)})
 
 
 df_err = pd.DataFrame(dict_error)
 df_esp = pd.DataFrame(dict_esp)
 
 # sns.lineplot(data=df_err, x="W", y="error", hue="extended", style="partition")
-# plt.plot(list_W, [len(range(T//W)) for W in list_W])
 sns.relplot(
     data=df_err, x="W", y="error",
     col="partition", hue="extended",
@@ -99,6 +98,7 @@ plt.subplots_adjust(top=0.85)
 plt.suptitle('Error between sub-window gradient and full signal one')
 plt.show()
 
+# sns.lineplot(data=df_esp, x="W", y="mean", hue="extended", style="partition")
 sns.relplot(
     data=df_esp, x="W", y="mean",
     col="partition", hue="extended",
@@ -106,6 +106,8 @@ sns.relplot(
 )
 plt.xscale('log')
 plt.xlim(min(list_W), None)
+plt.subplots_adjust(top=0.85)
+plt.suptitle('Norm between sub-window expectation and full signal one')
 plt.show()
 
 # %%
