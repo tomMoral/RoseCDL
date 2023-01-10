@@ -9,29 +9,15 @@ from scipy.linalg import norm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from simulate import simulate_data
+from alphacsc.loss_and_gradient import _l2_gradient_d
 
-from alphacsc.utils import check_random_state, construct_X, construct_X_multi
-from alphacsc.utils.dictionary import tukey_window
-from alphacsc.loss_and_gradient import _dense_transpose_convolve_z, _l2_gradient_d
+from simulate import simulate_data
 
 T = 10_000  # signal length
 L = 100  # n times atom
 W = 1_000  # window size
 n_times_valid = T - L + 1
 n_acti_atom = 500
-
-# simulate sin atom
-# D = np.array([np.sin(2 * np.pi * np.linspace(0, 1, L))])
-# D /= np.linalg.norm(D, axis=1)[:, None]
-# if window:
-#     D = D * tukey_window(L)[None, :]
-
-
-# simulate sparse activation vector
-
-
-# %%
 
 
 def compute_grad(X, z, D, i=None, W=1_000, extended=False):
@@ -64,8 +50,6 @@ X, D, z = simulate_data(
     n_trials=1, n_channels=1, n_times=T, n_times_atom=L, n_atoms=1,
     n_acti_atom=n_acti_atom, random_state=42, constant_amplitude=False,
     window=True, shapes=['sin', 'gaussian'], sigma_noise=1, plot_atoms=False)
-
-# %%
 
 # compute full grad
 full_grad = compute_grad(X, z, D)
