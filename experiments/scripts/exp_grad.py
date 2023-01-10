@@ -66,7 +66,7 @@ for W in list_W:
     list_i_part = [i*W for i in range(T//W)]
     n_win = len(list_i_part)
     # get random indices
-    list_i_rnd = np.random.choice((T-W-L), n_win, replace=False) + L
+    list_i_rnd = np.random.choice((T-W-L), n_win, replace=True) + L
 
     for is_partition, this_list_i in zip([True, False], [list_i_part, list_i_rnd]):
         for is_extended in [True, False]:
@@ -75,19 +75,22 @@ for W in list_W:
             # compute error to full grad
             dict_error.extend([{
                 'partition': is_partition, 'W': W, 'extended': is_extended,
-                'error': norm(this_win_grad - full_grad)}
+                'error': norm(this_win_grad/W - full_grad/T)}
                 for this_win_grad in win_grad])
 
 
 df_err = pd.DataFrame(dict_error)
 
+
 # sns.lineplot(data=df_err, x="W", y="error", hue="extended", style="partition")
+# plt.plot(list_W, [len(range(T//W)) for W in list_W])
 sns.relplot(
     data=df_err, x="W", y="error",
     col="partition", hue="extended",
     kind="line"
 )
 plt.xscale('log')
+plt.xlim(min(list_W), None)
 
 # %%
 plt.plot(list_W, [len(range(T//W)) for W in list_W])
