@@ -32,14 +32,18 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
             X = X[:, :, i:(i+W)].copy()  # shape (1, 1, W)
             z = z[:, :, i:(i+W-L+1)].copy()  # shape (1, 1, W-L+1)
         else:
-            i += L - 1
             # pad with (L-1) zeros on both sides of the last dim
+            i += L - 1
+
             X = np.pad(X, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
             X = X[:, :, (i-L+1):(i+W+L-1)].copy()
-            assert X.shape[-1] == (W + 2*L - 2), f"X shape is {X.shape}"
+            assert X.shape[-1] == (W + 2*L - 2), \
+                f"last dim of X is {X.shape}, must be {W + 2*L - 2}"
+
             z = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
             z = z[:, :, (i-L+1):(i+W)].copy()
-            assert z.shape[-1] == (W + L - 1), f"z shape is {z.shape}"
+            assert z.shape[-1] == (W + L - 1), \
+                f"last dim of z is {z.shape}, must be {W + L - 1}"
 
     _, grad = _l2_gradient_d(D, X, z)
 
