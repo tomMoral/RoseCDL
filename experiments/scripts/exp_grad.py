@@ -60,7 +60,7 @@ full_grad = compute_grad(X, z, D)
 
 dict_error = []
 
-for W in np.arange(100, T+100, 100):
+for W in np.arange(100, T-L, 100):
     # compute grad on window partition
     list_i = [i*W for i in range(T//W)]
     n_win = len(list_i)
@@ -69,14 +69,34 @@ for W in np.arange(100, T+100, 100):
 
     # compute error to full grad
     dict_error.extend([{'partition': True, 'W': W, 'extended': False,
-                        'error': norm(this_win_grad - full_grad/n_win)}
+                        'error': norm(this_win_grad - full_grad)}
                        for this_win_grad in win_grad])
     dict_error.extend([{'partition': True, 'W': W, 'extended': True,
-                        'error': norm(this_ext_grad - full_grad/n_win)}
+                        'error': norm(this_ext_grad - full_grad)}
                        for this_ext_grad in ext_grad])
+
+    # now with random windows
+    list_i = np.random.choice((T-W-L), n_win, replace=False) + L
+
+    win_grad = [compute_grad(X, z, D, i, W, extended=False) for i in list_i]
+    ext_grad = [compute_grad(X, z, D, i, W, extended=True) for i in list_i]
+
+    # compute error to full grad
+    dict_error.extend([{'partition': False, 'W': W, 'extended': False,
+                        'error': norm(this_win_grad - full_grad)}
+                       for this_win_grad in win_grad])
+    dict_error.extend([{'partition': False, 'W': W, 'extended': True,
+                        'error': norm(this_ext_grad - full_grad)}
+                       for this_ext_grad in ext_grad])
+
 
 df_err = pd.DataFrame(dict_error)
 
-sns.lineplot(data=df_err, x="W", y="error", hue="extended")
+# sns.lineplot(data=df_err, x="W", y="error", hue="extended")
+sns.relplot(
+    data=df_err, x="W", y="error",
+    col="partition", hue="extended",
+    kind="line"
+)
 plt.xscale('log')
 # %%
