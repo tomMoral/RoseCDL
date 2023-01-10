@@ -16,6 +16,7 @@ from simulate import simulate_data
 T = 10_000  # signal length
 L = 100  # n times atom
 W = 1_000  # window size
+list_W = np.arange(100, T-L, 100)
 n_times_valid = T - L + 1
 n_acti_atom = 500
 
@@ -60,43 +61,38 @@ full_grad = compute_grad(X, z, D)
 
 dict_error = []
 
-for W in np.arange(100, T-L, 100):
+for W in list_W:
     # compute grad on window partition
-    list_i = [i*W for i in range(T//W)]
-    n_win = len(list_i)
-    win_grad = [compute_grad(X, z, D, i, W, extended=False) for i in list_i]
-    ext_grad = [compute_grad(X, z, D, i, W, extended=True) for i in list_i]
+    list_i_part = [i*W for i in range(T//W)]
+    n_win = len(list_i_part)
+    # get random indices
+    list_i_rnd = np.random.choice((T-W-L), n_win, replace=False) + L
 
-    # compute error to full grad
-    dict_error.extend([{'partition': True, 'W': W, 'extended': False,
-                        'error': norm(this_win_grad - full_grad)}
-                       for this_win_grad in win_grad])
-    dict_error.extend([{'partition': True, 'W': W, 'extended': True,
-                        'error': norm(this_ext_grad - full_grad)}
-                       for this_ext_grad in ext_grad])
-
-    # now with random windows
-    list_i = np.random.choice((T-W-L), n_win, replace=False) + L
-
-    win_grad = [compute_grad(X, z, D, i, W, extended=False) for i in list_i]
-    ext_grad = [compute_grad(X, z, D, i, W, extended=True) for i in list_i]
-
-    # compute error to full grad
-    dict_error.extend([{'partition': False, 'W': W, 'extended': False,
-                        'error': norm(this_win_grad - full_grad)}
-                       for this_win_grad in win_grad])
-    dict_error.extend([{'partition': False, 'W': W, 'extended': True,
-                        'error': norm(this_ext_grad - full_grad)}
-                       for this_ext_grad in ext_grad])
+    for is_partition, this_list_i in zip([True, False], [list_i_part, list_i_rnd]):
+        for is_extended in [True, False]:
+            win_grad = [compute_grad(X, z, D, i, W, extended=is_extended)
+                        for i in this_list_i]
+            # compute error to full grad
+            dict_error.extend([{
+                'partition': is_partition, 'W': W, 'extended': is_extended,
+                'error': norm(this_win_grad - full_grad)}
+                for this_win_grad in win_grad])
 
 
 df_err = pd.DataFrame(dict_error)
 
-# sns.lineplot(data=df_err, x="W", y="error", hue="extended")
+# sns.lineplot(data=df_err, x="W", y="error", hue="extended", style="partition")
 sns.relplot(
     data=df_err, x="W", y="error",
     col="partition", hue="extended",
     kind="line"
 )
 plt.xscale('log')
+
+# %%
+plt.plot(list_W, [len(range(T//W)) for W in list_W])
+plt.xlabel('W')
+plt.xscale('log')
+plt.xlim(min(list_W), None)
+plt.title("Number of sub-windows in the partition")
 # %%
