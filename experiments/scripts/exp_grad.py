@@ -14,7 +14,7 @@ from alphacsc.loss_and_gradient import _l2_gradient_d
 from simulate import simulate_data
 
 T = 10_000  # signal length
-L = 200  # n times atom
+L = 100  # n times atom
 W = 1_000  # window size
 list_W = np.arange(2*L, T-L, L)
 n_times_valid = T - L + 1
@@ -25,6 +25,11 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
 
     L = D.shape[-1]
 
+    if extended:
+        # pad with (L-1) zeros on both sides of the last dim
+        X = np.pad(X, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
+        z = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
+
     if i is not None:
         assert i <= (T-W), \
             f"i must be 0 <= i <= (T - W) = {T - W}, got i = {i}"
@@ -33,15 +38,11 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
             X = X[:, :, i:(i+W)].copy()  # shape (1, 1, W)
             z = z[:, :, i:(i+W-L+1)].copy()  # shape (1, 1, W-L+1)
         else:
-            # pad with (L-1) zeros on both sides of the last dim
             i += L - 1
-
-            X = np.pad(X, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
             X = X[:, :, (i-L+1):(i+W+L-1)].copy()
             assert X.shape[-1] == (W + 2*L - 2), \
                 f"last dim of X is {X.shape}, must be {W + 2*L - 2}"
 
-            z = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
             z = z[:, :, (i-L+1):(i+W)].copy()
             assert z.shape[-1] == (W + L - 1), \
                 f"last dim of z is {z.shape}, must be {W + L - 1}"
@@ -57,7 +58,6 @@ X, D, z = simulate_data(
     window=True, shapes=['sin', 'gaussian'], sigma_noise=1, plot_atoms=False)
 
 # compute full grad
-full_grad = compute_grad(X, z, D)
 
 dict_error = []
 dict_esp = []
@@ -69,18 +69,23 @@ for W in list_W:
     # get random indices
     list_i_rnd = np.random.choice((T-W-L), n_win, replace=True) + L
 
-    for is_partition, this_list_i in zip([True, False], [list_i_part, list_i_rnd]):
-        for is_extended in [True, False]:
+    for is_extended in [True, False]:
+        full_grad = compute_grad(X, z, D, extended=is_extended)
+        rel_full_grad = full_grad / (T + is_extended*2*(L-1))
+
+        for is_partition, this_list_i in \
+                zip([True, False], [list_i_part, list_i_rnd]):
+
             win_grad = np.array([compute_grad(X, z, D, i, W, extended=is_extended)
                                  for i in this_list_i])
             # compute error to full grad
             dict_error.extend([{
                 'partition': is_partition, 'W': W, 'extended': is_extended,
-                'error': norm(this_win_grad/W - full_grad/T)}
+                'error': norm(this_win_grad/(W + is_extended*(L - 1)) - rel_full_grad)}
                 for this_win_grad in win_grad])
             dict_esp.append({
                 'partition': is_partition, 'W': W, 'extended': is_extended,
-                'mean': norm(win_grad.sum(axis=0)/W - full_grad/T)})
+                'mean': norm(win_grad.mean(axis=0)/(W + is_extended*(L - 1)) - rel_full_grad)})
 
 
 df_err = pd.DataFrame(dict_error)
@@ -92,7 +97,7 @@ sns.relplot(
     col="partition", hue="extended",
     kind="line"
 )
-plt.xscale('log')
+# plt.xscale('log')
 plt.xlim(min(list_W), None)
 plt.subplots_adjust(top=0.85)
 plt.suptitle('Error between sub-window gradient and full signal one')
