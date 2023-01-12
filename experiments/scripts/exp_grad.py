@@ -1,6 +1,6 @@
 """
 Experiment to compute the sub gradient on true sub-window and extended one over
-sparse code vector, and compre it to true gradient computed over full signal.
+sparse code vector, and compare it to true gradient computed over full signal.
 """
 # %%
 import numpy as np
