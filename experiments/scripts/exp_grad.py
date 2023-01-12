@@ -9,17 +9,24 @@ from scipy.linalg import norm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from alphacsc.loss_and_gradient import _l2_gradient_d
+from alphacsc.loss_and_gradient import _l2_gradient_d, _dense_transpose_convolve_z
+from alphacsc.update_z_multi import update_z_multi
+from alphacsc.utils import construct_X_multi
 
 from simulate import simulate_data
 
 T = 10_000  # signal length
+# default values
 L = 100  # n times atom
-# W = 1_000  # window size
+W = 1_000  # window size
 list_W = np.arange(2*L, T-L, L)
 n_times_valid = T - L + 1
 p_acti = 1  # average number of activations per window of size L
 n_acti_atom = int(T/L * p_acti)
+
+list_L = [50, 100, 500]
+list_p_acti = [1, 5, 10]
+# %%
 
 
 def compute_grad(X, z, D, i=None, W=1_000, extended=False):
@@ -43,25 +50,57 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
     T = X.shape[-1]
     L = D.shape[-1]
 
-    if extended:  # pad with (L-1) zeros on both sides of the last dim
-        X = np.pad(X, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
-        z = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
+    n_trials, n_channels, n_times = X.shape
 
-    if i is not None:
-        assert i <= (T-W), \
-            f"i must be 0 <= i <= (T - W) = {T - W}, got i = {i}"
+    if i is None:
+        _, grad = _l2_gradient_d(D, X, z, constants=None)
+        return grad
 
-        if not extended:
-            X = X[:, :, i:(i+W)].copy()      # shape (n_trials, n_channels, W)
-            z = z[:, :, i:(i+W-L+1)].copy()  # shape (n_atoms, n_trials, W-L+1)
-        else:
-            i += L - 1
-            # shape (n_trials, n_channels, W+2*L-2)
-            X = X[:, :, (i-L+1):(i+W+L-1)].copy()
-            # shape (n_atoms, n_trials, W+L-1)
-            z = z[:, :, (i-L+1):(i+W)].copy()
+    # get window from X and z
+    X_w = X[:, :, i:(i+W)].copy()  # shape (n_trials, n_channels, W)
+    z_w = z[:, :, i:(i+W-L+1)].copy()  # shape (n_atoms, n_trials, W-L+1)
+    # pad with (L-1) zeros on both sides of the last dim
+    z_pad = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
+    i += L - 1
 
-    _, grad = _l2_gradient_d(D, X, z)
+    # shape (n_atoms, n_trials, W+L-1)
+    z_w_ext = z_pad[:, :, (i-L+1):(i+W)].copy()
+    # shape (n_trials, n_channels, W+2*L-2)
+    X_hat = construct_X_multi(z_w_ext, D=D, n_channels=n_channels)
+    X_hat = X_hat[:, :, L:W+L]  # shape (n_trials, n_channels, W)
+    residual = X_w - X_hat
+    grad = _dense_transpose_convolve_z(residual, z_w)
+    return grad
+
+    # if extended:  # pad with (L-1) zeros on both sides of the last dim
+    #     X = np.pad(X, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
+    #     z = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
+
+    # if i is not None:
+    #     assert i <= (T-W), \
+    #         f"i must be 0 <= i <= (T - W) = {T - W}, got i = {i}"
+
+    #     if not extended:
+    #         X = X[:, :, i:(i+W)].copy()      # shape (n_trials, n_channels, W)
+    #         z = z[:, :, i:(i+W-L+1)].copy()  # shape (n_atoms, n_trials, W-L+1)
+    #     else:
+    #         i += L - 1
+    #         # shape (n_trials, n_channels, W+2*L-2)
+    #         X = X[:, :, (i-L+1):(i+W+L-1)].copy()
+    #         # shape (n_atoms, n_trials, W+L-1)
+    #         z = z[:, :, (i-L+1):(i+W)].copy()
+
+    # # compute constants$
+    # n_trials, n_channels, n_times = X.shape
+    # XtX = np.dot(X.ravel(), X.ravel())
+    # reg = 0.1
+
+    # _, ztz, ztX = update_z_multi(
+    #     X, D, reg, z0=None, solver='l-bfgs', solver_kwargs=dict(),
+    #     return_ztz=True, n_jobs=1)
+    # constants = dict(n_channels=n_channels, XtX=XtX, ztz=ztz, ztX=ztX)
+
+    # _, grad = _l2_gradient_d(D, X, z, constants=None)
 
     return grad
 
@@ -72,14 +111,21 @@ X, D, z = simulate_data(
     window=True, shapes=['sin', 'gaussian'], sigma_noise=1, plot_atoms=False)
 
 # compute full grad
+full_grad = compute_grad(X, z, D, i=None, extended=False)
+# compute list of windowed grads
+W = 1_000
+win_grads = np.array([compute_grad(X, z, D, i=this_i*W, W=W, extended=False)
+                      for this_i in range(T//W)])
+print(f'norm of diff: {norm(win_grads.sum(axis=0)/W - full_grad/T)}')
+# %%
 
 dict_error = []
 dict_esp = []
 
-for L in [50, 100, 500]:
+for L in list_L:
     list_W = np.arange(2*L, T-L, L)
 
-    for p_acti in [1, 5, 10]:
+    for p_acti in list_p_acti:
         n_acti_atom = int(T/L * p_acti)
 
         X, D, z = simulate_data(
@@ -91,12 +137,12 @@ for L in [50, 100, 500]:
             # compute grad on window partition
             list_i_part = [i*W for i in range(T//W)]
             n_win = len(list_i_part)
-            # get random indices
+            # get 20 random indices
             list_i_rnd = np.random.choice((T-W-L), 20, replace=True) + L
 
             for is_extended in [True, False]:
                 full_grad = compute_grad(X, z, D, extended=is_extended)
-                rel_full_grad = full_grad / (T + is_extended*2*(L-1))
+                rel_full_grad = full_grad / (T + is_extended * 2 * (L-1))
 
                 for is_partition, this_list_i in \
                         zip([True, False], [list_i_part, list_i_rnd]):
