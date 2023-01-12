@@ -23,12 +23,27 @@ n_acti_atom = int(T/L * p_acti)
 
 
 def compute_grad(X, z, D, i=None, W=1_000, extended=False):
+    """Compute the gradient of the reconstruction loss relative to d.
+
+    Parameters
+    ----------
+    X : array, shape (n_trials, n_channels, n_times) or None
+        The data array
+    z : array, shape (n_atoms, n_trials, n_times_valid) or None
+        The activations
+    D : array, shape
+        (n_atoms, n_channels, n_times_atom)
+
+    Returns
+    -------
+    grad : array, shape (n_atoms * n_times_valid)
+        The gradient
+    """
 
     T = X.shape[-1]
     L = D.shape[-1]
 
-    if extended:
-        # pad with (L-1) zeros on both sides of the last dim
+    if extended:  # pad with (L-1) zeros on both sides of the last dim
         X = np.pad(X, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
         z = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
 
@@ -37,17 +52,14 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
             f"i must be 0 <= i <= (T - W) = {T - W}, got i = {i}"
 
         if not extended:
-            X = X[:, :, i:(i+W)].copy()  # shape (1, 1, W)
-            z = z[:, :, i:(i+W-L+1)].copy()  # shape (1, 1, W-L+1)
+            X = X[:, :, i:(i+W)].copy()      # shape (n_trials, n_channels, W)
+            z = z[:, :, i:(i+W-L+1)].copy()  # shape (n_atoms, n_trials, W-L+1)
         else:
             i += L - 1
+            # shape (n_trials, n_channels, W+2*L-2)
             X = X[:, :, (i-L+1):(i+W+L-1)].copy()
-            assert X.shape[-1] == (W + 2*L - 2), \
-                f"last dim of X is {X.shape}, must be {W + 2*L - 2}"
-
+            # shape (n_atoms, n_trials, W+L-1)
             z = z[:, :, (i-L+1):(i+W)].copy()
-            assert z.shape[-1] == (W + L - 1), \
-                f"last dim of z is {z.shape}, must be {W + L - 1}"
 
     _, grad = _l2_gradient_d(D, X, z)
 
