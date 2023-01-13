@@ -49,6 +49,7 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
 
     T = X.shape[-1]
     L = D.shape[-1]
+    pad = L - 1
 
     n_trials, n_channels, n_times = X.shape
 
@@ -60,10 +61,10 @@ def compute_grad(X, z, D, i=None, W=1_000, extended=False):
     X_w = X[:, :, i:(i+W)].copy()  # shape (n_trials, n_channels, W)
     z_w = z[:, :, i:(i+W-L+1)].copy()  # shape (n_atoms, n_trials, W-L+1)
     # pad with (L-1) zeros on both sides of the last dim
-    z_pad = np.pad(z, ((0, 0), (0, 0), (L-1, L-1)), constant_values=0)
-    i += L - 1
+    z_pad = np.pad(z, ((0, 0), (0, 0), (pad, pad)), constant_values=0)
+    i += pad
     # shape (n_atoms, n_trials, W+L-1)
-    z_w_ext = z_pad[:, :, (i-L+1):(i+W)].copy()
+    z_w_ext = z_pad[:, :, (i-pad):(i+W)].copy()
     # shape (n_trials, n_channels, W+2*L-2)
     X_hat = construct_X_multi(z_w_ext, D=D, n_channels=n_channels)
     X_hat = X_hat[:, :, L-1:L-1+W]  # shape (n_trials, n_channels, W)
