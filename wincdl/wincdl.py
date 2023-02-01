@@ -1,3 +1,4 @@
+# %%
 import torch
 import numpy as np
 
@@ -5,9 +6,16 @@ from .model import CSC1d, CSC2d
 from .datasets import create_conv_dataloader
 from .optimizer import SLS
 from .train import train
+# %%
 
 
 class WinCDL:
+
+    """
+
+    uv_constraint
+
+    """
 
     def __init__(
         self,
