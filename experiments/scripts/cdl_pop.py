@@ -27,9 +27,28 @@ DICT_PATH = BASE_PATH / 'cdl-population/results/camcan'
 DATA_PATH = BASE_PATH / 'camcan-cdl'
 SUBJECTS_PATH = [x for x in DATA_PATH.glob('**/*') if x.is_file()]
 
+N_ATOMS = 40
+N_TIMES_ATOM = 150
 
 N_JOBS = 40
 DEVICE = "cuda:1"
+
+
+# get a unique value for lambda
+X = np.load(SUBJECTS_PATH[0])
+X /= X.std()
+if X.ndim == 2:
+    (n_channels, n_times) = X.shape
+    n_trials = 1
+elif X.ndim == 3:
+    (n_trials, n_channels, n_times) = X.shape
+
+# get initial dictionary with alphacsc
+D_init = init_dictionary(
+    X[None, :], N_ATOMS, N_TIMES_ATOM, uv_constraint='separate',
+    rank1=True, window=True, D_init='chunk', random_state=None)
+LMBD = 0.1 * get_lambda_max(X[None, :], D_init).max()
+# %%
 
 
 def get_D_cat(cat):
@@ -59,16 +78,16 @@ def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
     D_init = init_dictionary(
         X[None, :], n_atoms, n_times_atom, uv_constraint='separate',
         rank1=True, window=True, D_init='chunk', random_state=None)
-    lmbd = lmbd * get_lambda_max(X[None, :], D_init).max()
+    # lmbd = lmbd * get_lambda_max(X[None, :], D_init).max()
 
     CDL = WinCDL(
         n_components=n_atoms,
         kernel_size=n_times_atom,
         n_channels=n_channels,
-        lmbd=lmbd,
-        n_iterations=20,
+        lmbd=LMBD,
+        n_iterations=30,
         epochs=50,
-        max_batch=10,
+        max_batch=5,
         stochastic=False,
         optimizer="linesearch",
         lr=0.1,
@@ -86,7 +105,7 @@ def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
 
     CDL.fit(X)
 
-    return CDL.D_hat_, lmbd
+    return D_init, CDL.D_hat_, lmbd
 
 
 def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
@@ -152,31 +171,14 @@ def my_func(i, list_subjects_path):
     subject_path = list_subjects_path[i]
     subject_id = subject_path.name.split('.')[0]
 
-    # compute cost with the subject dict
-    D_hat_sub, lmbd = get_D_sub(
-        subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1)
-    # subject_id, _, cost = get_subject_z_and_cost(
-    #     subject_path, D_hat_sub, reg=lmbd, tt_max=10_000)
-    # dic_res.append(dict(
-    #     subject_id=subject_id,
-    #     dict_fit=subject_id,
-    #     cost=cost
-    # ))
+    # compute the subject dict
+    D_init, D_hat_sub, lmbd = get_D_sub(
+        subject_path, n_atoms=N_ATOMS, n_times_atom=N_TIMES_ATOM, lmbd=0.1)
 
     results = Parallel(n_jobs=n_subjects)(
         delayed(get_subject_z_and_cost)(
-            subject_path, D_hat_sub, reg=lmbd, tt_max=10_000)
+            subject_path, D_hat_sub, reg=LMBD)
         for subject_path in list_subjects_path)
-    # # use subject's dict on other users
-    # for j, subject_path in tqdm(enumerate(list_subjects_path)):
-    #     if j != i:
-    #         this_subject_id, _, cost = get_subject_z_and_cost(
-    #             subject_path, D_hat_sub, reg=lmbd, tt_max=10_000)
-    #         dic_res.append(dict(
-    #             subject_id=this_subject_id,
-    #             dict_fit=subject_id,
-    #             cost=cost
-    # ))
 
     dic_res = []
     for res in results:
@@ -186,11 +188,15 @@ def my_func(i, list_subjects_path):
             cost=res[2]
         ))
 
+    cost_init = get_subject_z_and_cost(subject_path, D_init, reg=LMBD)[2]
+    dic_res.append(dict(
+        subject_id=subject_id,
+        dict_fit='D_init',
+        cost=cost_init
+    ))
+
     return dic_res
 
-
-# results = Parallel(n_jobs=2)(
-#     delayed(my_func)(i, list_subjects_path) for i in range(n_subjects))
 
 results = [my_func(i, list_subjects_path) for i in range(n_subjects)]
 data = []
@@ -202,16 +208,41 @@ df_cost = pd.DataFrame(data=data)
 df_cost.to_csv('df_cost.csv')
 
 # %%
-df_self = df_cost[df_cost['subject_id'] == df_cost['dict_fit']]
+df_cost = pd.read_csv('df_cost.csv')
+df_cost['subject_id'] = df_cost['subject_id'].apply(lambda x: x[4:])
+
+# get sub-dataframe for D_init
+d_init_index = df_cost[df_cost['dict_fit'] == 'D_init'].index
+df_init = df_cost.loc[d_init_index.values]
+df_init['cost'] = df_init['cost'].apply(
+    lambda x: float(x.split(',')[-1][1:-1]))
+
+df_cost.drop(d_init_index.values, inplace=True)
+df_cost['cost'] = df_cost['cost'].astype(float)
+df_cost['dict_fit'] = df_cost['dict_fit'].apply(lambda x: x[4:])
+
+# get sub-dataframe for D_self
+self_index = df_cost[df_cost['subject_id'] == df_cost['dict_fit']].index
+df_self = df_cost.loc[self_index.values]
+
+df_cost.drop(self_index.values, inplace=True)
+
+
 df_boxplot = df_cost[df_cost['subject_id'] != df_cost['dict_fit']]
-g = sns.boxplot(data=df_boxplot, x="subject_id", y="cost")
+g = sns.boxplot(data=df_cost, x="subject_id", y="cost")
 
 xticklabels = [t.get_text() for t in g.get_xticklabels()]
-yy = [df_self[df_self['subject_id'] == xlabel]['cost'].values[0]
-      for xlabel in xticklabels]
-plt.plot(xticklabels, yy)
+
+yy_self = [df_self[df_self['subject_id'] == xlabel]['cost'].values[0]
+           for xlabel in xticklabels]
+plt.scatter(xticklabels, yy_self, marker='*', label='self')
+
+yy_init = [df_init[df_init['subject_id'] == xlabel]['cost'].values[0]
+           for xlabel in xticklabels]
+plt.scatter(xticklabels, yy_init, marker='v', label='init')
 
 plt.xticks(rotation=90)
+plt.legend()
 plt.show()
 
 # %%
@@ -226,19 +257,19 @@ dic_res = []
 for i, subject_path in tqdm(enumerate(list_subjects_path)):
     subject_id = subject_path.name.split('.')[0]
     # compute cost with the global dict
-    z_hat_all, cost_all = get_subject_z_and_cost(
-        subject_path, D_all, reg=10, tt_max=10_000)
-    dic_res.append(dict(
-        subject_id=subject_id,
-        dict_fit='D_all',
-        cost=cost_all
-    ))
+    # _, _, cost_all = get_subject_z_and_cost(
+    #     subject_path, D_all, reg=LMBD)
+    # dic_res.append(dict(
+    #     subject_id=subject_id,
+    #     dict_fit='D_all',
+    #     cost=cost_all
+    # ))
     # compute cost with the category 1 dict
-    z_hat_cat1, cost_cat1 = get_subject_z_and_cost(
-        subject_path, D_cat1, reg=10, tt_max=10_000)
+    _, _, cost_cat1 = get_subject_z_and_cost(
+        subject_path, D_cat1, reg=LMBD)
     dic_res.append(dict(
         subject_id=subject_id,
-        dict_fit=f'D_cat1',
+        dict_fit='D_cat1',
         cost=cost_cat1
     ))
 
