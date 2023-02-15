@@ -5,6 +5,9 @@ import torch.nn.functional as F
 import torch.fft as fft
 
 from alphacsc.utils.dictionary import tukey_window
+from alphacsc.update_d_multi import prox_uv
+
+from .utils import get_max_error_patch
 
 
 class CSC1d(nn.Module):
@@ -154,6 +157,20 @@ class CSC1d(nn.Module):
                 self._D_hat /= norm_atoms
                 return norm_atoms
 
+    def get_max_error_dict(self, X):
+        d0 = get_max_error_patch(X, self.z, self._D_hat)
+        d0 = self.window(d0)
+
+        return prox_uv(d0, uv_constraint='separate',
+                       n_channels=self.n_channels)
+
+    def resample_atom(self, k0, X):
+        """
+
+        """
+        self._D_hat[k0] = self.get_max_error_dict(X)[0]
+        return self._D_hat
+
     def compute_lipschitz(self):
         """
         Compute the Lipschitz constant using the FFT
@@ -227,6 +244,9 @@ class CSC1d(nn.Module):
                 out_old = out.clone()
                 t_old = t
                 out = z
+
+            # save z vector as atribute
+            self.z = z
 
         return self.convt(out, D)
 

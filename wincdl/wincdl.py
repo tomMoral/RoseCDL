@@ -40,7 +40,8 @@ class WinCDL:
         D_init=None,
         positive_z=True,
         list_D=False,
-        dimN=1
+        dimN=1,
+        n_samples=None
     ):
 
         self.stochastic = stochastic
@@ -55,6 +56,7 @@ class WinCDL:
         self.gamma = gamma
         self.optimizer_name = optimizer
         self.dimN = dimN
+        self.n_samples = n_samples
 
         # CSC solver
         if dimN == 1:
@@ -112,8 +114,13 @@ class WinCDL:
             window=self.mini_batch_window,
             mini_batch_size=self.mini_batch_size,
             random_state=self.random_state,
-            dimN=self.dimN
+            dimN=self.dimN,
+            n_samples=self.n_samples
         )
+        try:
+            self.subjects = train_dataloader.dataset.subjects
+        except:
+            pass
 
         # LR scheduler
         if self.max_batch is None:

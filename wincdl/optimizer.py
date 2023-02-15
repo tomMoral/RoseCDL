@@ -96,5 +96,8 @@ class SLS(torch.optim.Optimizer):
                         ok = True
 
         if not self.sto:
-            group["lr"] = eta.clone()
+            try:
+                group["lr"] = eta.clone()
+            except:
+                pass
         return current_cost

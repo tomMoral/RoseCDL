@@ -1,7 +1,10 @@
+import numpy as np
 import torch
 import time
 
 from tqdm import tqdm
+
+from .utils import get_z_nnz
 
 
 def train_loop(
@@ -31,6 +34,14 @@ def train_loop(
         optimizer.step(closure)
         optimizer.zero_grad()
         model.rescale()
+
+        if False:
+            # compute sparsity, resample unsed atom if needed
+            z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
+            null_atom_indices = np.where(z_nnz == 0)[0]
+            if len(null_atom_indices) > 0:
+                k0 = null_atom_indices[0]  # only the first one? why so?
+                model.resample_atom(k0, X)
 
         if scheduler is not None:
             scheduler.step()
