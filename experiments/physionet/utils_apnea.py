@@ -1,22 +1,25 @@
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from scipy.signal import tukey
+import matplotlib.pyplot as plt
+
+from alphacsc.learn_d_z import learn_d_z
+from alphacsc.learn_d_z_multi import learn_d_z_multi
+from alphacsc.utils.convolution import construct_X
 
 import wfdb
 from wfdb.io.record import rdrecord
 from wfdb.io.annotation import rdann
 
 
-
-
-def load_ecg(subject="a01", T=60, data_path=Path('apnea-ecg'),
-             apply_window=True, verbose=True):    
+def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
+             apply_window=True, verbose=True):
     """
 
     Parameters
     ----------
-    subject : str
-        subject name
+    subject_id : str
 
     T : float
         duration, in seconds, of data splits
@@ -36,7 +39,7 @@ def load_ecg(subject="a01", T=60, data_path=Path('apnea-ecg'),
 
     Returns
     -------
-    data : ndarray, shape (n_splits, n_channels, int(T * fs))
+    X : ndarray, shape (n_splits, n_channels, int(T * fs))
         The signal splitted in ``n_splits``,
         whith ``n_splits = sig_len // int(T * fs)``,
         fs being the sampling frequency of the record
@@ -45,11 +48,11 @@ def load_ecg(subject="a01", T=60, data_path=Path('apnea-ecg'),
         labels corresponding to one minute segments
         i.e., if T = 60, labels have the same length as data and each label
         corresponds to each datta split.
-    
+
     """
 
     # ECG record
-    record_name = str(data_path / subject)
+    record_name = str(data_path / subject_id)
     ecg_record = rdrecord(record_name=record_name)
 
     # split signal
@@ -65,7 +68,7 @@ def load_ecg(subject="a01", T=60, data_path=Path('apnea-ecg'),
     if apply_window:
         X *= tukey(n_times, alpha=0.1)[None, None, :]
 
-    # Add labels 
+    # Add labels
     ann = rdann(
         record_name=record_name,
         extension='apn',
@@ -82,3 +85,121 @@ def load_ecg(subject="a01", T=60, data_path=Path('apnea-ecg'),
         warnings.warn('The returned labels do not match the data as T != 60 '
                       f'(got T = {T}).')
         return X, labels
+
+
+def get_subject_info(subject_id):
+    participants = pd.read_csv(Path("apnea-ecg/participants.tsv"), sep='\t')
+    subject_info = participants[participants['Record'] == subject_id]\
+        .iloc[0]\
+        .to_dict()
+
+    return subject_info
+
+
+def plot_loss_history(pobj, times=None, save_fig=False):
+    xx_type = 'time'
+    xlabel = 'Time (s.)'
+
+    if times is None:
+        xx = np.arange(0, len(pobj)/2, step=0.5)
+        xx_type = 'iteration'
+        xlabel = 'Iterations'
+    elif np.any(np.diff(times) < 0):
+        xx = np.cumsum(times)
+    else:
+        xx = times
+
+    plt.plot(xx, pobj)
+    plt.xlabel(xlabel)
+    plt.xlim(0, None)
+    plt.yscale('log')
+    plt.ylabel('Loss')
+    plt.title(f"Loss history as function of {xx_type}")
+
+    if save_fig:
+        plt.savefig(save_fig / 'loss_history.pdf')
+    plt.show()
+    plt.close()
+
+
+def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
+    """
+
+    Parameters
+    ----------
+    d_hat : array, shape (n_atoms, n_times)
+        The estimated atoms.
+
+    sfreq : float
+        sampling frequency
+
+    Returns
+    -------
+    """
+    assert d_hat.ndim == 2
+
+    n_atoms, n_times_atom = d_hat.shape
+    t = np.arange(n_times_atom) / sfreq  # time support of the atom
+
+    # define plot grid
+    n_columns = min(5, n_atoms)
+    n_split = int(np.ceil(n_atoms / n_columns))
+    figsize = (4 * n_columns, 3 * n_split)
+    fig, axes = plt.subplots(n_split, n_columns, figsize=figsize, sharey=True)
+
+    if n_split == 1:
+        axes = np.atleast_2d(axes)
+
+    for ii, v_k in enumerate(d_hat):
+
+        # Select the axes to display the current atom
+        i_row, i_col = ii // n_columns, ii % n_columns
+        ax = axes[i_row, i_col]
+
+        # Plot the temporal pattern of the atom
+        ax.set_title('Atom % d' % ii, pad=0)
+
+        ax.plot(t, v_k)
+        ax.set_xlim(min(t), max(t))
+        if i_col == 0:
+            ax.set_ylabel('Temporal')
+
+    fig.tight_layout()
+    if save_fig:
+        plt.savefig(save_fig / 'atoms.pdf')
+    plt.show()
+    plt.close()
+
+
+def run_cdl(X, cdl_params, labels=None, fit_on='N',
+            plot_loss=True, plot_atoms=True, save_fig=False):
+    """
+
+    Parameters
+    ----------
+    X : ndarray, shape (n_splits, n_channels, n_times)
+
+    Returns
+    -------
+    """
+    n_splits, n_channels, n_times = X.shape
+    if n_channels == 1:
+        X = X.squeeze()
+
+    if labels is None:
+        X_ = X
+    elif fit_on is not None:
+        X_ = X[labels == fit_on]
+
+    if n_channels == 1:
+        pobj, times, d_hat, z_hat, reg = learn_d_z(X_, **cdl_params)
+    else:
+        pobj, times, d_hat, z_hat, reg = learn_d_z_multi(X_, **cdl_params)
+
+    if plot_loss:
+        plot_loss_history(pobj, times, save_fig=save_fig)
+
+    if plot_atoms:
+        plot_temporal_atoms(d_hat, save_fig=save_fig)
+
+    return pobj, times, d_hat, z_hat, reg

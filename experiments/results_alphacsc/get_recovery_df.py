@@ -95,4 +95,4 @@ for reg in [0.1, 0.3]:
             data.append(this_dict)
 
     df_cost = pd.DataFrame(data=data)
-    df_cost.to_csv(f'df_cost_{suff}.csv')
+    df_cost.to_csv(f'df_cost_{suff}.csv', index=False)
