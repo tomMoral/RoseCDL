@@ -2,6 +2,18 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pdf
+*.png 
+*.npy
+*.csv
+*.ipynb
+*.npy
+*.pickle
+experiments/physionet/apnea-ecg
+experiments/figures
+*joblib/
+sub-*/
+experiments/results/
 
 # C extensions
 *.so

@@ -18,8 +18,38 @@ from .camcan import load_data as load_data_camcan
 DEVICE = "cuda:1"
 
 
-def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, reg=0.3,
-                      method=np.median):
+def get_var_patch(X, n_times_atom, clip_value=None):
+    patch = np.ones(shape=n_times_atom)
+
+    var_patch = np.sum([np.convolve(patch, diff_i, mode='valid')
+                        for diff_i in X**2], axis=0) / n_times_atom
+    var_patch -= (np.sum([np.convolve(patch, diff_i, mode='valid')
+                          for diff_i in X], axis=0) / n_times_atom)**2
+
+    if clip_value is not None:
+        return var_patch.clip(clip_value)
+
+    return var_patch
+
+
+def get_subject_X(subject_path, n_times_atom=150, normalized=True, q=None):
+    X = np.load(subject_path)
+
+    if not normalized:
+        return X
+
+    # center
+    X -= X.mean()
+    # reduce
+    var_patch = get_var_patch(X, n_times_atom, clip_value=0)
+    if q is not None:
+        var_patch = np.quantile(var_patch, q, overwrite_input=True)
+    X /= np.sqrt(np.median(var_patch))
+    return X
+
+
+def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, q=0.95,
+                      reg=0.3, method=np.median):
     """For a list of subject, compute their lambda, and return a global value
     (median, mean, etc.)
 
@@ -47,8 +77,18 @@ def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, reg=0.3,
     def proc(subject_path):
 
         # get a unique value for lambda
+        # X = get_subject_X(subject_path, n_times_atom, q=q)
         X = np.load(subject_path)
-        X /= X.std()
+        X -= X.mean(axis=1, keepdims=True)
+        X /= X.std(axis=1, keepdims=True)
+        # patch = np.ones(shape=n_times_atom)
+        # var_patch = np.sum([np.convolve(patch, diff_i, mode='valid')
+        #                     for diff_i in X**2], axis=0) / n_times_atom
+        # var_patch -= (np.sum([np.convolve(patch, diff_i, mode='valid')
+        #                      for diff_i in X], axis=0)/n_times_atom)**2
+        # var_patch = var_patch.clip(0)
+
+        # X /= np.sqrt(np.median(var_patch))
 
         # get initial dictionary with alphacsc
         D_init = init_dictionary(
@@ -152,7 +192,8 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
     z_hat, _, _ = update_z_multi(
         X[None, :],
         uv_hat_.astype(np.float64), reg=reg,
-        solver='lgcd', solver_kwargs={'tol': 1e-3, 'max_iter': 10_000},
+        # XXX changed to 200_000
+        solver='lgcd', solver_kwargs={'tol': 1e-4, 'max_iter': 1_000_000},
         n_jobs=1
     )
     # compute associated cost
@@ -166,7 +207,15 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
     return subject_id, z_hat, cost
 
 
-def get_camcan_info(subject_id):
+def get_camcan_info(subject_id, return_raw=False):
+    """
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
 
     # paths to CamCAN files for Inria Saclay users
     DATA_DIR = Path("/storage/store/data/")
@@ -190,5 +239,8 @@ def get_camcan_info(subject_id):
     raw = read_raw_bids(bp)
     raw.pick_types(meg='grad', eeg=False, eog=False, stim=False)
     info = raw.info
+
+    if return_raw:
+        return info, raw
 
     return info
