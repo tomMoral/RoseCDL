@@ -1,0 +1,83 @@
+# %%
+import pandas as pd
+from pathlib import Path
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+group_id = 'b'
+add_number = True
+type = "box"
+
+group_des = dict(a='apnea', b='borderline apnea', c='control', x='test')
+
+if add_number:
+    participants = pd.read_csv(
+        Path("apnea-ecg/participants.tsv"), sep='\t')
+    subject_id_list = participants['Record'].values
+    subject_id_group = [id for id in subject_id_list if id[0] == group_id]
+    n_non_apnea = participants[participants['Record'].isin(subject_id_group)]['non-apn (minutes)'].values
+
+# load recovery DataFrame
+df_cost = pd.read_csv(f'recovery_df_{group_id}.csv')
+
+# get sub-dataframe for D_init
+d_init_index = df_cost[df_cost['dict_fit'] == 'D_init'].index
+df_init = df_cost.loc[d_init_index.values]
+df_cost.drop(d_init_index.values, inplace=True)
+
+# get sub-dataframe for D_random
+d_random_index = df_cost[df_cost['dict_fit'] == 'D_random'].index
+df_random = df_cost.loc[d_random_index.values]
+df_cost.drop(d_random_index.values, inplace=True)
+
+# get sub-dataframe for D_self
+self_index = df_cost[df_cost['subject_id'] == df_cost['dict_fit']].index
+df_self = df_cost.loc[self_index.values]
+df_cost.drop(self_index.values, inplace=True)
+
+# plot recovery boxplot
+fig, ax = plt.subplots()
+ax.set_yscale('log')
+
+df_boxplot = df_cost[df_cost['subject_id'] != df_cost['dict_fit']]
+sns.set_palette("colorblind")
+if type == "box":
+    g = sns.boxplot(data=df_cost, x="subject_id", y="cost")
+elif type == "violin":
+    g = sns.violinplot(data=df_cost, x="subject_id", y="cost")
+
+xticklabels = [t.get_text() for t in g.get_xticklabels()]
+
+yy_self = [df_self[df_self['subject_id'] == xlabel]['cost'].values[0]
+           for xlabel in xticklabels]
+plt.scatter(xticklabels, yy_self, marker='*', label='self')
+# add chunck init
+yy_init = [df_init[df_init['subject_id'] == xlabel]['cost'].values[0]
+           for xlabel in xticklabels]
+plt.scatter(xticklabels, yy_init, marker='v', label='init')
+# add random init
+yy_random = [df_random[df_random['subject_id'] == xlabel]['cost'].values[0]
+             for xlabel in xticklabels]
+plt.scatter(xticklabels, yy_random, marker='v', label='random')
+ax.legend()
+plt.xticks(rotation=45) 
+plt.xlabel('Subject ID')
+plt.ylabel('Lasso cost')
+
+if add_number:
+    ax2 = ax.twinx()
+    xx = list(range(len(subject_id_group)))
+    yy = n_non_apnea
+    ax2.plot(xx, yy, color="black", alpha=.6)
+    ax2.set_ylim(0)
+    ax2.set_ylabel('# non-apnea minutes')
+
+
+# ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.title(f'Recovery on group {group_id} ({group_des[group_id]})')
+plt.tight_layout()
+plt.savefig(f'recovery_{group_id}_N.pdf', dpi=300)
+plt.show()
+plt.close()
+# %%

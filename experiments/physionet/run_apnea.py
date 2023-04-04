@@ -18,6 +18,21 @@ from utils_apnea import load_ecg, get_subject_info, run_cdl
 subject_id_list = pd.read_csv(
     Path("apnea-ecg/participants.tsv"), sep='\t')['Record'].values
 
+# 'a' (apnea), 'b' (borderline apnea), 'c' (control), 'x' (test)
+group_id = 'a'
+if group_id is not None:
+    subject_id_list = [id for id in subject_id_list if id[0] == group_id]
+
+cdl_params = dict(
+    n_atoms=3,
+    n_times_atom=75,  # 1 s. at 100 Hz
+    reg=0.1,
+    n_iter=200,
+    n_jobs=5,
+    random_state=42,
+    ds_init='chunk',
+    verbose=0
+)
 
 def proc(subject_id):
     subject_dir = Path(f'apnea-ecg/{subject_id}')
@@ -28,20 +43,10 @@ def proc(subject_id):
     # load data
     X, labels = load_ecg(subject_id, verbose=False)
 
-    cdl_params = dict(
-        n_atoms=3,
-        n_times_atom=100,  # 1 s. at 100 Hz
-        reg=0.1,
-        n_iter=100,
-        n_jobs=5,
-        random_state=42,
-        ds_init='chunk',
-        verbose=0
-    )
     # fit CDL model and save results
     pobj, times, d_hat, z_hat, reg = run_cdl(
         X, cdl_params, labels=labels, fit_on='N', save_fig=subject_dir)
-    plot_z_boxplot(z_hat.swapaxes(0, 1),
+    plot_z_boxplot(z_hat.swapaxes(0, 1), type='box', add_points=False,
                    fig_name=subject_dir / 'z_boxplot.pdf')
 
     np.save(subject_dir / 'd_hat', d_hat)
@@ -54,17 +59,15 @@ def proc(subject_id):
 
     return dict_res
 
-
-# data = Parallel(n_jobs=10)(
-#     delayed(proc)(subject_id) for subject_id in subject_id_list[:3])
-
-# df_cost = pd.DataFrame(data=data)
-# df_cost.to_csv(f'df_cost_self.csv', index=False)
 data = []
 for subject_id in tqdm(subject_id_list):
     dict_res = proc(subject_id)
     data.append(dict_res)
 
     df_cost = pd.DataFrame(data=data)
-    df_cost.to_csv(f'df_cost_self.csv', index=False)
+    if group_id is not None:
+        name = f'df_cost_self_{group_id}.csv'
+    else:
+        name = 'df_cost_self.csv'
+    df_cost.to_csv(name, index=False)
 # %%

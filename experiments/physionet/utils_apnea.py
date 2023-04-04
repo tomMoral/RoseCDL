@@ -85,6 +85,40 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
         warnings.warn('The returned labels do not match the data as T != 60 '
                       f'(got T = {T}).')
         return X, labels
+    
+
+def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_section=0):
+    """
+    
+    n_sections : int
+        number of sections to plot
+
+    n_min_per_plot : int
+        number of minutes per plot to show
+
+    first_section : int
+        index of the first section to start from
+    """
+
+    data_path=Path('apnea-ecg')
+    subject_dir = Path(f'apnea-ecg/{subject_id}')
+    record_name = str(data_path / subject_id)
+    ecg_record = rdrecord(record_name=record_name)
+    ann = rdann(
+        record_name=record_name,
+        extension='apn',
+        return_label_elements=['symbol'],
+        summarize_labels=True,
+    )
+
+    for idx_min in (np.array(range(n_sections)) + first_section)*5:
+        fig = wfdb.plot.plot_wfdb(
+            ecg_record, ann, title=f'ECG-Apnea Record {subject_id}',
+            return_fig=True, figsize=(50,4))
+
+        plt.xlim(idx_min*60, (idx_min + n_min_per_plot)*60)
+        # plt.savefig(subject_dir / f'record.pdf', dpi=300)
+        plt.show()
 
 
 def get_subject_info(subject_id):
@@ -167,6 +201,59 @@ def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
     fig.tight_layout()
     if save_fig:
         plt.savefig(save_fig / 'atoms.pdf')
+    plt.show()
+    plt.close()
+
+
+def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
+    """
+
+    Parameters
+    ----------
+
+    dict_d_hat : dict of arrays of shape (n_atoms, n_times)
+        keys are strings
+        values are fitted 2d-dictionaries
+
+    Returns
+    -------
+    """
+
+    n_atoms, n_times_atom = list(dict_d_hat.values())[0].shape
+    t = np.arange(n_times_atom) / sfreq  # time support of the atom
+
+    # define plot grid
+    n_columns = n_atoms
+    n_rows = len(dict_d_hat)
+    figsize = (4 * n_columns, 3 * n_rows)
+    fig, axes = plt.subplots(
+        n_rows, n_columns, figsize=figsize, sharex=True, sharey=True)
+
+    if n_rows == 1:
+        axes = np.atleast_2d(axes)
+
+    for ii, (subject_id, d_hat) in enumerate(dict_d_hat.items()):
+        for kk, v_k in enumerate(d_hat):
+
+            # Select the axes to display the current atom
+            ax = axes[ii, kk]
+
+            # Plot the temporal pattern of the atom
+            ax.plot(t, v_k)
+            ax.set_xlim(min(t), max(t))
+
+            if ii == 0:
+                ax.set_title('Atom % d' % kk, pad=0)
+
+            if ii == (n_rows - 1):
+                ax.set_xlabel('Time (s.)')
+
+            if kk == 0:
+                ax.set_ylabel(f'{subject_id} Temporal')
+
+    fig.tight_layout()
+    if save_fig:
+        plt.savefig(save_fig)
     plt.show()
     plt.close()
 
