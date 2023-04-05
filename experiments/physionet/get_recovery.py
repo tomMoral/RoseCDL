@@ -8,24 +8,50 @@ import pandas as pd
 import pickle
 from pathlib import Path
 from tqdm import tqdm
+import argparse
 
 from alphacsc.update_z import update_z
-from alphacsc.learn_d_z import compute_X_and_objective, init_dictionary
+from alphacsc.learn_d_z import compute_X_and_objective
 
 from utils_apnea import load_ecg
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--group",
+    type=str,
+    choices=['a', 'b', 'c', 'x'],
+    help="group id to run the CDL on ('a': apnea, 'b': borderline apnea, 'c': control, 'x': test)",
+)
+parser.add_argument("--fit", type=str, default='N')
+
+args = parser.parse_args()
+group_id = args.group
+fit_on = args.fit
+
 subject_id_list = pd.read_csv(
     Path("apnea-ecg/participants.tsv"), sep='\t')['Record'].values
+group_des = dict(a='apnea', b='borderline apnea', c='control', x='test')
 
-# 'a' (apnea), 'b' (borderline apnea), 'c' (control), 'x' (test)
-group_id = 'x'
-subject_id_group = [id for id in subject_id_list if id[0] == group_id]
-fit_on = 'N'
+if group_id is not None:
+    subject_id_list = [id for id in subject_id_list if id[0] == group_id]
+    print(f"Get recovery DataFrame on group {group_id} ({group_des[group_id]})")
+else:
+    print("Get recovery DataFrame on all subjects")
+
+
+def get_subject_z_and_cost(subject_id, d_hat):
+    X, labels = load_ecg(subject_id, verbose=False)
+    X_ = X.squeeze()[labels == args.fit]
+    z_hat = update_z(X_, d_hat, reg=0.1, solver='l-bfgs',
+                     solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
+    cost = compute_X_and_objective(X_, z_hat, d_hat, reg=0.1)
+
+    return z_hat, cost
 
 subjects_rows = []
-for subject_id in subject_id_group:
+for subject_id in subject_id_list:
     subject_dir = Path(f'apnea-ecg/{subject_id}')
-    with open(subject_dir / 'dict_res.pkl', 'rb') as f:
+    with open(subject_dir / f'dict_res_{args.fit}.pkl', 'rb') as f:
         dict_res = pickle.load(f)
 
     subjects_rows.extend([dict(
@@ -38,33 +64,22 @@ for subject_id in subject_id_group:
         cost=dict_res['cost']
     )])
 
-    # load final dictionary
-    subject_d_hat = np.load(subject_dir / 'd_hat.npy')
-    n_atoms, n_times_atom = subject_d_hat.shape
+    # load random and final dictionaries
+    subject_d_random = np.load(subject_dir / f'd_random_{args.fit}.npy')
+    subject_d_hat = np.load(subject_dir / f'd_hat_{args.fit}.npy')
 
-    # get random dictionary
-    X, labels = load_ecg(subject_id, verbose=False)
-    X_ = X.squeeze()[labels == fit_on]
-    d_random = init_dictionary(
-        X_[:, None, :], n_atoms, n_times_atom, D_init='random', rank1=False)
-    d_random = d_random[:, 0, :]
-    z_hat = update_z(X_, d_random, reg=0.1, solver='l-bfgs',
-                     solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
-    cost = compute_X_and_objective(X_, z_hat, d_random, reg=0.1)
+    # compute random dictionary cost
+    _, cost = get_subject_z_and_cost(subject_id, subject_d_random)
     subjects_rows.append(dict(
         subject_id=subject_id,
         dict_fit='D_random',
         cost=cost
     ))
 
-    for other_subject_id in tqdm(subject_id_group):
+    for other_subject_id in tqdm(subject_id_list):
         if subject_id == other_subject_id:
             continue
-        X, labels = load_ecg(other_subject_id, verbose=False)
-        X_ = X.squeeze()[labels == fit_on]
-        z_hat = update_z(X_, subject_d_hat, reg=0.1, solver='l-bfgs',
-                         solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
-        cost = compute_X_and_objective(X_, z_hat, subject_d_hat, reg=0.1)
+        _, cost = get_subject_z_and_cost(other_subject_id, subject_d_hat)
         subjects_rows.append(dict(
             subject_id=subject_id,
             dict_fit=other_subject_id,
@@ -72,5 +87,5 @@ for subject_id in subject_id_group:
         ))
 
 recovery_df = pd.DataFrame(data=subjects_rows)
-recovery_df.to_csv(f'recovery_df_{group_id}.csv', index=False)
+recovery_df.to_csv(f'recovery_df_{group_id}_{args.fit}.csv', index=False)
 # %%

@@ -1,13 +1,27 @@
 # %%
 import pandas as pd
 from pathlib import Path
+import argparse
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-group_id = 'b'
-add_number = True
-type = "box"
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--group",
+    type=str,
+    choices=['a', 'b', 'c', 'x'],
+    help="group id to run the CDL on ('a': apnea, 'b': borderline apnea, 'c': control, 'x': test)",
+)
+parser.add_argument("--fit", type=str, default='N')
+parser.add_argument("--add_number", action="store_true", help="add number of trials")
+parser.add_argument("--type", type=str, default='box', choices=['box', 'violin'])
+
+args = parser.parse_args()
+group_id = args.group
+fit_on = args.fit
+add_number = args.add_number
+type = args.type
 
 group_des = dict(a='apnea', b='borderline apnea', c='control', x='test')
 
@@ -15,11 +29,11 @@ if add_number:
     participants = pd.read_csv(
         Path("apnea-ecg/participants.tsv"), sep='\t')
     subject_id_list = participants['Record'].values
-    subject_id_group = [id for id in subject_id_list if id[0] == group_id]
-    n_non_apnea = participants[participants['Record'].isin(subject_id_group)]['non-apn (minutes)'].values
+    subject_id_list = [id for id in subject_id_list if id[0] == group_id]
+    n_non_apnea = participants[participants['Record'].isin(subject_id_list)]['non-apn (minutes)'].values
 
 # load recovery DataFrame
-df_cost = pd.read_csv(f'recovery_df_{group_id}.csv')
+df_cost = pd.read_csv(f'recovery_df_{group_id}_{fit_on}.csv')
 
 # get sub-dataframe for D_init
 d_init_index = df_cost[df_cost['dict_fit'] == 'D_init'].index
@@ -67,7 +81,7 @@ plt.ylabel('Lasso cost')
 
 if add_number:
     ax2 = ax.twinx()
-    xx = list(range(len(subject_id_group)))
+    xx = list(range(len(subject_id_list)))
     yy = n_non_apnea
     ax2.plot(xx, yy, color="black", alpha=.6)
     ax2.set_ylim(0)
