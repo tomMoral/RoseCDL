@@ -36,6 +36,6 @@ os.system("python get_recovery.py "
           .format(args.group, args.fit)
 )
 os.system("python plot_recovery.py "
-          "--group {} --fit {} --add_number {} --type {}"
-          .format(args.group, args.fit, args.add_number, args.type)
+          "--group {} --fit {}  --type {} --add_number"
+          .format(args.group, args.fit, args.type)
 )
