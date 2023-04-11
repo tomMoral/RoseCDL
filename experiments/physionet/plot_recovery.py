@@ -91,7 +91,7 @@ if add_number:
 # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 plt.title(f'Recovery on group {group_id} ({group_des[group_id]})')
 plt.tight_layout()
-plt.savefig(f'recovery_{group_id}_N.pdf', dpi=300)
+plt.savefig(f'recovery_{group_id}_{fit_on}.pdf', dpi=300)
 plt.show()
 plt.close()
 # %%

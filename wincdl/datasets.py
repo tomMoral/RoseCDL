@@ -181,8 +181,10 @@ class MEGPopDataset(torch.utils.data.Dataset):
         return subjects, np.array(shapes_time).cumsum()
 
     def __getitem__(self, idx):
+        print(idx)
         for i in range(self.shapes_time.shape[0]):
             if idx < self.shapes_time[i]:
+                print(f"i = {i}")
                 subject_path = self.subjects[i]
                 data = np.load(subject_path)
                 data_norm = data / data.std()

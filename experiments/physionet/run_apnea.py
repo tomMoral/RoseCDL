@@ -26,7 +26,8 @@ parser.add_argument(
 parser.add_argument("--n_atoms", type=int, default=3)
 parser.add_argument("--n_times_atom", type=int, default=75)
 parser.add_argument("--n_iter", type=int, default=200)
-parser.add_argument("--fit", type=str, default='N')
+parser.add_argument("--fit", type=str, default='N', choices=['N', 'A'],
+                    help="'A': apnea minutes, 'N': non-apnea minutes")
 
 args = parser.parse_args()
 group_id = args.group
@@ -97,6 +98,6 @@ for subject_id in tqdm(subject_id_list):
         name += f'_{group_id}'
     else:
         name += '_all'
-    name += '_{args.fit}.csv'
+    name += f'_{args.fit}.csv'
     df_cost.to_csv(name, index=False)
 # %%
