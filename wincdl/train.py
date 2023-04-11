@@ -17,9 +17,6 @@ def train_loop(
 ):
     avg_loss = 0
     count = 0
-    sample_idx = torch.randint(len(dataloader), size=(10,))
-    for idx in sample_idx:
-        X = dataloader[idx]
     for batch, X in enumerate(dataloader):
         # Compute prediction and loss
         loss = loss_fn(model(X), X)

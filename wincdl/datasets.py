@@ -26,11 +26,14 @@ class PhysionetDataset(torch.utils.data.Dataset):
     
     """
 
-    def __init__(self, db_dir='./apnea-ecg', group_id=None, window=10_000, seed=42):
+    def __init__(self, db_dir='./apnea-ecg', group_id=None, window=10_000,
+                 dtype=torch.float, device='cuda:1', seed=42):
         super().__init__()
         self.db_dir = Path(db_dir)
         self.group_id = group_id
         self.window = window
+        self.dtype = dtype
+        self.device = device
         self.seed = seed
         # get subjects
         subject_id_list = pd.read_csv(
@@ -57,14 +60,16 @@ class PhysionetDataset(torch.utils.data.Dataset):
         time_idx = 0 if subject_idx == 0 else idx - self.shapes_time[subject_idx-1]
         X = ecg_record.p_signal[time_idx:time_idx+self.window, :].T
 
-        # return torch.tensor(X, dtype=self.dtype, device=self.device)
-        return X
+        return torch.tensor(X, dtype=self.dtype, device=self.device)
+        # return X
 
 
 
 
-def create_physionet_dataloader(
-        db_dir, group_id=None, mini_batch_size=10, random_state=1234567890):
+def create_physionet_dataloader(db_dir, group_id=None, window=10_000,
+                                dtype=torch.float, device='cuda:1',
+                                mini_batch_size=10,
+                                random_state=1234567890):
 
     generator = torch.Generator()
     generator.manual_seed(random_state)
@@ -73,6 +78,9 @@ def create_physionet_dataloader(
             PhysionetDataset(
                 db_dir=db_dir,
                 group_id=group_id,
+                window=window,
+                dtype=dtype,
+                device=device,
                 seed=random_state,
             ),
             batch_size=mini_batch_size,

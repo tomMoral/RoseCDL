@@ -106,17 +106,20 @@ class WinCDL:
     def fit(self, X):
 
         # Dataloader
-        train_dataloader = create_conv_dataloader(
-            X,
-            self.device,
-            self.dtype,
-            sto=self.stochastic,
-            window=self.mini_batch_window,
-            mini_batch_size=self.mini_batch_size,
-            random_state=self.random_state,
-            dimN=self.dimN,
-            n_samples=self.n_samples
-        )
+        if isinstance(X, torch.utils.data.dataloader.DataLoader):
+            train_dataloader = X  # quick fix to use on physionet
+        else:
+            train_dataloader = create_conv_dataloader(
+                X,
+                self.device,
+                self.dtype,
+                sto=self.stochastic,
+                window=self.mini_batch_window,
+                mini_batch_size=self.mini_batch_size,
+                random_state=self.random_state,
+                dimN=self.dimN,
+                n_samples=self.n_samples
+            )
         try:
             self.subjects = train_dataloader.dataset.subjects
         except:
