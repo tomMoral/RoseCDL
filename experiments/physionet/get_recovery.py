@@ -10,10 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 import argparse
 
-from alphacsc.update_z import update_z
-from alphacsc.learn_d_z import compute_X_and_objective
-
-from utils_apnea import load_ecg
+from utils_apnea import get_subject_z_and_cost
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -37,16 +34,6 @@ if group_id is not None:
     print(f"Get recovery DataFrame on group {group_id} ({group_des[group_id]})")
 else:
     print("Get recovery DataFrame on all subjects")
-
-
-def get_subject_z_and_cost(subject_id, d_hat):
-    X, labels = load_ecg(subject_id, verbose=False)
-    X_ = X.squeeze()[labels == args.fit]
-    z_hat = update_z(X_, d_hat, reg=0.1, solver='l-bfgs',
-                     solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
-    cost = compute_X_and_objective(X_, z_hat, d_hat, reg=0.1)
-
-    return z_hat, cost
 
 subjects_rows = []
 for subject_id in subject_id_list:
@@ -79,7 +66,7 @@ for subject_id in subject_id_list:
     for other_subject_id in tqdm(subject_id_list):
         if subject_id == other_subject_id:
             continue
-        _, cost = get_subject_z_and_cost(other_subject_id, subject_d_hat)
+        _, cost = get_subject_z_and_cost(other_subject_id, subject_d_hat, label=args.fit)
         subjects_rows.append(dict(
             subject_id=subject_id,
             dict_fit=other_subject_id,

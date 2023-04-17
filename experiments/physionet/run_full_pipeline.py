@@ -11,6 +11,7 @@ parser.add_argument(
     type=str,
     choices=['a', 'b', 'c', 'x'],
     help="group id to run the CDL on ('a': apnea, 'b': borderline apnea, 'c': control, 'x': test)",
+    default='a',
 )
 parser.add_argument("--n_atoms", type=int, default=3)
 parser.add_argument("--n_times_atom", type=int, default=75)
@@ -23,19 +24,36 @@ parser.add_argument("--type", type=str, default='box', choices=['box', 'violin']
 args = parser.parse_args()
 group_id = args.group
 
-os.system("python run_apnea.py "
-          "--group {} --n_atoms {} --n_times_atom {} --n_iter {} --fit {}"
-          .format(args.group, args.n_atoms, args.n_times_atom, args.n_iter, args.fit)
-)
-os.system("python plot_group_atoms.py "
-          "--group {} --fit {}"
-          .format(args.group, args.fit)
-)
-os.system("python get_recovery.py "
-          "--group {} --fit {}"
-          .format(args.group, args.fit)
-)
-os.system("python plot_recovery.py "
-          "--group {} --fit {}  --type {} --add_number"
-          .format(args.group, args.fit, args.type)
-)
+for group_id in ['a', 'b', 'c', 'x']:
+    print("Group id:", group_id)
+    # population
+    os.system("python run_pop_cdl.py "
+            "--group {}"
+            .format(group_id)
+    )
+    os.system("python get_pop_recovery.py "
+            "--group {}"
+            .format(group_id)
+    )
+    for fit in ['N', 'A']:
+        if fit == 'A' and group_id in ['C', 'X']:
+            continue
+        print("Fit on:", fit)
+        # individual
+        os.system("python run_apnea.py "
+                "--group {} --n_atoms {} --n_times_atom {} --n_iter {} --fit {}"
+                .format(group_id, args.n_atoms, args.n_times_atom, args.n_iter, fit)
+        )
+        os.system("python plot_group_atoms.py "
+                "--group {} --fit {}"
+                .format(group_id, fit)
+        )
+        os.system("python get_recovery.py "
+                "--group {} --fit {}"
+                .format(group_id, fit)
+        )
+        # final plot
+        os.system("python plot_recovery.py "
+                "--group {} --fit {}  --type {} --add_number"
+                .format(group_id, fit, args.type)
+        )

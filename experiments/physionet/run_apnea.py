@@ -62,9 +62,11 @@ def proc(subject_id, cdl_params):
 
     # load data
     X, labels = load_ecg(subject_id, verbose=False)
+    # X /= X.std()
 
     # compute random dict and save
     X_ = X.squeeze()[labels == args.fit]
+    X_ /= X_.std()
     d_random = init_dictionary(
         X_[:, None, :], cdl_params['n_atoms'], cdl_params['n_times_atom'],
         D_init='random', rank1=False)

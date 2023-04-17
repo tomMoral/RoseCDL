@@ -34,6 +34,12 @@ if add_number:
 
 # load recovery DataFrame
 df_cost = pd.read_csv(f'recovery_df_{group_id}_{fit_on}.csv')
+# try load population recovery DataFrame
+try:
+    df_pop_cost = pd.read_csv(f'recovery_pop_df_{group_id}.csv')
+except:
+    df_pop_cost = None
+
 
 # get sub-dataframe for D_init
 d_init_index = df_cost[df_cost['dict_fit'] == 'D_init'].index
@@ -74,6 +80,12 @@ plt.scatter(xticklabels, yy_init, marker='v', label='init')
 yy_random = [df_random[df_random['subject_id'] == xlabel]['cost'].values[0]
              for xlabel in xticklabels]
 plt.scatter(xticklabels, yy_random, marker='v', label='random')
+# add population cost
+if df_pop_cost is not None:
+    yy_pop = [df_pop_cost[df_pop_cost['subject_id'] == xlabel]['cost'].values[0]
+           for xlabel in xticklabels]
+    plt.scatter(xticklabels, yy_pop, marker='v', label='pop')
+
 ax.legend()
 plt.xticks(rotation=45) 
 plt.xlabel('Subject ID')

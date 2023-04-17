@@ -4,9 +4,10 @@ from pathlib import Path
 from scipy.signal import tukey
 import matplotlib.pyplot as plt
 
-from alphacsc.learn_d_z import learn_d_z
+from alphacsc.learn_d_z import learn_d_z, compute_X_and_objective
 from alphacsc.learn_d_z_multi import learn_d_z_multi
 from alphacsc.utils.convolution import construct_X
+from alphacsc.update_z import update_z
 
 import wfdb
 from wfdb.io.record import rdrecord
@@ -200,7 +201,7 @@ def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
 
     fig.tight_layout()
     if save_fig:
-        plt.savefig(save_fig / 'atoms.pdf')
+        plt.savefig(save_fig)
     plt.show()
     plt.close()
 
@@ -290,3 +291,17 @@ def run_cdl(X, cdl_params, labels=None, fit_on='N',
         plot_temporal_atoms(d_hat, save_fig=save_fig)
 
     return pobj, times, d_hat, z_hat, reg
+
+
+def get_subject_z_and_cost(subject_id, d_hat, label=None):
+    X, labels = load_ecg(subject_id, verbose=False)
+    if label is not None:
+        X_ = X.squeeze()[labels == label].copy()
+    else:
+        X_ = X.squeeze().copy()
+    X_ /= X_.std()
+    z_hat = update_z(X_, d_hat, reg=0.1, solver='l-bfgs',
+                     solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
+    cost = compute_X_and_objective(X_, z_hat, d_hat, reg=0.1)
+
+    return z_hat, cost

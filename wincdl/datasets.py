@@ -58,7 +58,9 @@ class PhysionetDataset(torch.utils.data.Dataset):
         ecg_record = rdrecord(
             record_name=str(self.db_dir / self.subjects[subject_idx]))
         time_idx = 0 if subject_idx == 0 else idx - self.shapes_time[subject_idx-1]
-        X = ecg_record.p_signal[time_idx:time_idx+self.window, :].T
+        X = ecg_record.p_signal
+        X /= X.std()
+        X = X[time_idx:time_idx+self.window, :].T
 
         return torch.tensor(X, dtype=self.dtype, device=self.device)
         # return X
