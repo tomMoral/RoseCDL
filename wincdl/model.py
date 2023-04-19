@@ -188,10 +188,12 @@ class CSC1d(nn.Module):
     def forward(self, x):
         """
         (F)ISTA-like forward pass
+
         Parameters
         ----------
         x : torch.Tensor, shape (number of samples, channels, time)
             Data to be processed by (F)ISTA
+
         Returns
         -------
         out : torch.Tensor, shape
@@ -203,52 +205,96 @@ class CSC1d(nn.Module):
         D = self.get_D()
 
         with torch.no_grad():
-            # Initialization equal 0
-            out = torch.zeros(
+
+            def fista(wO, lmbd, L, prox, grad_loss, n_iter):
+                """
+                
+                Parameters
+                ----------
+                prox : callable
+
+                grad_loss : callable
+
+                """
+                w = wO
+                z = w.clone()
+                beta = 1
+                for i in range(n_iter):
+                    w_new = prox(z - grad_loss(z)/L, lmbd/L)
+                    beta_new = (1 + np.sqrt(1 + 4 * beta**2)) / 2
+                    z_new = w_new + (beta - 1)/beta_new * (w_new - w)
+                    z, w, beta = z_new, w_new, beta_new
+
+                return w_new
+            
+            def prox(x, lmbd):
+                """Soft thresholding"""
+                return F.relu(x - lmbd)
+            
+            def grad_loss(z):
+                return self.conv((self.convt(z, D) - x), D)
+
+            # Initialization equal 0   
+            z = torch.zeros(
                 (x.shape[0],
                  self.n_components,
                  x.shape[2] - self.kernel_size + 1),
                 dtype=torch.float,
                 device=self.device
             )
+            L = self.compute_lipschitz()           
+            self.z = fista(
+                z, self.lmbd, L, prox, grad_loss, n_iter=self.n_iterations)
 
-            out_old = out.clone()
-            t_old = 1
+            
 
-            # Compute steps with Lipschitz constant
-            step = 1. / self.compute_lipschitz()
+     
+            # # Initialization equal 0
+            # out = torch.zeros(
+            #     (x.shape[0],
+            #      self.n_components,
+            #      x.shape[2] - self.kernel_size + 1),
+            #     dtype=torch.float,
+            #     device=self.device
+            # )
 
-            for i in range(self.n_iterations):
-                # Gradient descent
-                result1 = self.convt(out, D)
-                result2 = self.conv(
-                    (result1 - x),
-                    D
-                )
+            # out_old = out.clone()
+            # t_old = 1
 
-                out = out - step * result2
+            # # Compute steps with Lipschitz constant
+            # step = 1. / self.compute_lipschitz()
 
-                if not self.positive_z:
-                    out = out - torch.clip(
-                        out,
-                        - step * self.lmbd,
-                        step * self.lmbd
-                    )
-                else:
-                    thresh = out - step * self.lmbd
-                    out = F.relu(thresh)
+            # for i in range(self.n_iterations):
+            #     # Gradient descent
+            #     result1 = self.convt(out, D)
+            #     result2 = self.conv(
+            #         (result1 - x),
+            #         D
+            #     )
 
-                # FISTA
-                t = 0.5 * (1 + np.sqrt(1 + 4 * t_old * t_old))
-                z = out + ((t_old-1) / t) * (out - out_old)
-                out_old = out.clone()
-                t_old = t
-                out = z
+            #     out = out - step * result2
+
+            #     if not self.positive_z:
+            #         out = out - torch.clip(
+            #             out,
+            #             - step * self.lmbd,
+            #             step * self.lmbd
+            #         )
+            #     else:
+            #         thresh = out - step * self.lmbd
+            #         out = F.relu(thresh)
+
+            #     # FISTA
+            #     t = 0.5 * (1 + np.sqrt(1 + 4 * t_old * t_old))
+            #     z = out + ((t_old-1) / t) * (out - out_old)
+            #     out_old = out.clone()
+            #     t_old = t
+            #     out = z
 
             # save z vector as atribute
-            self.z = z
+            # self.z = z
 
-        return self.convt(out, D)
+        return self.convt(self.z, D)
 
 
 class CSC2d(nn.Module):
