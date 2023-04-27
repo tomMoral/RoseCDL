@@ -51,7 +51,7 @@ for group_id in ['a', 'b', 'c', 'x']:
         os.system("python get_recovery.py "
                 "--group {} --fit {}"
                 .format(group_id, fit)
-        )
+        )  
         # final plot
         os.system("python plot_recovery.py "
                 "--group {} --fit {}  --type {} --add_number"

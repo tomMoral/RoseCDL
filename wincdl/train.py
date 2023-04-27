@@ -21,7 +21,8 @@ def train_loop(
         # Compute prediction and loss
         loss = loss_fn(model(X), X)
 
-        avg_loss += loss.item()
+        # compute Lasso loss
+        avg_loss += loss.item() + model.lmbd * model.z.sum(axis=(1, 2)).item()
         count += 1
 
         def closure():
@@ -35,7 +36,7 @@ def train_loop(
         optimizer.zero_grad()
         model.rescale()
 
-        if False:
+        if True:
             # compute sparsity, resample unsed atom if needed
             z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
             null_atom_indices = np.where(z_nnz == 0)[0]
@@ -95,6 +96,10 @@ def train(
         list_D.append(model.D_hat_)
         start = time.time()
         times.append(0)
+    # # compute init loss
+    # _, X = list(enumerate(train_dataloader))[0]
+    # with torch.no_grad():
+    #     train_losses.append(loss_fn(model(X), X).item())
     pbar = tqdm(range(epochs))
 
     for epoch in pbar:

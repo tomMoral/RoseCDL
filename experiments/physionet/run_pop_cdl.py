@@ -27,6 +27,7 @@ apnea_cdl = WinCDL(
     kernel_size=75,
     n_channels=1,
     lmbd=0.1,
+    n_iterations=100,
     epochs=50,
     max_batch=4,
     mini_batch_window=10_000,

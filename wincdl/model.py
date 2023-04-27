@@ -246,9 +246,8 @@ class CSC1d(nn.Module):
             self.z = fista(
                 z, self.lmbd, L, prox, grad_loss, n_iter=self.n_iterations)
 
-            
-
-     
+        return self.convt(self.z, D)
+    
             # # Initialization equal 0
             # out = torch.zeros(
             #     (x.shape[0],
@@ -293,8 +292,6 @@ class CSC1d(nn.Module):
 
             # save z vector as atribute
             # self.z = z
-
-        return self.convt(self.z, D)
 
 
 class CSC2d(nn.Module):
