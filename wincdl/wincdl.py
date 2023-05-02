@@ -1,3 +1,4 @@
+# %%
 import torch
 import numpy as np
 
@@ -5,9 +6,16 @@ from .model import CSC1d, CSC2d
 from .datasets import create_conv_dataloader
 from .optimizer import SLS
 from .train import train
+# %%
 
 
 class WinCDL:
+
+    """
+
+    uv_constraint
+
+    """
 
     def __init__(
         self,
@@ -32,7 +40,8 @@ class WinCDL:
         D_init=None,
         positive_z=True,
         list_D=False,
-        dimN=1
+        dimN=1,
+        n_samples=None
     ):
 
         self.stochastic = stochastic
@@ -47,6 +56,7 @@ class WinCDL:
         self.gamma = gamma
         self.optimizer_name = optimizer
         self.dimN = dimN
+        self.n_samples = n_samples
 
         # CSC solver
         if dimN == 1:
@@ -96,16 +106,24 @@ class WinCDL:
     def fit(self, X):
 
         # Dataloader
-        train_dataloader = create_conv_dataloader(
-            X,
-            self.device,
-            self.dtype,
-            sto=self.stochastic,
-            window=self.mini_batch_window,
-            mini_batch_size=self.mini_batch_size,
-            random_state=self.random_state,
-            dimN=self.dimN
-        )
+        if isinstance(X, torch.utils.data.dataloader.DataLoader):
+            train_dataloader = X  # quick fix to use on physionet
+        else:
+            train_dataloader = create_conv_dataloader(
+                X,
+                self.device,
+                self.dtype,
+                sto=self.stochastic,
+                window=self.mini_batch_window,
+                mini_batch_size=self.mini_batch_size,
+                random_state=self.random_state,
+                dimN=self.dimN,
+                n_samples=self.n_samples
+            )
+        try:
+            self.subjects = train_dataloader.dataset.subjects
+        except:
+            pass
 
         # LR scheduler
         if self.max_batch is None:
@@ -129,7 +147,7 @@ class WinCDL:
             self.csc,
             train_dataloader,
             self.optimizer,
-            torch.nn.MSELoss(),
+            torch.nn.MSELoss(reduction='sum'),
             scheduler=self.scheduler,
             epochs=self.epochs,
             max_batch=self.max_batch,

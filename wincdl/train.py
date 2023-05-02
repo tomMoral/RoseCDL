@@ -1,7 +1,10 @@
+import numpy as np
 import torch
 import time
 
 from tqdm import tqdm
+
+from .utils import get_z_nnz
 
 
 def train_loop(
@@ -16,9 +19,10 @@ def train_loop(
     count = 0
     for batch, X in enumerate(dataloader):
         # Compute prediction and loss
-        loss = loss_fn(model(X), X)
+        loss = loss_fn(model(X), X)/2
 
-        avg_loss += loss.item()
+        # compute Lasso loss
+        avg_loss += loss.item() + model.lmbd * model.z.sum(axis=(1, 2)).item()
         count += 1
 
         def closure():
@@ -31,6 +35,14 @@ def train_loop(
         optimizer.step(closure)
         optimizer.zero_grad()
         model.rescale()
+
+        if False:
+            # compute sparsity, resample unsed atom if needed
+            z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
+            null_atom_indices = np.where(z_nnz == 0)[0]
+            if len(null_atom_indices) > 0:
+                k0 = null_atom_indices[0]  # only the first one? why so?
+                model.resample_atom(k0, X)
 
         if scheduler is not None:
             scheduler.step()
@@ -84,6 +96,22 @@ def train(
         list_D.append(model.D_hat_)
         start = time.time()
         times.append(0)
+    # compute init loss
+    _, X = list(enumerate(train_dataloader))[0]
+    z_init = torch.zeros(
+                (X.shape[0],
+                 model.n_components,
+                 X.shape[2] - model.kernel_size + 1),
+                dtype=torch.float,
+                device=model.device
+            )
+    model.z = z_init
+    D_init = model.get_D()
+    X_hat = model.convt(model.z, D_init)
+    with torch.no_grad():
+        loss_init = loss_fn(X_hat, X).item()/2 + model.lmbd * model.z.sum(axis=(1, 2)).item()
+        train_losses.append(loss_init)
+
     pbar = tqdm(range(epochs))
 
     for epoch in pbar:

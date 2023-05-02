@@ -5,6 +5,9 @@ import torch.nn.functional as F
 import torch.fft as fft
 
 from alphacsc.utils.dictionary import tukey_window
+from alphacsc.update_d_multi import prox_uv
+
+from .utils import get_max_error_patch
 
 
 class CSC1d(nn.Module):
@@ -154,6 +157,20 @@ class CSC1d(nn.Module):
                 self._D_hat /= norm_atoms
                 return norm_atoms
 
+    def get_max_error_dict(self, X):
+        d0 = get_max_error_patch(X, self.z, self._D_hat)
+        d0 = self.window(d0)
+
+        return prox_uv(d0, uv_constraint='separate',
+                       n_channels=self.n_channels)
+
+    def resample_atom(self, k0, X):
+        """
+
+        """
+        self._D_hat[k0] = self.get_max_error_dict(X)[0]
+        return self._D_hat
+
     def compute_lipschitz(self):
         """
         Compute the Lipschitz constant using the FFT
@@ -171,10 +188,12 @@ class CSC1d(nn.Module):
     def forward(self, x):
         """
         (F)ISTA-like forward pass
+
         Parameters
         ----------
         x : torch.Tensor, shape (number of samples, channels, time)
             Data to be processed by (F)ISTA
+
         Returns
         -------
         out : torch.Tensor, shape
@@ -186,49 +205,93 @@ class CSC1d(nn.Module):
         D = self.get_D()
 
         with torch.no_grad():
-            # Initialization equal 0
-            out = torch.zeros(
+
+            def fista(wO, lmbd, L, prox, grad_loss, n_iter):
+                """
+                
+                Parameters
+                ----------
+                prox : callable
+
+                grad_loss : callable
+
+                """
+                w = wO
+                z = w.clone()
+                beta = 1
+                for i in range(n_iter):
+                    w_new = prox(z - grad_loss(z)/L, lmbd/L)
+                    beta_new = (1 + np.sqrt(1 + 4 * beta**2)) / 2
+                    z_new = w_new + (beta - 1)/beta_new * (w_new - w)
+                    z, w, beta = z_new, w_new, beta_new
+
+                return w_new
+            
+            def prox(x, lmbd):
+                """Soft thresholding"""
+                return F.relu(x - lmbd)
+            
+            def grad_loss(z):
+                return self.conv((self.convt(z, D) - x), D)
+
+            # Initialization equal 0   
+            z = torch.zeros(
                 (x.shape[0],
                  self.n_components,
                  x.shape[2] - self.kernel_size + 1),
                 dtype=torch.float,
                 device=self.device
             )
+            L = self.compute_lipschitz()           
+            self.z = fista(
+                z, self.lmbd, L, prox, grad_loss, n_iter=self.n_iterations)
 
-            out_old = out.clone()
-            t_old = 1
+        return self.convt(self.z, D)
+    
+            # # Initialization equal 0
+            # out = torch.zeros(
+            #     (x.shape[0],
+            #      self.n_components,
+            #      x.shape[2] - self.kernel_size + 1),
+            #     dtype=torch.float,
+            #     device=self.device
+            # )
 
-            # Compute steps with Lipschitz constant
-            step = 1. / self.compute_lipschitz()
+            # out_old = out.clone()
+            # t_old = 1
 
-            for i in range(self.n_iterations):
-                # Gradient descent
-                result1 = self.convt(out, D)
-                result2 = self.conv(
-                    (result1 - x),
-                    D
-                )
+            # # Compute steps with Lipschitz constant
+            # step = 1. / self.compute_lipschitz()
 
-                out = out - step * result2
+            # for i in range(self.n_iterations):
+            #     # Gradient descent
+            #     result1 = self.convt(out, D)
+            #     result2 = self.conv(
+            #         (result1 - x),
+            #         D
+            #     )
 
-                if not self.positive_z:
-                    out = out - torch.clip(
-                        out,
-                        - step * self.lmbd,
-                        step * self.lmbd
-                    )
-                else:
-                    thresh = out - step * self.lmbd
-                    out = F.relu(thresh)
+            #     out = out - step * result2
 
-                # FISTA
-                t = 0.5 * (1 + np.sqrt(1 + 4 * t_old * t_old))
-                z = out + ((t_old-1) / t) * (out - out_old)
-                out_old = out.clone()
-                t_old = t
-                out = z
+            #     if not self.positive_z:
+            #         out = out - torch.clip(
+            #             out,
+            #             - step * self.lmbd,
+            #             step * self.lmbd
+            #         )
+            #     else:
+            #         thresh = out - step * self.lmbd
+            #         out = F.relu(thresh)
 
-        return self.convt(out, D)
+            #     # FISTA
+            #     t = 0.5 * (1 + np.sqrt(1 + 4 * t_old * t_old))
+            #     z = out + ((t_old-1) / t) * (out - out_old)
+            #     out_old = out.clone()
+            #     t_old = t
+            #     out = z
+
+            # save z vector as atribute
+            # self.z = z
 
 
 class CSC2d(nn.Module):
