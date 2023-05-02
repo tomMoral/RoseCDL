@@ -7,6 +7,7 @@ from dicodile.utils.viz import display_dictionaries
 from alphacsc import BatchCDL
 from alphacsc.init_dict import init_dictionary
 from alphacsc.loss_and_gradient import compute_X_and_objective_multi
+from alphacsc.utils.convolution import sort_atoms_by_explained_variances
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -67,14 +68,30 @@ cdl_params = dict(
     D_init=D_init,
     # Technical parameters
     n_jobs=4,
-    random_state=60
+    random_state=60,
+    sort_atoms=True
 )
 dicod_cdl = BatchCDL(**cdl_params)
 n_times_valid = n_times - N_TIMES_ATOM + 1
 z_init = np.zeros(shape=(1, N_ATOMS, n_times_valid))
-cost = compute_X_and_objective_multi(
-    X, z_init, D_hat=D_init, reg=cdl_params['reg'], feasible_evaluation=True,
-    uv_constraint='auto', return_X_hat=False)
+cost, X_hat = compute_X_and_objective_multi(
+    X_csc, z_init, D_hat=D_init, reg=cdl_params['reg'], feasible_evaluation=True,
+    uv_constraint='auto', return_X_hat=True)
+
+import torch
+loss_fn = torch.nn.MSELoss(reduction='sum')
+X_csc_torch = torch.tensor(
+                X_csc,
+                dtype=torch.float,
+                device='cuda:1'
+            )
+X_hat_torch = torch.tensor(
+                X_hat,
+                dtype=torch.float,
+                device='cuda:1'
+            )
+cost_torch = loss_fn(X_hat_torch, X_csc_torch) / 2
+
 res = dicod_cdl.fit(X_csc)
 D_hat_dicod = res._D_hat
 
@@ -90,7 +107,7 @@ cdl_params.update(dict(
     reg=dicod_cdl.reg_,
     lmbd_max='fixed',
     solver_z='fista',
-    solver_z_kwargs={'max_iter': 1_000},
+    solver_z_kwargs={'max_iter': 2_000, 'eps': 1e-7},
 ))
 fista_cdl = BatchCDL(**cdl_params)
 
@@ -110,9 +127,10 @@ gait_cdl = WinCDL(
     n_components=N_ATOMS,
     kernel_size=N_TIMES_ATOM,
     n_channels=n_channels,
-    lmbd=dicod_cdl.reg_,
+    # lmbd=dicod_cdl.reg_,
+    lmbd=1.5134614391157055,
     n_iterations=1_000,  # Fista iterations for z step
-    epochs=100,
+    epochs=40,
     max_batch=1,
     stochastic=True,  # if false, fit on full signal
     optimizer="linesearch",
@@ -127,7 +145,17 @@ gait_cdl = WinCDL(
     dimN=1,
 )
 losses, list_D, times = gait_cdl.fit(X_win)
-fig = display_dictionaries(D_init, D_hat_dicod, D_hat_fista, list_D[-1])
+
+
+sort_atoms = cdl_params['sort_atoms']
+if sort_atoms:
+    D_hat_torch, z_hat_torch = sort_atoms_by_explained_variances(
+                list_D[-1], gait_cdl.csc.z.cpu().numpy(), n_channels=n_channels)
+else:
+    D_hat_torch = list_D[-1]
+    z_hat_torch = gait_cdl.csc.z.cpu().numpy()
+
+fig = display_dictionaries(D_init, D_hat_dicod, D_hat_fista, D_hat_torch)
 plt.show()
 
 plt.plot(losses)
@@ -153,7 +181,7 @@ xx = np.array(range(1, N_ATOMS+1))
 plt.plot(xx, -np.ones(xx.shape))
 plt.plot(xx, np.count_nonzero(dicod_cdl.z_hat_, axis=2)[0], label='dicodile')
 plt.plot(xx, np.count_nonzero(fista_cdl.z_hat_, axis=2)[0], label='fista')
-plt.plot(xx, np.count_nonzero(gait_cdl.csc.z.cpu(), axis=2)[0], label='torch')
+plt.plot(xx, np.count_nonzero(z_hat_torch, axis=2)[0], label='torch')
 plt.xlabel('Atom id')
 plt.ylabel('# non-zero activations')
 plt.xlim(1, N_ATOMS)
