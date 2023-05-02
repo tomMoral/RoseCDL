@@ -6,6 +6,7 @@ from wincdl.wincdl import WinCDL
 from dicodile.utils.viz import display_dictionaries
 from alphacsc import BatchCDL
 from alphacsc.init_dict import init_dictionary
+from alphacsc.loss_and_gradient import compute_X_and_objective_multi
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -69,7 +70,11 @@ cdl_params = dict(
     random_state=60
 )
 dicod_cdl = BatchCDL(**cdl_params)
-
+n_times_valid = n_times - N_TIMES_ATOM + 1
+z_init = np.zeros(shape=(1, N_ATOMS, n_times_valid))
+cost = compute_X_and_objective_multi(
+    X, z_init, D_hat=D_init, reg=cdl_params['reg'], feasible_evaluation=True,
+    uv_constraint='auto', return_X_hat=False)
 res = dicod_cdl.fit(X_csc)
 D_hat_dicod = res._D_hat
 
@@ -107,7 +112,7 @@ gait_cdl = WinCDL(
     n_channels=n_channels,
     lmbd=dicod_cdl.reg_,
     n_iterations=1_000,  # Fista iterations for z step
-    epochs=300,
+    epochs=100,
     max_batch=1,
     stochastic=True,  # if false, fit on full signal
     optimizer="linesearch",
@@ -132,10 +137,12 @@ plt.xlabel('Epochs')
 plt.show()
 # %%
 
+plt.plot(-np.ones(1))
 plt.plot(dicod_cdl.pobj_[::2], label='dicodile')
 plt.plot(fista_cdl.pobj_[::2], label='fista')
 plt.plot(losses, label='torch')
-plt.xscale('log')
+plt.yscale('log')
+# plt.xlim(0, None)
 plt.xlabel('Iterations')
 plt.ylabel('Lasso loss')
 plt.legend()

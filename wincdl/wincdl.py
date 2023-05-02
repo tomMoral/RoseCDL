@@ -147,7 +147,7 @@ class WinCDL:
             self.csc,
             train_dataloader,
             self.optimizer,
-            torch.nn.MSELoss(),
+            torch.nn.MSELoss(reduction='sum'),
             scheduler=self.scheduler,
             epochs=self.epochs,
             max_batch=self.max_batch,
