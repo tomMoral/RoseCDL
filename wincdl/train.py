@@ -18,6 +18,7 @@ def train_loop(
     avg_loss = 0
     count = 0
     for batch, X in enumerate(dataloader):
+        print("X shape:", X.shape)
         # Compute prediction and loss
         loss = loss_fn(model(X), X)/2
 
@@ -36,13 +37,14 @@ def train_loop(
         optimizer.zero_grad()
         model.rescale()
 
-        if False:
+        # if True:
+        with torch.no_grad():
             # compute sparsity, resample unsed atom if needed
             z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
             null_atom_indices = np.where(z_nnz == 0)[0]
             if len(null_atom_indices) > 0:
                 k0 = null_atom_indices[0]  # only the first one? why so?
-                model.resample_atom(k0, X)
+                model.resample_atom(k0, X.cpu().numpy())
 
         if scheduler is not None:
             scheduler.step()

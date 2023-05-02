@@ -158,17 +158,27 @@ class CSC1d(nn.Module):
                 return norm_atoms
 
     def get_max_error_dict(self, X):
-        d0 = get_max_error_patch(X, self.z, self._D_hat)
-        d0 = self.window(d0)
+        d0 = get_max_error_patch(X, self.z.cpu().numpy(), self._D_hat.cpu().numpy())
+        d0 = torch.tensor(
+                    d0,
+                    dtype=torch.float,
+                    device=self.device
+                )
+        d0 *= self.window
 
-        return prox_uv(d0, uv_constraint='separate',
+        return prox_uv(d0.cpu().numpy(), uv_constraint='separate',
                        n_channels=self.n_channels)
 
     def resample_atom(self, k0, X):
         """
 
         """
-        self._D_hat[k0] = self.get_max_error_dict(X)[0]
+        new_atom = torch.tensor(
+                    self.get_max_error_dict(X)[0],
+                    dtype=torch.float,
+                    device=self.device
+                )
+        self._D_hat[k0] = new_atom
         return self._D_hat
 
     def compute_lipschitz(self):
