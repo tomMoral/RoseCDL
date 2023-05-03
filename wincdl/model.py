@@ -173,12 +173,25 @@ class CSC1d(nn.Module):
         """
 
         """
-        new_atom = torch.tensor(
-                    self.get_max_error_dict(X)[0],
+        # new_atom = torch.tensor(
+        #             self.get_max_error_dict(X)[0],
+        #             dtype=torch.float,
+        #             device=self.device
+        #         )
+        # self._D_hat[k0] = new_atom / torch.norm(new_atom)
+        from alphacsc.init_dict import init_dictionary
+        D_temp = init_dictionary(X,
+                            n_atoms=1,
+                            n_times_atom=self.kernel_size,
+                            rank1=False,
+                            window=True,
+                            D_init='chunk',
+                            random_state=None)
+        self._D_hat[k0] = torch.tensor(
+                    D_temp,
                     dtype=torch.float,
                     device=self.device
                 )
-        self._D_hat[k0] = new_atom
         return self._D_hat
 
     def compute_lipschitz(self):
