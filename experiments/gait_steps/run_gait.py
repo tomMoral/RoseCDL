@@ -20,7 +20,7 @@ participants = get_participants()
 subjects_healthy = participants[participants['PathologyGroup']
                                 == 'Healthy']['Subject'].values
 
-for subject in subjects_healthy[:1]:
+for subject in subjects_healthy[2:3]:
     trial = 1
     X = get_gait_data(subject, trial, verbose=False)['data']['RAV'].to_numpy()
     X /= X.std()
@@ -174,6 +174,7 @@ for subject in subjects_healthy[:1]:
     plt.plot(xx, np.count_nonzero(z_hat_torch, axis=2)[0], label='torch')
     plt.ylim(0, None)
     plt.show()
+    plt.clf()
 
     # plot loss history
     plt.plot(-np.ones(1))

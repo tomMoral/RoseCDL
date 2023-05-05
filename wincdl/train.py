@@ -7,30 +7,47 @@ from tqdm import tqdm
 from .utils import get_z_nnz
 
 
+def compute_objective(X, X_hat, z_hat, reg):
+    loss_fn = torch.nn.MSELoss(reduction='sum')
+    loss = loss_fn(X, X_hat) / (2 * X.shape[0])
+    loss += reg * (z_hat.sum() / z_hat.shape[0]).item()
+    return loss
+
+
 def train_loop(
     dataloader,
     model,
     loss_fn,
     optimizer,
     max_batch=None,
-    scheduler=None
+    scheduler=None,
+    resamp_atom=[],
 ):
     avg_loss = 0
     count = 0
     for batch, X in enumerate(dataloader):
         # Compute prediction and loss
-        loss = loss_fn(model(X), X)/2
+        # loss = loss_fn(model(X), X)/2
+        # loss = loss_fn(model(X), X) / (2 * X.shape[0])
 
-        # compute Lasso loss
-        avg_loss += loss.item() + model.lmbd * model.z.sum(axis=(1, 2)).item()
+        # # compute Lasso loss
+        # # avg_loss += loss.item() + model.lmbd * model.z.sum(axis=(1, 2)).item()
+        # avg_loss += loss.item() 
+        # avg_loss += model.lmbd * (model.z.sum() / model.z.shape[0]).item()
+
+        loss = compute_objective(X, X_hat=model(X), z_hat=model.z, reg=model.lmbd)
+        avg_loss += loss.item() 
+
         count += 1
 
         def closure():
             with torch.no_grad():
-                return loss_fn(model(X), X)
+                # return loss_fn(model(X), X)
+                return compute_objective(
+                    X, X_hat=model(X), z_hat=model.z, reg=model.lmbd)
+
 
         # Backpropagation
-
         loss.backward()
         optimizer.step(closure)
         optimizer.zero_grad()
@@ -42,9 +59,14 @@ def train_loop(
             z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
             null_atom_indices = np.where(z_nnz < 2)[0]
             if len(null_atom_indices) > 0:
-                k0 = null_atom_indices[0]  # only the first one? why so?
-                model.resample_atom(k0, X.cpu().numpy())
-                print('Resampled atom {}'.format(k0))
+                for k0 in null_atom_indices:
+                    if k0 in resamp_atom[-2:]:  # no resampling of the last 2 resampled atoms
+                        continue
+                    # k0 = null_atom_indices[0]  # only the first one? why so?
+                    model.resample_atom(k0, X.cpu().numpy())
+                    print('Resampled atom {}'.format(k0))
+                    resamp_atom.append(k0)
+                    break
 
         if scheduler is not None:
             scheduler.step()
@@ -52,7 +74,7 @@ def train_loop(
         if max_batch is not None and batch >= max_batch:
             break
 
-    return avg_loss / count
+    return avg_loss / count, resamp_atom
 
 
 def train(
@@ -111,20 +133,25 @@ def train(
     D_init = model.get_D()
     X_hat = model.convt(model.z, D_init)
     with torch.no_grad():
-        loss_init = loss_fn(X_hat, X).item()/2 + model.lmbd * model.z.sum(axis=(1, 2)).item()
-        train_losses.append(loss_init)
+        # loss_init = loss_fn(X_hat, X).item() / (2 * X.shape[0])
+        # # loss_init += model.lmbd * model.z.sum(axis=(1, 2)).item()
+        # loss_init += model.lmbd * (model.z.sum() / model.z.shape[0]).item()
+        loss_init = compute_objective(X, X_hat, z_hat=model.z, reg=model.lmbd)
+        train_losses.append(loss_init.item())
 
     pbar = tqdm(range(epochs))
+    resamp_atom = []
 
     for epoch in pbar:
 
-        train_loss = train_loop(
+        train_loss, resamp_atom = train_loop(
             train_dataloader,
             model,
             loss_fn,
             optimizer,
             max_batch=max_batch,
-            scheduler=scheduler
+            scheduler=scheduler,
+            resamp_atom=resamp_atom
         )
 
         train_losses.append(train_loss)
@@ -147,4 +174,5 @@ def train(
             old_loss = train_loss
 
     print("Done")
+    print("Resampled atoms:", resamp_atom)
     return train_losses, list_D, times
