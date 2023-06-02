@@ -15,7 +15,8 @@ def get_z_nnz(z_hat):
     -------
     """
     z_nnz = np.sum(z_hat != 0, axis=(0, 2))
-    return z_nnz / z_nnz.shape[-1]
+    # return z_nnz / z_nnz.shape[-1]
+    return z_nnz
 
 
 def get_max_error_patch(X, z, D):
@@ -44,4 +45,4 @@ def get_max_error_patch(X, z, D):
     patch = X[n0, :, t0:t0 + n_times_atom][None]
     if D.ndim == 2:
         patch = get_uv(patch)
-    return patch
+    return patch.copy()
