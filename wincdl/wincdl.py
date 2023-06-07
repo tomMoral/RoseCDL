@@ -6,6 +6,7 @@ from .model import CSC1d, CSC2d
 from .datasets import create_conv_dataloader
 from .optimizer import SLS
 from .train import train
+
 # %%
 
 
@@ -31,6 +32,7 @@ class WinCDL:
         lr=0.1,
         gamma=0.9,
         mini_batch_window=1000,
+        overlap=True,
         mini_batch_size=10,
         device=None,
         dtype=torch.float,
@@ -41,11 +43,11 @@ class WinCDL:
         positive_z=True,
         list_D=False,
         dimN=1,
-        n_samples=None
+        n_samples=None,
     ):
-
         self.stochastic = stochastic
         self.mini_batch_window = mini_batch_window
+        self.overlap = overlap
         self.mini_batch_size = mini_batch_size
         self.random_state = random_state
         self.epochs = epochs
@@ -72,7 +74,7 @@ class WinCDL:
                 rank=rank,
                 window=window,
                 D_init=D_init,
-                positive_z=positive_z
+                positive_z=positive_z,
             )
 
         elif dimN == 2:
@@ -93,21 +95,21 @@ class WinCDL:
         if optimizer == "adam":
             self.optimizer = torch.optim.Adam(self.csc.parameters(), lr)
         elif optimizer == "linesearch":
-            self.optimizer = SLS(
-                self.csc.parameters(),
-                sto=stochastic,
-                lr=lr
-            )
+            self.optimizer = SLS(self.csc.parameters(), sto=stochastic, lr=lr)
 
     @property
     def D_hat_(self):
         return self.csc.D_hat_
 
-    def fit(self, X):
+    @property
+    def z_hat(self):
+        return self.model.z.to("cpu").detach().numpy()
 
+    def fit(self, X, n_iter_eval=1_000):
         # Dataloader
         if isinstance(X, torch.utils.data.dataloader.DataLoader):
             train_dataloader = X  # quick fix to use on physionet
+            X = None
         else:
             train_dataloader = create_conv_dataloader(
                 X,
@@ -115,10 +117,11 @@ class WinCDL:
                 self.dtype,
                 sto=self.stochastic,
                 window=self.mini_batch_window,
+                overlap=self.overlap,
                 mini_batch_size=self.mini_batch_size,
                 random_state=self.random_state,
                 dimN=self.dimN,
-                n_samples=self.n_samples
+                n_samples=self.n_samples,
             )
         try:
             self.subjects = train_dataloader.dataset.subjects
@@ -131,28 +134,34 @@ class WinCDL:
 
         if self.stochastic and self.optimizer_name == "adam":
             self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                self.optimizer,
-                np.power(self.gamma, 1 / self.max_batch)
+                self.optimizer, np.power(self.gamma, 1 / self.max_batch)
             )
         elif self.stochastic and self.optimizer_name == "linesearch":
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer,
-                T_max=self.epochs * self.max_batch
+                self.optimizer, T_max=self.epochs * self.max_batch
             )
         else:
             self.scheduler = None
 
         # Train
+        if X is not None:
+            if X.ndim == 2:
+                X = X.reshape(1, *X.shape)
+
+            X = torch.tensor(X, device=self.device, dtype=self.dtype)
+
         losses, list_D, times = train(
+            X,
             self.csc,
             train_dataloader,
             self.optimizer,
-            torch.nn.MSELoss(reduction='sum'),
+            torch.nn.MSELoss(reduction="sum"),
             scheduler=self.scheduler,
             epochs=self.epochs,
             max_batch=self.max_batch,
             save_list_D=self.list_D,
-            stopping_criterion=not self.stochastic
+            stopping_criterion=not self.stochastic,
+            n_iter_eval=n_iter_eval,
         )
 
         return losses, list_D, times

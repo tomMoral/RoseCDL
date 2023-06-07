@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from alphacsc.learn_d_z import learn_d_z, compute_X_and_objective
 from alphacsc.learn_d_z_multi import learn_d_z_multi
 from alphacsc.utils.convolution import construct_X
+from alphacsc.utils.signal import split_signal
 from alphacsc.update_z import update_z
 
 import wfdb
@@ -14,8 +15,14 @@ from wfdb.io.record import rdrecord
 from wfdb.io.annotation import rdann
 
 
-def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
-             apply_window=True, verbose=True):
+def load_ecg(
+    subject_id="a01",
+    split=True,
+    T=60,
+    data_path=Path("apnea-ecg"),
+    apply_window=True,
+    verbose=True,
+):
     """
 
     Parameters
@@ -60,20 +67,29 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
     fs = ecg_record.fs  # sampling frequency of the record
     if verbose:
         print(f"Sampling frequency of the record: {fs} Hz")
-    n_times = int(T * fs)
-    n_splits = ecg_record.sig_len // n_times
-    X = ecg_record.p_signal[:n_splits*n_times, :].T
-    X = X.reshape(ecg_record.n_sig, n_splits, n_times).swapaxes(0, 1)
 
-    # Apply a window to the signal to reduce the border artifacts
-    if apply_window:
-        X *= tukey(n_times, alpha=0.1)[None, None, :]
+    if split:
+        n_times = int(T * fs)
+        n_splits = ecg_record.sig_len // n_times
+        X = ecg_record.p_signal[: n_splits * n_times, :].T
+        X = X.reshape(ecg_record.n_sig, n_splits, n_times).swapaxes(
+            0, 1
+        )  # shape (n_splits, n_sig, n_times)
+
+        # Apply a window to the signal to reduce the border artifacts
+        if apply_window:
+            X *= tukey(n_times, alpha=0.1)[None, None, :]
+    else:
+        X = ecg_record.p_signal.T  # shape (n_sig, n_times)
+        if apply_window:
+            X *= tukey(X.shape[1], alpha=0.1)[None, :]
+        return X
 
     # Add labels
     ann = rdann(
         record_name=record_name,
-        extension='apn',
-        return_label_elements=['symbol'],
+        extension="apn",
+        return_label_elements=["symbol"],
         summarize_labels=True,
     )
     labels = np.array(ann.symbol)
@@ -83,14 +99,16 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
         return X[:n_trials], labels[:n_trials]
     else:
         import warnings
-        warnings.warn('The returned labels do not match the data as T != 60 '
-                      f'(got T = {T}).')
+
+        warnings.warn(
+            "The returned labels do not match the data as T != 60 " f"(got T = {T})."
+        )
         return X, labels
-    
+
 
 def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_section=0):
     """
-    
+
     n_sections : int
         number of sections to plot
 
@@ -101,58 +119,127 @@ def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_sec
         index of the first section to start from
     """
 
-    data_path=Path('apnea-ecg')
-    subject_dir = Path(f'apnea-ecg/{subject_id}')
+    data_path = Path("apnea-ecg")
+    subject_dir = Path(f"apnea-ecg/{subject_id}")
     record_name = str(data_path / subject_id)
     ecg_record = rdrecord(record_name=record_name)
     ann = rdann(
         record_name=record_name,
-        extension='apn',
-        return_label_elements=['symbol'],
+        extension="apn",
+        return_label_elements=["symbol"],
         summarize_labels=True,
     )
 
-    for idx_min in (np.array(range(n_sections)) + first_section)*5:
+    for idx_min in (np.array(range(n_sections)) + first_section) * 5:
         fig = wfdb.plot.plot_wfdb(
-            ecg_record, ann, title=f'ECG-Apnea Record {subject_id}',
-            return_fig=True, figsize=(50,4))
+            ecg_record,
+            ann,
+            title=f"ECG-Apnea Record {subject_id}",
+            return_fig=True,
+            figsize=(50, 4),
+        )
 
-        plt.xlim(idx_min*60, (idx_min + n_min_per_plot)*60)
+        plt.xlim(idx_min * 60, (idx_min + n_min_per_plot) * 60)
         # plt.savefig(subject_dir / f'record.pdf', dpi=300)
         plt.show()
 
 
 def get_subject_info(subject_id):
-    participants = pd.read_csv(Path("apnea-ecg/participants.tsv"), sep='\t')
-    subject_info = participants[participants['Record'] == subject_id]\
-        .iloc[0]\
-        .to_dict()
+    participants = pd.read_csv(Path("apnea-ecg/participants.tsv"), sep="\t")
+    subject_info = participants[participants["Record"] == subject_id].iloc[0].to_dict()
 
     return subject_info
 
 
-def plot_loss_history(pobj, times=None, save_fig=False):
-    xx_type = 'time'
-    xlabel = 'Time (s.)'
-
-    if times is None:
-        xx = np.arange(0, len(pobj)/2, step=0.5)
-        xx_type = 'iteration'
-        xlabel = 'Iterations'
-    elif np.any(np.diff(times) < 0):
-        xx = np.cumsum(times)
+def plot_subject_record(
+    subject_id, fit="N", idx=None, start_trial=0, stop_trial=20, X_hat=None, z_hat=None
+):
+    X, labels = load_ecg(
+        subject_id,
+        split=True,
+        T=60,
+        apply_window=True,
+        verbose=False,
+    )
+    X = X[labels == fit]
+    if idx is None:
+        assert start_trial < X.shape[0]
+        X = X[start_trial:stop_trial].squeeze()
+        labels = list(range(start_trial, start_trial + stop_trial))
     else:
-        xx = times
+        X = X[idx].squeeze()
+        labels = idx
 
-    plt.plot(xx, pobj)
+    if X_hat is not None:
+        X_hat = X_hat[start_trial:stop_trial].squeeze()
+        assert X.shape == X_hat.shape
+
+    nrows = X.shape[0]
+    fig, axes = plt.subplots(
+        ncols=1,
+        nrows=nrows,
+        squeeze=False,
+        sharex=True,
+        sharey=False,
+        figsize=(15, 3 * nrows),
+    )
+    for i, ax in enumerate(axes):
+        ax[0].plot(X[i])
+        if X_hat is not None:
+            ax[0].plot(X_hat[i], alpha=0.7)
+
+        if z_hat is not None:
+            for z_hat_k in z_hat[i]:
+                ax[0].stem(z_hat_k)
+        ax[0].set_xlim(0, 1_000)
+        ax[0].set_ylabel(f"Trial {labels[i]}")
+    plt.show()
+
+
+def plot_loss_history(
+    pobj, times=None, labels=None, save_fig=False, xscale="linear", yscale="linear"
+):
+    if not isinstance(pobj, list):
+        pobj = [pobj]
+
+    xx_type = "time"
+    xlabel = "Time (s.)"
+    if times is None:
+        xx_type = "iteration"
+        xlabel = "Iterations"
+    elif not isinstance(times, list):
+        times = [times]
+
+    if not isinstance(labels, list) and labels is not None:
+        labels = None
+
+    for i, this_pobj in enumerate(pobj):
+        if times is None:
+            xx = np.arange(0, len(this_pobj) / 2, step=0.5)
+        else:
+            this_times = times[i]
+            if np.any(np.diff(this_times) < 0):
+                xx = np.cumsum(this_times)
+            else:
+                xx = this_times
+        if labels is not None:
+            label = labels[i]
+        else:
+            label = None
+
+        plt.plot(xx, this_pobj, label=label)
+
     plt.xlabel(xlabel)
     plt.xlim(0, None)
-    plt.yscale('log')
-    plt.ylabel('Loss')
+    # plt.ylim(0, None)
+    plt.xscale(xscale)
+    plt.yscale(yscale)
+    plt.ylabel("Loss")
+    plt.legend()
     plt.title(f"Loss history as function of {xx_type}")
 
     if save_fig:
-        plt.savefig(save_fig / 'loss_history.pdf')
+        plt.savefig(save_fig)
     plt.show()
     plt.close()
 
@@ -186,18 +273,17 @@ def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
         axes = np.atleast_2d(axes)
 
     for ii, v_k in enumerate(d_hat):
-
         # Select the axes to display the current atom
         i_row, i_col = ii // n_columns, ii % n_columns
         ax = axes[i_row, i_col]
 
         # Plot the temporal pattern of the atom
-        ax.set_title('Atom % d' % ii, pad=0)
+        ax.set_title("Atom % d" % ii, pad=0)
 
         ax.plot(t, v_k)
         ax.set_xlim(min(t), max(t))
         if i_col == 0:
-            ax.set_ylabel('Temporal')
+            ax.set_ylabel("Temporal")
 
     fig.tight_layout()
     if save_fig:
@@ -228,14 +314,14 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
     n_rows = len(dict_d_hat)
     figsize = (4 * n_columns, 3 * n_rows)
     fig, axes = plt.subplots(
-        n_rows, n_columns, figsize=figsize, sharex=True, sharey=True)
+        n_rows, n_columns, figsize=figsize, sharex=True, sharey=True
+    )
 
     if n_rows == 1:
         axes = np.atleast_2d(axes)
 
     for ii, (subject_id, d_hat) in enumerate(dict_d_hat.items()):
         for kk, v_k in enumerate(d_hat):
-
             # Select the axes to display the current atom
             ax = axes[ii, kk]
 
@@ -244,13 +330,13 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
             ax.set_xlim(min(t), max(t))
 
             if ii == 0:
-                ax.set_title('Atom % d' % kk, pad=0)
+                ax.set_title("Atom % d" % kk, pad=0)
 
             if ii == (n_rows - 1):
-                ax.set_xlabel('Time (s.)')
+                ax.set_xlabel("Time (s.)")
 
             if kk == 0:
-                ax.set_ylabel(f'{subject_id} Temporal')
+                ax.set_ylabel(f"{subject_id} Temporal")
 
     fig.tight_layout()
     if save_fig:
@@ -259,33 +345,50 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
     plt.close()
 
 
-def run_cdl(X, cdl_params, labels=None, fit_on='N',
-            plot_loss=True, plot_atoms=True, save_fig=False):
+def run_cdl(
+    X,
+    cdl_params,
+    labels=None,
+    fit_on=None,
+    n_splits=10,
+    plot_loss=False,
+    plot_atoms=False,
+    save_fig=False,
+):
     """
 
     Parameters
     ----------
     X : ndarray, shape (n_splits, n_channels, n_times)
+    or (n_channels, n_times)
 
     Returns
     -------
     """
-    n_splits, n_channels, n_times = X.shape
-    if n_channels == 1:
-        X = X.squeeze()
+    if X.ndim == 2:
+        n_channels, n_times = X.shape
+        X = split_signal(X, n_splits=n_splits, apply_window=True)
+    if X.ndim == 3:
+        n_splits, n_channels, n_times = X.shape
+        if fit_on is not None:
+            X = X[labels == fit_on]
 
-    if labels is None:
-        X_ = X
-    elif fit_on is not None:
-        X_ = X[labels == fit_on]
+    # if n_channels == 1:
+    #     X_ = X_.squeeze()
 
-    if n_channels == 1:
-        pobj, times, d_hat, z_hat, reg = learn_d_z(X_, **cdl_params)
-    else:
-        pobj, times, d_hat, z_hat, reg = learn_d_z_multi(X_, **cdl_params)
+    # X_ of shape (n_splits, n_channels, n_times)
+    X /= X.std()
+
+    # if n_channels == 1:
+    #     pobj, times, d_hat, z_hat, reg = learn_d_z(X_, **cdl_params)
+    # else:
+    #     pobj, times, d_hat, z_hat, reg = learn_d_z_multi(X_, **cdl_params)
+    pobj, times, d_hat, z_hat, reg = learn_d_z_multi(
+        X, raise_on_increase=False, **cdl_params
+    )
 
     if plot_loss:
-        plot_loss_history(pobj, times, save_fig=save_fig)
+        plot_loss_history([pobj], [times], save_fig=save_fig)
 
     if plot_atoms:
         plot_temporal_atoms(d_hat, save_fig=save_fig)
@@ -300,8 +403,13 @@ def get_subject_z_and_cost(subject_id, d_hat, label=None):
     else:
         X_ = X.squeeze().copy()
     X_ /= X_.std()
-    z_hat = update_z(X_, d_hat, reg=0.1, solver='l-bfgs',
-                     solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
+    z_hat = update_z(
+        X_,
+        d_hat,
+        reg=0.1,
+        solver="l-bfgs",
+        solver_kwargs={"tol": 1e-4, "max_iter": 10_000},
+    )
     cost = compute_X_and_objective(X_, z_hat, d_hat, reg=0.1)
 
     return z_hat, cost

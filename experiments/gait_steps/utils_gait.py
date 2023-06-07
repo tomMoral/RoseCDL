@@ -50,16 +50,17 @@ def get_gait_data(subject=1, trial=1, only_meta=False, verbose=True):
     gait_zip = download(
         "http://dev.ipol.im/~truong/GaitData.zip",
         gait_dir / "GaitData.zip",
-        verbose=verbose
+        verbose=verbose,
     )
 
     with ZipFile(gait_zip) as zf:
-        with zf.open(f"GaitData/{subject}-{trial}.json") as meta_file, \
-                zf.open(f"GaitData/{subject}-{trial}.csv") as data_file:
+        with zf.open(f"GaitData/{subject}-{trial}.json") as meta_file, zf.open(
+            f"GaitData/{subject}-{trial}.csv"
+        ) as data_file:
             meta = json.load(meta_file)
             if not only_meta:
-                data = pd.read_csv(data_file, sep=',', header=0)
-                meta['data'] = data
+                data = pd.read_csv(data_file, sep=",", header=0)
+                meta["data"] = data
             return meta
 
 
@@ -92,11 +93,10 @@ def get_gait_code_list():
 
         code_list = list(set(code_list))  # remove duplicates
         # sort by subject id then by trial number
-        code_list.sort(key=lambda x: (
-            int(x.split('-')[0]), int(x.split('-')[1])))
+        code_list.sort(key=lambda x: (int(x.split("-")[0]), int(x.split("-")[1])))
 
         # save as JSON
-        with open(GAIT_CODE_LIST_FNAME, 'w') as f:
+        with open(GAIT_CODE_LIST_FNAME, "w") as f:
             json.dump(code_list, f, indent=2)
 
     return code_list
@@ -104,7 +104,7 @@ def get_gait_code_list():
 
 def get_participants():
     """Get the information relatives to all individual subjects, such as age,
-    gender, number of available trials, etc.  
+    gender, number of available trials, etc.
 
     Returns
     -------
@@ -113,33 +113,32 @@ def get_participants():
     """
 
     try:
-        participants = pd.read_csv(GAIT_PARTICIPANTS_FNAME, sep='\t')
+        participants = pd.read_csv(GAIT_PARTICIPANTS_FNAME, sep="\t")
 
     except FileNotFoundError:
         all_codes = get_gait_code_list()
-        n_subjects = int(all_codes[-1].split('-')[0])
+        n_subjects = int(all_codes[-1].split("-")[0])
 
         subject_rows = []
-        for subject in tqdm(range(1, n_subjects+1)):
+        for subject in tqdm(range(1, n_subjects + 1)):
+            meta = get_gait_data(subject, trial=1, only_meta=True, verbose=False)
 
-            meta = get_gait_data(
-                subject, trial=1, only_meta=True, verbose=False)
-
-            for key in ['Trial', 'Code', 'LeftFootActivity', 'RightFootActivity']:
+            for key in ["Trial", "Code", "LeftFootActivity", "RightFootActivity"]:
                 del meta[key]
 
-            subject_trials = [code for code in all_codes
-                              if code.split('-')[0] == str(subject)]
+            subject_trials = [
+                code for code in all_codes if code.split("-")[0] == str(subject)
+            ]
             meta.update(n_trials=len(subject_trials))
             subject_rows.append(meta)
 
         participants = pd.DataFrame(subject_rows)
-        participants.to_csv(GAIT_PARTICIPANTS_FNAME, sep='\t', index=False)
+        participants.to_csv(GAIT_PARTICIPANTS_FNAME, sep="\t", index=False)
 
     return participants
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     get_gait_code_list()
     get_participants()
 

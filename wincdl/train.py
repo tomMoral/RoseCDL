@@ -3,26 +3,19 @@ import torch
 import time
 
 from tqdm import tqdm
+from itertools import cycle
 
 from .utils import get_z_nnz
 
 
 def compute_objective(X, X_hat, z_hat, reg):
-    loss_fn = torch.nn.MSELoss(reduction='sum')
+    loss_fn = torch.nn.MSELoss(reduction="sum")
     loss = loss_fn(X, X_hat) / (2 * X.shape[0])
     loss += reg * (z_hat.sum() / z_hat.shape[0]).item()
     return loss
 
 
-def train_loop(
-    dataloader,
-    model,
-    loss_fn,
-    optimizer,
-    max_batch=None,
-    scheduler=None,
-    resamp_atom=[],
-):
+def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=None):
     avg_loss = 0
     count = 0
     for batch, X in enumerate(dataloader):
@@ -32,11 +25,12 @@ def train_loop(
 
         # # compute Lasso loss
         # # avg_loss += loss.item() + model.lmbd * model.z.sum(axis=(1, 2)).item()
-        # avg_loss += loss.item() 
+        # avg_loss += loss.item()
         # avg_loss += model.lmbd * (model.z.sum() / model.z.shape[0]).item()
 
-        loss = compute_objective(X, X_hat=model(X), z_hat=model.z, reg=model.lmbd)
-        avg_loss += loss.item() 
+        X_hat = model(X)
+        loss = compute_objective(X, X_hat, z_hat=model.z, reg=model.lmbd)
+        avg_loss += loss.item()
 
         count += 1
 
@@ -44,8 +38,8 @@ def train_loop(
             with torch.no_grad():
                 # return loss_fn(model(X), X)
                 return compute_objective(
-                    X, X_hat=model(X), z_hat=model.z, reg=model.lmbd)
-
+                    X, X_hat=model(X), z_hat=model.z, reg=model.lmbd
+                )
 
         # Backpropagation
         loss.backward()
@@ -53,20 +47,20 @@ def train_loop(
         optimizer.zero_grad()
         model.rescale()
 
-        # if True:
-        with torch.no_grad():
-            # compute sparsity, resample unsed atom if needed
-            z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
-            null_atom_indices = np.where(z_nnz < 2)[0]
-            if len(null_atom_indices) > 0:
-                for k0 in null_atom_indices:
-                    if k0 in resamp_atom[-2:]:  # no resampling of the last 2 resampled atoms
-                        continue
-                    # k0 = null_atom_indices[0]  # only the first one? why so?
-                    model.resample_atom(k0, X.cpu().numpy())
-                    print('Resampled atom {}'.format(k0))
-                    resamp_atom.append(k0)
-                    break
+        # # if True:
+        # with torch.no_grad():
+        #     # compute sparsity, resample unsed atom if needed
+        #     z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
+        #     null_atom_indices = np.where(z_nnz < 2)[0]
+        #     if len(null_atom_indices) > 0:
+        #         for k0 in null_atom_indices:
+        #             if k0 in resamp_atom[-2:]:  # no resampling of the last 2 resampled atoms
+        #                 continue
+        #             # k0 = null_atom_indices[0]  # only the first one? why so?
+        #             model.resample_atom(k0, X.cpu().numpy())
+        #             print('Resampled atom {}'.format(k0))
+        #             resamp_atom.append(k0)
+        #             break
 
         if scheduler is not None:
             scheduler.step()
@@ -74,10 +68,11 @@ def train_loop(
         if max_batch is not None and batch >= max_batch:
             break
 
-    return avg_loss / count, resamp_atom
+    return avg_loss / count
 
 
 def train(
+    X,
     model,
     train_dataloader,
     optimizer,
@@ -87,13 +82,17 @@ def train(
     max_batch=None,
     save_list_D=False,
     stopping_criterion=True,
-    tol=1e-8
+    tol=1e-8,
+    n_iter_eval=5_000,
 ):
     """
     Training process
 
     Parameters
     ----------
+    X: np.ndarray
+        full signal to fit on
+
     model : torch.nn.Module
         Torch network
     train_dataloader : torch.utils.data.DataLoader
@@ -112,6 +111,7 @@ def train(
     list, list
         Train losses, test losses
     """
+    print("Begin train")
     old_loss = None
     train_losses = []
     list_D = []
@@ -120,19 +120,25 @@ def train(
         list_D.append(model.D_hat_)
         start = time.time()
         times.append(0)
+
     # compute init loss
-    _, X = list(enumerate(train_dataloader))[0]
+    if X is None:
+        print("Fetch first batch")
+        resamp_iter = cycle(train_dataloader)
+        X = next(resamp_iter)
+        # _, X = list(enumerate(train_dataloader))[0]
+
     z_init = torch.zeros(
-                (X.shape[0],
-                 model.n_components,
-                 X.shape[2] - model.kernel_size + 1),
-                dtype=torch.float,
-                device=model.device
-            )
+        (X.shape[0], model.n_components, X.shape[2] - model.kernel_size + 1),
+        dtype=torch.float,
+        device=model.device,
+    )
     model.z = z_init
     D_init = model.get_D()
+    print("Compute X_hat")
     X_hat = model.convt(model.z, D_init)
     with torch.no_grad():
+        print("Compute init cost")
         # loss_init = loss_fn(X_hat, X).item() / (2 * X.shape[0])
         # # loss_init += model.lmbd * model.z.sum(axis=(1, 2)).item()
         # loss_init += model.lmbd * (model.z.sum() / model.z.shape[0]).item()
@@ -143,18 +149,17 @@ def train(
     resamp_atom = []
 
     for epoch in pbar:
-
-        train_loss, resamp_atom = train_loop(
+        start = time.time()
+        train_loss = train_loop(
             train_dataloader,
             model,
             loss_fn,
             optimizer,
             max_batch=max_batch,
             scheduler=scheduler,
-            resamp_atom=resamp_atom
         )
 
-        train_losses.append(train_loss)
+        # train_losses.append(train_loss)
         if save_list_D:
             list_D.append(model.D_hat_)
             times.append(time.time() - start)
@@ -172,6 +177,29 @@ def train(
             old_loss = train_loss
         elif stopping_criterion:
             old_loss = train_loss
+
+        # resample
+        with torch.no_grad():
+            # compute epoch loss
+            if resamp_iter:
+                X = next(resamp_iter)
+            X_hat = model(X, n_iter_eval)
+            loss_epoch = compute_objective(X, X_hat, z_hat=model.z, reg=model.lmbd)
+            train_losses.append(loss_epoch.item())
+            # compute sparsity, resample unsed atom if needed
+            z_nnz = get_z_nnz(model.z.to("cpu").detach().numpy())
+            null_atom_indices = np.where(z_nnz < 2)[0]
+            if len(null_atom_indices) > 0:
+                for k0 in null_atom_indices:
+                    # no resampling of the last 2 resampled atoms
+                    if k0 in resamp_atom[-2:]:
+                        continue
+                    # k0 = null_atom_indices[0]
+                    # X = next(resamp_iter)
+                    model.resample_atom(k0, X.cpu().numpy())
+                    print("Resampled atom {}".format(k0))
+                    resamp_atom.append(k0)
+                    break
 
     print("Done")
     print("Resampled atoms:", resamp_atom)
