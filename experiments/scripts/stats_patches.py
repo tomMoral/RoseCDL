@@ -143,7 +143,7 @@ for sub_path in list_subjects_path:
     data = dict(subject_id=np.repeat(subject_id, N_ATOMS),
                 value=maxs, type='max', normalized=True)
     df_summary = pd.concat([df_summary, pd.DataFrame(data=data)])
-    qauntile = np.quantile(values, axis=(1, 2), q=0.9)
+    qauntile = np.quantile(values, axis=(1, 2), q=0.8)
     data = dict(subject_id=np.repeat(subject_id, N_ATOMS),
                 value=qauntile, type='quantile', normalized=True)
     df_summary = pd.concat([df_summary, pd.DataFrame(data=data)])

@@ -10,6 +10,8 @@ from alphacsc.utils.convolution import construct_X
 from alphacsc.utils.signal import split_signal
 from alphacsc.update_z import update_z
 
+import mne
+
 import wfdb
 from wfdb.io.record import rdrecord
 from wfdb.io.annotation import rdann
@@ -21,6 +23,8 @@ def load_ecg(
     T=60,
     data_path=Path("apnea-ecg"),
     apply_window=True,
+    l_freq=None,
+    h_freq=None,
     verbose=True,
 ):
     """
@@ -40,6 +44,9 @@ def load_ecg(
         If set to True (default), a tukey window is applied to each split to
         reduce the border artifacts by reducing the weights of the chunk
         borders.
+
+    l_freq, h_freq : float
+        lower and upper cutoff frequency, in Hz.
 
     verbose : bool
         if True, will print some information
@@ -84,6 +91,11 @@ def load_ecg(
         if apply_window:
             X *= tukey(X.shape[1], alpha=0.1)[None, :]
         return X
+
+    # Filter data
+    X = mne.filter.filter_data(X, sfreq=fs, l_freq=l_freq, h_freq=h_freq)
+    if X.ndim == 2:
+        X = X[:, None, :]  # ensure it is of dimension 3
 
     # Add labels
     ann = rdann(
@@ -151,17 +163,81 @@ def get_subject_info(subject_id):
     return subject_info
 
 
-def plot_subject_record(
-    subject_id, fit="N", idx=None, start_trial=0, stop_trial=20, X_hat=None, z_hat=None
+def plot_1d_trials(
+    *list_X, z_hat=None, ylabels=None, labels=None, axes=None, colors=None
 ):
-    X, labels = load_ecg(
-        subject_id,
-        split=True,
-        T=60,
-        apply_window=True,
-        verbose=False,
-    )
-    X = X[labels == fit]
+    """
+    X : 2d-array
+    """
+    n_signals = len(list_X)
+    X = list_X[0]
+    assert np.array(list_X).ndim == 3, f"X must be 2d-array, got {X.ndim}-array."
+
+    if axes is None:
+        nrows = X.shape[0]
+        fig, axes = plt.subplots(
+            ncols=1,
+            nrows=nrows,
+            squeeze=False,
+            sharex=True,
+            sharey=False,
+            figsize=(15, 3 * nrows),
+        )
+    else:
+        assert axes.shape[0] >= X.shape[0], (
+            f"axes argument should have at least shape ({X.shape[0]}, "
+            f"{1}). Got {axes.shape}."
+        )
+        fig = axes[0, 0].get_figure()
+
+    if ylabels is None:
+        ylabels = np.arange(nrows)
+
+    for i, ax in enumerate(axes):
+        for j, X in enumerate(list_X):
+            if i == 0 and labels is not None:
+                label = labels[j]
+            else:
+                label = None
+
+            if colors is not None:
+                color = colors[i]
+            else:
+                color = None
+
+            ax[0].plot(X[i], alpha=0.7, label=label, color=color)
+
+            if z_hat is not None:
+                for z_hat_k in z_hat[i]:
+                    ax[0].stem(z_hat_k)
+            ax[0].set_xlim(0, None)
+            ax[0].set_ylabel(f"Trial {ylabels[i]}")
+            if i == 0 and labels is not None:
+                ax[0].legend()
+
+    return fig
+
+
+def plot_subject_record(
+    subject_id,
+    X=None,
+    fit="N",
+    idx=None,
+    start_trial=0,
+    stop_trial=20,
+    X_hat=None,
+    z_hat=None,
+):
+    if X is None:
+        X, labels = load_ecg(
+            subject_id,
+            split=True,
+            T=60,
+            apply_window=True,
+            verbose=False,
+        )
+        X = X[labels == fit]
+
     if idx is None:
         assert start_trial < X.shape[0]
         X = X[start_trial:stop_trial].squeeze()
@@ -174,25 +250,8 @@ def plot_subject_record(
         X_hat = X_hat[start_trial:stop_trial].squeeze()
         assert X.shape == X_hat.shape
 
-    nrows = X.shape[0]
-    fig, axes = plt.subplots(
-        ncols=1,
-        nrows=nrows,
-        squeeze=False,
-        sharex=True,
-        sharey=False,
-        figsize=(15, 3 * nrows),
-    )
-    for i, ax in enumerate(axes):
-        ax[0].plot(X[i])
-        if X_hat is not None:
-            ax[0].plot(X_hat[i], alpha=0.7)
-
-        if z_hat is not None:
-            for z_hat_k in z_hat[i]:
-                ax[0].stem(z_hat_k)
-        ax[0].set_xlim(0, 1_000)
-        ax[0].set_ylabel(f"Trial {labels[i]}")
+    fig = plot_1d_trials(X, X_hat=X_hat, z_hat=z_hat, labels=labels)
+    fig.suptitle(f"Signal of subject {subject_id}", fontsize=14)
     plt.show()
 
 
