@@ -1,3 +1,8 @@
+"""In this script, we generate synthetic data and train alphacsc and
+wincdl models on it. We save the losses at each iteration to plot the
+evolution of the loss over iterations.
+"""
+
 import pickle
 
 import matplotlib.pyplot as plt
