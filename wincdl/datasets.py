@@ -1,34 +1,11 @@
-import torch
 import os
 import random
-import numpy as np
-import pandas as pd
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+import torch
 from wfdb.io.record import rdrecord
-
-from dicodile.data.gait import get_gait_data
-
-
-class GaitDataset(torch.utils.data.Dataset):
-    """
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    """
-
-    def __init__(self, subject_list=None, window=1_000,
-                 dtype=torch.float, device='cuda:1', seed=42):
-        super().__init__()
-
-    def __len__(self):
-        return self.shapes_time[-1]
-
-    def __getitem__(self, idx):
-        pass
 
 
 class PhysionetDataset(torch.utils.data.Dataset):
@@ -41,7 +18,7 @@ class PhysionetDataset(torch.utils.data.Dataset):
     group_id : string
         group label to create the dataset on
         'a': apnea, 'b': borderline apnea, 'c': control, 'x': test
-        if None, all 
+        if None, all
         default is None
 
     seed : int
@@ -49,8 +26,15 @@ class PhysionetDataset(torch.utils.data.Dataset):
 
     """
 
-    def __init__(self, db_dir='./apnea-ecg', group_id=None, window=10_000,
-                 dtype=torch.float, device='cuda:1', seed=42):
+    def __init__(
+        self,
+        db_dir="./apnea-ecg",
+        group_id=None,
+        window=10_000,
+        dtype=torch.float,
+        device="cuda:1",
+        seed=42,
+    ):
         super().__init__()
         self.db_dir = Path(db_dir)
         self.group_id = group_id
@@ -59,8 +43,9 @@ class PhysionetDataset(torch.utils.data.Dataset):
         self.device = device
         self.seed = seed
         # get subjects
-        subject_id_list = pd.read_csv(
-            self.db_dir / "participants.tsv", sep='\t')['Record'].values
+        subject_id_list = pd.read_csv(self.db_dir / "participants.tsv", sep="\t")[
+            "Record"
+        ].values
         if group_id is not None:
             self.subjects = [id for id in subject_id_list if id[0] == group_id]
         else:
@@ -69,32 +54,38 @@ class PhysionetDataset(torch.utils.data.Dataset):
         # get signals' lengths
         random.seed(self.seed)
         random.shuffle(self.subjects)
-        self.shapes_time = np.array([rdrecord(
-            record_name=str(self.db_dir / subject_id)).sig_len - self.window
-            for subject_id in self.subjects]).cumsum()
+        self.shapes_time = np.array(
+            [
+                rdrecord(record_name=str(self.db_dir / subject_id)).sig_len
+                - self.window
+                for subject_id in self.subjects
+            ]
+        ).cumsum()
 
     def __len__(self):
         return self.shapes_time[-1]
 
     def __getitem__(self, idx):
-        subject_idx = np.searchsorted(self.shapes_time, idx, side='right')
-        ecg_record = rdrecord(
-            record_name=str(self.db_dir / self.subjects[subject_idx]))
-        time_idx = 0 if subject_idx == 0 else idx - \
-            self.shapes_time[subject_idx-1]
+        subject_idx = np.searchsorted(self.shapes_time, idx, side="right")
+        ecg_record = rdrecord(record_name=str(self.db_dir / self.subjects[subject_idx]))
+        time_idx = 0 if subject_idx == 0 else idx - self.shapes_time[subject_idx - 1]
         X = ecg_record.p_signal
         X /= X.std()
-        X = X[time_idx:time_idx+self.window, :].T
+        X = X[time_idx : time_idx + self.window, :].T
 
         return torch.tensor(X, dtype=self.dtype, device=self.device)
         # return X
 
 
-def create_physionet_dataloader(db_dir, group_id=None, window=10_000,
-                                dtype=torch.float, device='cuda:1',
-                                mini_batch_size=10,
-                                random_state=1234567890):
-
+def create_physionet_dataloader(
+    db_dir,
+    group_id=None,
+    window=10_000,
+    dtype=torch.float,
+    device="cuda:1",
+    mini_batch_size=10,
+    random_state=1234567890,
+):
     generator = torch.Generator()
     generator.manual_seed(random_state)
 
@@ -109,7 +100,7 @@ def create_physionet_dataloader(db_dir, group_id=None, window=10_000,
         ),
         batch_size=mini_batch_size,
         shuffle=True,
-        generator=generator
+        generator=generator,
     )
 
 
@@ -122,7 +113,7 @@ def create_conv_dataloader(
     window=None,
     random_state=2147483647,
     dimN=1,
-    n_samples=None
+    n_samples=None,
 ):
     """
     Create dataset for conv signals
@@ -150,16 +141,11 @@ def create_conv_dataloader(
     if isinstance(data, np.ndarray):
         return torch.utils.data.DataLoader(
             ConvSignalDataset(
-                data,
-                device=device,
-                dtype=dtype,
-                sto=sto,
-                window=window,
-                dimN=dimN
+                data, device=device, dtype=dtype, sto=sto, window=window, dimN=dimN
             ),
             batch_size=mini_batch_size,
             shuffle=True,
-            generator=generator
+            generator=generator,
         )
     elif isinstance(data, (str)):
         return torch.utils.data.DataLoader(
@@ -169,11 +155,11 @@ def create_conv_dataloader(
                 dtype=dtype,
                 window=window,
                 seed=random_state,
-                n_samples=n_samples
+                n_samples=n_samples,
             ),
             batch_size=mini_batch_size,
             shuffle=True,
-            generator=generator
+            generator=generator,
         )
 
 
@@ -188,8 +174,7 @@ class ConvSignalDataset(torch.utils.data.Dataset):
         Size of minibatches window.
     """
 
-    def __init__(self, data, device, dtype, sto,
-                 window=None, dimN=1):
+    def __init__(self, data, device, dtype, sto, window=None, dimN=1):
         super().__init__()
         self.sto = sto
         self.device = device
@@ -200,19 +185,15 @@ class ConvSignalDataset(torch.utils.data.Dataset):
             self.window = min(window, data.shape[1])
             # self.window = min(window, data.shape[1] - 1)
         else:
-            self.data = torch.tensor(
-                data,
-                device=self.device,
-                dtype=self.dtype
-            )
+            self.data = torch.tensor(data, device=self.device, dtype=self.dtype)
 
     def __getitem__(self, idx):
         if self.sto and self.dimN == 1:
             return torch.tensor(
-                self.data[:, idx: (idx+self.window)],
+                self.data[:, idx : (idx + self.window)],
                 # self.data[:, idx * self.window: (idx+1) * self.window],
                 device=self.device,
-                dtype=self.dtype
+                dtype=self.dtype,
             )
         elif self.sto and self.dimN == 2:
             idx_i = idx // self.window
@@ -220,11 +201,11 @@ class ConvSignalDataset(torch.utils.data.Dataset):
             return torch.tensor(
                 self.data[
                     :,
-                    idx_i * self.window: (idx_i+1) * self.window,
-                    idx_j * self.window: (idx_j+1) * self.window
+                    idx_i * self.window : (idx_i + 1) * self.window,
+                    idx_j * self.window : (idx_j + 1) * self.window,
                 ],
                 device=self.device,
-                dtype=self.dtype
+                dtype=self.dtype,
             )
         else:
             return self.data
@@ -303,15 +284,15 @@ class MEGPopDataset(torch.utils.data.Dataset):
                 if i == 0:
                     index = idx
                 else:
-                    index = idx - self.shapes_time[i-1]
+                    index = idx - self.shapes_time[i - 1]
                 return torch.tensor(
                     data_norm[
                         :,
                         # index * self.window: (index + 1) * self.window
-                        index:(index+self.window)
+                        index : (index + self.window),
                     ],
                     dtype=self.dtype,
-                    device=self.device
+                    device=self.device,
                 )
 
     def __len__(self):

@@ -2,18 +2,16 @@ import torch
 
 
 class SLS(torch.optim.Optimizer):
-
     def __init__(
         self,
         params,
         c=1e-4,
-        lr=1.,
+        lr=1.0,
         beta=0.5,
         tolerance=1e-8,
         scale_step=True,
-        sto=False
+        sto=False,
     ):
-
         defaults = {
             "lr": lr,
             "c_constant": c,
@@ -22,36 +20,26 @@ class SLS(torch.optim.Optimizer):
             "scale_step": scale_step,
         }
 
-        super().__init__(
-            params,
-            defaults
-        )
+        super().__init__(params, defaults)
 
         self.init_step = True
         self.sto = sto
 
     def step(self, closure):
-
         with torch.no_grad():
             init_loss = closure()
 
             for group in self.param_groups:
-
                 beta = group["beta_constant"]
                 c = group["c_constant"]
                 eps = group["tolerance"]
 
                 norm_grad = torch.sum(
                     torch.tensor(
-                        [torch.sum(param.grad ** 2)
-                         for param in group["params"]]
-                    )
-                )
-
-                norm_params = torch.sum(
-                    torch.tensor(
-                        [torch.sum(param ** 2)
-                         for param in group["params"]]
+                        [
+                            torch.sum(param.grad**2) if param.grad is not None else 0.0
+                            for param in group["params"]
+                        ]
                     )
                 )
 
@@ -60,7 +48,9 @@ class SLS(torch.optim.Optimizer):
                     break
 
                 if group["scale_step"] and self.init_step:
-
+                    norm_params = torch.sum(
+                        torch.tensor([torch.sum(param**2) for param in group["params"]])
+                    )
                     group["lr"] *= torch.sqrt(norm_params / norm_grad)
                     self.init_step = False
 
@@ -77,7 +67,7 @@ class SLS(torch.optim.Optimizer):
                     if not init:
                         # Backtracking
                         for param in group["params"]:
-                            param -= (beta-1) * eta * param.grad
+                            param -= (beta - 1) * eta * param.grad
                     else:
                         init = False
 
