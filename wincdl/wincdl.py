@@ -56,6 +56,7 @@ class WinCDL:
         self.dimN = dimN
         self.n_samples = n_samples
         self.outliers_kwargs = outliers_kwargs
+        self.loss_fn = torch.nn.MSELoss(reduction="sum")
 
         # CSC solver
         if dimN == 1:
@@ -152,7 +153,7 @@ class WinCDL:
             self.csc,
             train_dataloader,
             self.optimizer,
-            torch.nn.MSELoss(reduction="sum"),
+            self.loss_fn,
             scheduler=self.scheduler,
             epochs=self.epochs,
             max_batch=self.max_batch,
@@ -202,7 +203,7 @@ class WinCDL:
             D = torch.tensor(D, dtype=self.dtype, device=self.device)
 
         X_hat = self.csc.forward(X, D)
-        z = self.csc._z_hat
+        z = self.csc.z_hat_
 
         old_reg = self.csc.lmbd
         self.csc.lmbd = 0

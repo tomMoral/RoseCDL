@@ -33,7 +33,7 @@ def compute_loss(
     moving_average : dict, optional
         Moving average parameters, by default None
         example: moving_average=dict(
-            window_size=int(model.n_times_atom),
+            window_size=int(model.kernel_size),
             method='max',  # 'max', 'average' or 'gaussian'
         )
 
@@ -49,7 +49,7 @@ def compute_loss(
                 X=X,
                 loss_fn=loss_fn,
                 per_patch=(
-                    model.n_times_atom if per_patch else False
+                    model.kernel_size if per_patch else False
                 ),  # compute error per patch
                 device=model.device,
                 z_hat=model.z_hat_.clone() if add_reg else None,
@@ -60,7 +60,7 @@ def compute_loss(
                 data=err,
                 thresholds=thresholds,
                 moving_average=moving_average,
-                opening_window=model.n_times_atom if opening_window else None,
+                opening_window=model.kernel_size if opening_window else None,
                 union_channels=union_channels,
             )
 
@@ -249,7 +249,7 @@ def train(
                     prediction=X_hat,
                     X=X,
                     loss_fn=loss_fn,
-                    per_patch=model.n_times_atom if per_patch else False,
+                    per_patch=model.kernel_size if per_patch else False,
                     device=model.device,
                     z_hat=model.z_hat_.clone() if add_reg else None,
                     lmbd=model.lmbd,

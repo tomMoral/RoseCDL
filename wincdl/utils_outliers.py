@@ -233,9 +233,10 @@ def apply_opening(outliers_mask, window_size=15):
 
     if ndim == 2:
         outliers_mask = outliers_mask.unsqueeze(1)
-        n_channels = 1
+        # n_channels = 1
     elif ndim == 3:
-        n_channels = outliers_mask.shape[1]
+        # n_channels = outliers_mask.shape[1]
+        pass
     else:
         raise ValueError(f"outliers_mask should be 2D or 3D but is {ndim}D")
 

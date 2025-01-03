@@ -183,7 +183,7 @@ class CSC1d(nn.Module):
                 lipschitz = 1
             return lipschitz
 
-    def forward(self, x):
+    def forward(self, x, D=None, null_support=None):
         """
         (F)ISTA-like forward pass
 
@@ -200,7 +200,8 @@ class CSC1d(nn.Module):
             Approximation of the sparse code associated to y
         """
         # Compute current dictionary
-        D = self.get_D()
+        if D is None:
+            D = self.get_D()
 
         with torch.no_grad():
 
