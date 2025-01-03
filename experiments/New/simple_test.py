@@ -1,8 +1,9 @@
 import numpy as np
 import torch
-from simulate import simulate_data2
 from torch.utils.data import DataLoader, Dataset
 
+from wincdl.datasets import ConvSignalDataset
+from wincdl.datasets.simulated import simulate_1d as simulate_data2
 from wincdl.wincdl import WinCDL
 
 # ====== PARAMETERS ======
@@ -26,8 +27,9 @@ N_CHANNELS = 1
 LMBD = 0.1
 N_ITERATIONS = 30
 EPOCHS = 10
-WINDOW = False
+WINDOW = True
 LIST_D = True
+STOCHASTIC = True
 
 
 # ======== CUSTOM DATASET ========
@@ -57,7 +59,9 @@ X, ds, _ = simulate_data2(
 X = X[:, np.newaxis, :]
 print("SHAPE X : ", X.shape)
 
-X_dataset = SignalDataset(X, sto=STO, device="cpu", dtype=torch.float32, window=WINDOW)
+X_dataset = ConvSignalDataset(
+    X, sto=STO, device="cpu", dtype=torch.float32, window=WINDOW
+)
 loader = DataLoader(X_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 
@@ -70,9 +74,10 @@ model = WinCDL(
     epochs=EPOCHS,
     window=WINDOW,
     list_D=LIST_D,
+    stochastic=STOCHASTIC,
 )
 
-losses, list_D, time = model.fit(loader)
+losses, list_D, time = model.fit(X)
 
 print("SHAPE D : ", model.D_hat_.shape)
 print("LEN list_D : ", len(list_D))

@@ -150,13 +150,14 @@ class CSC1d(nn.Module):
             d0.cpu().numpy(), uv_constraint="separate", n_channels=self.n_channels
         )
 
-    def resample_atom(self, k0, X):
+    def resample_atom(self, k0):
         """ """
         from alphacsc.init_dict import init_dictionary
 
         # XXX: better resample?
         D_temp = init_dictionary(
-            None,
+            # Only using the shape of X to generate the dictionary
+            torch.zeros((self.n_components, self.n_channels, self.kernel_size)),
             n_atoms=1,
             n_times_atom=self.kernel_size,
             rank1=False,

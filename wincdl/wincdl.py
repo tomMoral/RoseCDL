@@ -101,23 +101,19 @@ class WinCDL:
     def check_X(self, X):
         # Check the dimensions of X and reshape it if necessary
         if X.ndim == 3:
-            old_shape = X.shape
             X = X.transpose(1, 0, 2).reshape(X.shape[1], -1)
-            # warnings.warn(
-            #     f"X shape was {old_shape}, reshaped it, now of shape {X.shape}"
-            # )
         elif X.ndim != 2:
             raise ValueError("X must be 2D or 3D.")
 
         return X
 
     def fit(self, X):
-        X = self.check_X(X)
-
         # Dataloader
         if isinstance(X, torch.utils.data.dataloader.DataLoader):
             train_dataloader = X  # quick fix to use on physionet
         else:
+            # Generated Data
+            X = self.check_X(X)  # Removes the channel dimension
             train_dataloader = create_conv_dataloader(
                 X,
                 self.device,
