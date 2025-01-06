@@ -171,6 +171,14 @@ def create_icml(height, width):
     return result
 
 
+def load_icml_data(path):
+    """Load ICML data."""
+    data = np.load(path)
+    X = data.get("X")
+    d = data.get("d")
+    return X, d
+
+
 if __name__ == "__main__":
     # generate a 2D dataset using the letters as the dictionary
     np.random.seed(42)
@@ -181,10 +189,9 @@ if __name__ == "__main__":
     image = create_icml(height, width)
 
     # Save the dataset and the dictionary to a single npz file
-    np.savez(
-        "icml.npz",
-        X=image,
-        dictionary={"I": create_i(), "C": create_c(), "M": create_m(), "L": create_l()},
+    dictionary = np.array(
+        [create_i(), create_c(), create_m(), create_l()], dtype=np.float64
     )
+    np.savez("icml.npz", X=image, d=dictionary)
 
     print("Dataset and dictionary saved to icml.npz")
