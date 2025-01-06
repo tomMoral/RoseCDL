@@ -97,7 +97,7 @@ class WinCDL:
 
     @property
     def D_hat_(self):
-        return self.csc.D_hat_.copy()
+        return self.csc.D_hat_
 
     def check_X(self, X):
         # Check the dimensions of X and reshape it if necessary
