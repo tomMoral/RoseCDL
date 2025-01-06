@@ -1,0 +1,37 @@
+define: &n_atoms 5
+define: &n_times_atom 30
+
+data:
+  n_trials: 100
+  n_times: 1000
+  n_times_atom: *n_times_atom
+  n_atoms: *n_atoms
+  window: True
+  p_acti: 0.75
+  overlap: False
+  p_contaminate: 0.01
+  random_state: 42
+
+windows:
+  window_size: 32
+  stride: 1
+  n_windows: 100
+  random_state: 42
+
+model:
+  n_components: *n_atoms
+  kernel_size: *n_times_atom
+  n_channels: 1
+  lmbd: 0.05
+  n_iterations: 100
+  epochs: 100
+
+training:
+  n_runs: 1  # number of times to run each model
+  batch_size: 32
+
+anomaly_detection:
+  percentile: 95
+  iqr: 1.5
+  zscore: 3
+  mad: 3

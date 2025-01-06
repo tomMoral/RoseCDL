@@ -1,16 +1,16 @@
 # %%
-import torch
 import numpy as np
+import torch
 
-from .model import CSC1d, CSC2d
 from .datasets import create_conv_dataloader
+from .model import CSC1d, CSC2d
 from .optimizer import SLS
 from .train import train
+
 # %%
 
 
 class WinCDL:
-
     """
 
     uv_constraint
@@ -41,9 +41,8 @@ class WinCDL:
         positive_z=True,
         list_D=False,
         dimN=1,
-        n_samples=None
+        n_samples=None,
     ):
-
         self.stochastic = stochastic
         self.mini_batch_window = mini_batch_window
         self.mini_batch_size = mini_batch_size
@@ -72,7 +71,7 @@ class WinCDL:
                 rank=rank,
                 window=window,
                 D_init=D_init,
-                positive_z=positive_z
+                positive_z=positive_z,
             )
 
         elif dimN == 2:
@@ -93,18 +92,13 @@ class WinCDL:
         if optimizer == "adam":
             self.optimizer = torch.optim.Adam(self.csc.parameters(), lr)
         elif optimizer == "linesearch":
-            self.optimizer = SLS(
-                self.csc.parameters(),
-                sto=stochastic,
-                lr=lr
-            )
+            self.optimizer = SLS(self.csc.parameters(), sto=stochastic, lr=lr)
 
     @property
     def D_hat_(self):
-        return self.csc.D_hat_
+        return self.csc.D_hat_.copy()
 
     def fit(self, X):
-
         # Dataloader
         if isinstance(X, torch.utils.data.dataloader.DataLoader):
             train_dataloader = X  # quick fix to use on physionet
@@ -118,7 +112,7 @@ class WinCDL:
                 mini_batch_size=self.mini_batch_size,
                 random_state=self.random_state,
                 dimN=self.dimN,
-                n_samples=self.n_samples
+                n_samples=self.n_samples,
             )
         try:
             self.subjects = train_dataloader.dataset.subjects
@@ -131,13 +125,11 @@ class WinCDL:
 
         if self.stochastic and self.optimizer_name == "adam":
             self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                self.optimizer,
-                np.power(self.gamma, 1 / self.max_batch)
+                self.optimizer, np.power(self.gamma, 1 / self.max_batch)
             )
         elif self.stochastic and self.optimizer_name == "linesearch":
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer,
-                T_max=self.epochs * self.max_batch
+                self.optimizer, T_max=self.epochs * self.max_batch
             )
         else:
             self.scheduler = None
@@ -147,12 +139,12 @@ class WinCDL:
             self.csc,
             train_dataloader,
             self.optimizer,
-            torch.nn.MSELoss(reduction='sum'),
+            torch.nn.MSELoss(reduction="sum"),
             scheduler=self.scheduler,
             epochs=self.epochs,
             max_batch=self.max_batch,
             save_list_D=self.list_D,
-            stopping_criterion=not self.stochastic
+            stopping_criterion=not self.stochastic,
         )
 
         return losses, list_D, times

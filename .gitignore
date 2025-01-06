@@ -8,6 +8,7 @@ __pycache__/
 *.csv
 *.ipynb
 *.npy
+*.npz
 *.pickle
 experiments/physionet/apnea-ecg
 experiments/figures
@@ -139,3 +140,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Outpupt
+output/*
+local/*
