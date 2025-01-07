@@ -4,7 +4,7 @@ import torch.fft as fft
 import torch.nn as nn
 import torch.nn.functional as F
 from alphacsc.update_d_multi import prox_uv
-from alphacsc.utils.dictionary import tukey_window
+from alphacsc.utils.dictionary import get_uv, tukey_window
 
 from .utils import get_max_error_patch
 
@@ -35,6 +35,9 @@ class CSC1d(nn.Module):
         self.n_channels = n_channels
         self.n_iterations = n_iterations
 
+        self.random_state = random_state
+        self.do_window = window
+
         self.generator = torch.Generator(self.device)
         self.generator.manual_seed(random_state)
 
@@ -56,7 +59,7 @@ class CSC1d(nn.Module):
         self.rank = rank
 
         # Initialisation
-        if D_init is None:
+        if D_init is None or (isinstance(D_init, str) and D_init == "random"):
             D_hat = torch.rand(
                 (n_components, n_channels, kernel_size),
                 generator=self.generator,
@@ -91,7 +94,7 @@ class CSC1d(nn.Module):
         if self.rank == "uv_constraint":
             D = self.u * self.v
         elif self.rank == "full":
-            D = self._D_hat.clone().detach()
+            D = self._D_hat
         if self.window is not None:
             return D * self.window
         else:
@@ -100,6 +103,14 @@ class CSC1d(nn.Module):
     @property
     def D_hat_(self):
         return self.get_D().to("cpu").detach().numpy()
+
+    @property
+    def uv_hat_(self):
+        return get_uv(self.D_hat_)
+
+    @property
+    def z_hat_(self):
+        return self.z
 
     def rescale(self):
         """
@@ -139,24 +150,20 @@ class CSC1d(nn.Module):
             d0.cpu().numpy(), uv_constraint="separate", n_channels=self.n_channels
         )
 
-    def resample_atom(self, k0, X):
+    def resample_atom(self, k0):
         """ """
-        # new_atom = torch.tensor(
-        #             self.get_max_error_dict(X)[0],
-        #             dtype=torch.float,
-        #             device=self.device
-        #         )
-        # self._D_hat[k0] = new_atom / torch.norm(new_atom)
         from alphacsc.init_dict import init_dictionary
 
+        # XXX: better resample?
         D_temp = init_dictionary(
-            X,
+            # Only using the shape of X to generate the dictionary
+            torch.zeros((self.n_components, self.n_channels, self.kernel_size)),
             n_atoms=1,
             n_times_atom=self.kernel_size,
             rank1=False,
-            window=True,
-            D_init="chunk",
-            random_state=None,
+            window=self.do_window,
+            D_init="random",
+            random_state=self.random_state,
         )
         self._D_hat[k0] = torch.tensor(D_temp, dtype=torch.float, device=self.device)
         return self._D_hat.clone().detach()
@@ -176,7 +183,7 @@ class CSC1d(nn.Module):
                 lipschitz = 1
             return lipschitz
 
-    def forward(self, x):
+    def forward(self, x, D=None, null_support=None):
         """
         (F)ISTA-like forward pass
 
@@ -193,7 +200,8 @@ class CSC1d(nn.Module):
             Approximation of the sparse code associated to y
         """
         # Compute current dictionary
-        D = self.get_D()
+        if D is None:
+            D = self.get_D()
 
         with torch.no_grad():
 
@@ -235,51 +243,6 @@ class CSC1d(nn.Module):
             self.z = fista(z, self.lmbd, L, prox, grad_loss, n_iter=self.n_iterations)
 
         return self.convt(self.z, D)
-
-        # # Initialization equal 0
-        # out = torch.zeros(
-        #     (x.shape[0],
-        #      self.n_components,
-        #      x.shape[2] - self.kernel_size + 1),
-        #     dtype=torch.float,
-        #     device=self.device
-        # )
-
-        # out_old = out.clone()
-        # t_old = 1
-
-        # # Compute steps with Lipschitz constant
-        # step = 1. / self.compute_lipschitz()
-
-        # for i in range(self.n_iterations):
-        #     # Gradient descent
-        #     result1 = self.convt(out, D)
-        #     result2 = self.conv(
-        #         (result1 - x),
-        #         D
-        #     )
-
-        #     out = out - step * result2
-
-        #     if not self.positive_z:
-        #         out = out - torch.clip(
-        #             out,
-        #             - step * self.lmbd,
-        #             step * self.lmbd
-        #         )
-        #     else:
-        #         thresh = out - step * self.lmbd
-        #         out = F.relu(thresh)
-
-        #     # FISTA
-        #     t = 0.5 * (1 + np.sqrt(1 + 4 * t_old * t_old))
-        #     z = out + ((t_old-1) / t) * (out - out_old)
-        #     out_old = out.clone()
-        #     t_old = t
-        #     out = z
-
-        # save z vector as atribute
-        # self.z = z
 
 
 class CSC2d(nn.Module):

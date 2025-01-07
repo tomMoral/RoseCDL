@@ -9,50 +9,21 @@ from wfdb.io.record import rdrecord
 
 
 class PhysionetDataset(torch.utils.data.Dataset):
-    """Pytorch Dataset for loading Physionet ECG recordings.
+    """
 
-    This dataset class is designed to load and process ECG recordings from the Physionet database,
-    specifically for the apnea-ecg dataset. It provides functionality to load ECG signals
-    for different subject groups and handles data preprocessing.
+    db_dir : string
+        path to the dataset
+        values can be 'apnea-ecg'
 
-    Parameters
-    ----------
-    db_dir : str, default="./apnea-ecg"
-        Path to the root directory containing the Physionet database files.
+    group_id : string
+        group label to create the dataset on
+        'a': apnea, 'b': borderline apnea, 'c': control, 'x': test
+        if None, all
+        default is None
 
-    group_id : str, optional
-        Subject group identifier to filter the dataset:
-        - 'a': apnea patients
-        - 'b': borderline apnea patients
-        - 'c': control subjects
-        - 'x': test subjects
-        If None, includes all groups.
+    seed : int
+        random seed
 
-    window : int, default=10000
-        The size of the sliding window for ECG signal segmentation.
-
-    dtype : torch.dtype, default=torch.float
-        Data type for the output tensors.
-
-    device : str, default="cuda:1"
-        Device to store the tensors on (e.g., 'cpu', 'cuda:0', 'cuda:1').
-
-    seed : int, default=42
-        Random seed for reproducibility when shuffling subjects.
-
-    Attributes
-    ----------
-    subjects : list
-        List of subject IDs included in the dataset.
-    n_subjects : int
-        Number of subjects in the dataset.
-    shapes_time : numpy.ndarray
-        Cumulative sum of signal lengths for all subjects.
-
-    Returns
-    -------
-    torch.Tensor
-        ECG signal segment of shape (channels, window) normalized by standard deviation.
     """
 
     def __init__(
@@ -193,43 +164,14 @@ def create_conv_dataloader(
 
 
 class ConvSignalDataset(torch.utils.data.Dataset):
-    """Dataset for convolutional signal processing using PyTorch.
-
-    A dataset class that handles both stochastic and deterministic processing of signal data,
-    supporting both 1D and 2D convolution operations.
-
-    data : numpy.ndarray
-        Input signal data. For 1D convolution shape should be (channels, length).
-        For 2D convolution shape should be (channels, height, width).
-    device : torch.device
-        Device to store the tensors on (CPU/GPU).
-    dtype : torch.dtype
-        Data type for the tensors (e.g., torch.float32).
-    sto : bool
-        If True, enables stochastic processing by windowing the data.
-        If False, processes the entire signal at once.
-    window : int, optional
-        Size of the sliding window for stochastic processing.
-        If None, uses full signal length. Default is None.
-    dimN : int, optional
-        Dimensionality of the convolution operation.
-        1 for 1D convolution, 2 for 2D convolution. Default is 1.
-
-    Attributes
-    data : Union[numpy.ndarray, torch.Tensor]
-        The stored signal data, either as numpy array (stochastic)
-        or torch tensor (deterministic).
-    window : int
-        The effective window size used for processing.
-
-    Methods
-    -------
-    __getitem__(idx)
-        Returns a windowed segment of the data for stochastic processing,
-        or the full data for deterministic processing.
-    __len__()
-        Returns the number of available windows for stochastic processing,
-        or 1 for deterministic processing.
+    """
+    Dataset for Stochastic torch CDL
+    Parameters
+    ----------
+    data: np.array
+        Data to be processed
+    window: int
+        Size of minibatches window.
     """
 
     def __init__(self, data, device, dtype, sto, window=None, dimN=1):
