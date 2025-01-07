@@ -166,7 +166,7 @@ class CSC1d(nn.Module):
             random_state=self.random_state,
         )
         self._D_hat[k0] = torch.tensor(D_temp, dtype=torch.float, device=self.device)
-        return self._D_hat
+        return self._D_hat.clone().detach()
 
     def compute_lipschitz(self):
         """

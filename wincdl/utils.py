@@ -3,13 +3,23 @@ from alphacsc.utils.dictionary import _patch_reconstruction_error, get_D_shape, 
 
 
 def get_z_nnz(z_hat):
-    """
+    """Calculate the number of non-zero elements across specified axes of z_hat array.
 
     Parameters
     ----------
-
+    z_hat : numpy.ndarray
+        Input array from which to count non-zero elements. Expected to be a 3D array.
     Returns
     -------
+    numpy.ndarray
+        Array containing counts of non-zero elements summed across axes 0 and 2,
+        preserving the dimension of axis 1.
+
+    Notes
+    -----
+    The function calculates element-wise count of non-zero values in z_hat
+    across the first (0) and last (2) axes, effectively reducing the 3D array
+    to a 1D array of counts.
     """
     z_nnz = np.sum(z_hat != 0, axis=(0, 2))
     # return z_nnz / z_nnz.shape[-1]
