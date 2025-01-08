@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from alphacsc.update_d_multi import prox_uv
 from alphacsc.utils.dictionary import get_uv, tukey_window
 
-from .utils import get_max_error_patch
+from .utils.utils import get_max_error_patch
 
 
 class CSC1d(nn.Module):

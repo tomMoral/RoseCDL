@@ -3,7 +3,7 @@ import time
 import torch
 from tqdm import tqdm
 
-from .utils_outliers import compute_error, get_outlier_mask, get_thresholds
+from .utils.utils_outliers import compute_error, get_outlier_mask, get_thresholds
 
 
 def compute_objective(X, X_hat, z_hat, reg):
