@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from alphacsc.update_d_multi import prox_uv
 from alphacsc.utils.dictionary import get_uv, tukey_window
 
-from .utils import get_max_error_patch
+from wincdl.utils import get_max_error_patch
 
 
 class CSC1d(nn.Module):
@@ -250,7 +250,7 @@ class CSC2d(nn.Module):
         self,
         n_iterations,
         n_components,
-        kernel_size,
+        kernel_size: tuple[int, int],
         n_channels,
         lmbd,
         device,
@@ -264,13 +264,16 @@ class CSC2d(nn.Module):
         self.dtype = dtype
         self.device = device
         self.n_components = n_components
-        self.kernel_size = kernel_size
+        # The kernel is not obligatory square
+        self.kernel_size1, self.kernel_size2 = kernel_size
         self.lmbd = lmbd
         self.n_channels = n_channels
         self.n_iterations = n_iterations
 
         self.generator = torch.Generator(self.device)
         self.generator.manual_seed(random_state)
+
+        self.rank = "full"
 
         self.positive_z = positive_z
 
@@ -282,7 +285,7 @@ class CSC2d(nn.Module):
         if D_init is None:
             self._D_hat = nn.Parameter(
                 torch.rand(
-                    (n_components, n_channels, kernel_size, kernel_size),
+                    (n_components, n_channels, self.kernel_size1, self.kernel_size2),
                     generator=self.generator,
                     dtype=self.dtype,
                     device=self.device,
@@ -298,6 +301,10 @@ class CSC2d(nn.Module):
     @property
     def D_hat_(self):
         return self._D_hat.to("cpu").detach().numpy()
+
+    @property
+    def z_hat_(self):
+        return self.z
 
     def rescale(self):
         """
@@ -325,6 +332,20 @@ class CSC2d(nn.Module):
                 lipschitz = 1
             return lipschitz
 
+    def resample_atom(self, k0):
+        """ """
+        # XXX: better resample?
+        # D has shape of (n_atoms, n_channels, kernel_size1, kernel_size2)
+        # We are doing random initialization of the dictionary
+        D_temp = torch.rand(
+            (1, self.n_channels, self.kernel_size1, self.kernel_size2),
+            generator=self.generator,
+            dtype=self.dtype,
+            device=self.device,
+        )
+        self._D_hat[k0] = torch.tensor(D_temp, dtype=torch.float, device=self.device)
+        return self._D_hat.clone().detach()
+
     def forward(self, x):
         """
         (F)ISTA-like forward pass
@@ -345,8 +366,8 @@ class CSC2d(nn.Module):
                 (
                     x.shape[0],
                     self.n_components,
-                    x.shape[2] - self.kernel_size + 1,
-                    x.shape[3] - self.kernel_size + 1,
+                    x.shape[2] - self.kernel_size1 + 1,
+                    x.shape[3] - self.kernel_size2 + 1,
                 ),
                 dtype=torch.float,
                 device=self.device,
@@ -377,5 +398,7 @@ class CSC2d(nn.Module):
                 out_old = out.clone()
                 t_old = t
                 out = z
+
+            self.z = out
 
         return self.convt(out, self._D_hat)

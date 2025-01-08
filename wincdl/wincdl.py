@@ -101,6 +101,8 @@ class WinCDL:
 
     def check_X(self, X):
         # Check the dimensions of X and reshape it if necessary
+        if self.dimN == 2:
+            return X
         if X.ndim == 3:
             X = X.transpose(1, 0, 2).reshape(X.shape[1], -1)
         elif X.ndim != 2:
