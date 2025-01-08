@@ -9,7 +9,7 @@ from scipy import signal
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
 
-from wincdl.utils_outliers import compute_error, get_outlier_mask
+from .utils.utils_outliers import compute_error, get_outlier_mask
 
 
 def get_lambda_max(X, D_hat, sample_weights=None, q=1, method="quantile"):

@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from torch import cuda
 from tqdm import tqdm
-from utils.utils import (
+
+from wincdl.utils.utils_exp import (
     check_and_initialize,
     evaluate_D_hat,
     get_lambda_max,
@@ -18,8 +19,7 @@ from utils.utils import (
     load_json,
     plot_dicts,
 )
-from utils.utils_signal import generate_experiment
-
+from wincdl.utils.utils_signal import generate_experiment
 from wincdl.wincdl import WinCDL
 
 DEVICE = "cuda" if cuda.is_available() else "cpu"

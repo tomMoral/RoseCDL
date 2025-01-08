@@ -12,8 +12,8 @@ from alphacsc.utils.validation import check_random_state
 from scipy.stats import norm
 from tqdm import tqdm
 
-from utils.utils import sort_atoms, sort_list_D
-from utils.utils_simulated_waves import WaveFactory
+from .utils_exp import sort_atoms, sort_list_D
+from .utils_signal import WaveFactory
 
 
 def generate_z(
