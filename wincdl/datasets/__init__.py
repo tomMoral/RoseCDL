@@ -182,7 +182,9 @@ class ConvSignalDataset(torch.utils.data.Dataset):
         self.dimN = dimN
         if self.sto:
             self.data = data
-            self.window = min(window, data.shape[1])
+            self.window = (
+                data.shape[1] if window is None else min(window, data.shape[1])
+            )
             # self.window = min(window, data.shape[1] - 1)
         else:
             self.data = torch.tensor(data, device=self.device, dtype=self.dtype)

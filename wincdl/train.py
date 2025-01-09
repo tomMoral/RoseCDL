@@ -293,8 +293,8 @@ def train(
 
         pbar.set_description(
             f"Epoch {epoch+1}"
-            f" - Average train loss: {train_loss:.15f}"
-            f" - Step size: {optimizer.param_groups[0]['lr']}"
+            f" - Average train loss: {train_loss:.9e}"
+            f" - Step size: {optimizer.param_groups[0]['lr']:.6e}"
         )
 
         if stopping_criterion and old_loss is not None:
