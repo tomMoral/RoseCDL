@@ -30,19 +30,21 @@ class WinCDL:
         gamma=0.9,
         mini_batch_window=1000,
         mini_batch_size=10,
-        device=None,
-        dtype=torch.float,
         random_state=2147483647,
         rank="full",
         window=False,
         D_init=None,
         positive_z=True,
         list_D=False,
-        dimN=1,
         n_samples=None,
         outliers_kwargs=None,
         callbacks=(),
+        device=None,
+        dtype=torch.float,
     ):
+
+        kernel_size = (kernel_size,) if isinstance(kernel_size, int) else kernel_size
+
         self.stochastic = stochastic
         self.mini_batch_window = mini_batch_window
         self.mini_batch_size = mini_batch_size
@@ -54,7 +56,7 @@ class WinCDL:
         self.list_D = list_D
         self.gamma = gamma
         self.optimizer_name = optimizer
-        self.dimN = dimN
+        self.dimN = len(kernel_size)
         self.n_samples = n_samples
         self.callbacks = callbacks
 
@@ -68,7 +70,7 @@ class WinCDL:
             )
 
         # CSC solver
-        csc_class = CSC1d if dimN == 1 else CSC2d
+        csc_class = CSC1d if self.dimN == 1 else CSC2d
 
         self.csc = csc_class(
             n_iterations,
@@ -96,6 +98,7 @@ class WinCDL:
         return self.csc.D_hat_.copy()
 
     def check_X(self, X):
+        # TODO: check this is always of shape (batch, n_channels, *support)
         # Check the dimensions of X and reshape it if necessary
         if X.ndim == 3:
             X = X.transpose(1, 0, 2).reshape(X.shape[1], -1)
@@ -103,6 +106,52 @@ class WinCDL:
             raise ValueError("X must be 2D or 3D.")
 
         return X
+
+    def get_lambda_max(self, X):
+        """For each atom, compute the regularization parameter scaling.
+        This value is usually defined as the smallest value for which 0 is
+        a solution of the optimization problem.
+        In order to avoid spurious values, this quantity can also be estimated
+        as the q-quantile of the correlation between signal patches and the
+        atom.
+
+        Parameters
+        ----------
+        X : array, shape (n_trials, n_times) or
+                shape (n_trials, n_channels, n_times)
+            The data
+
+        alpha : float
+            If method is quantile (default), the quantile to compute, which must be between 0 and 1 inclusive.
+            Default is 1, i.e., the maximum is returned.
+            If method is iqr, zscore or mad, the alpha parameter to use.
+
+        Returns
+        -------
+        lambda_max : array, shape (n_atoms, 1)
+        """
+        conv_res = self.csc.conv(X, self.csc.D_hat_).abs().cpu().numpy()
+
+        # TODO: this should reuse get_threshold
+        if self.loss_fn.method == "quantile":
+            assert self.loss_fn.alpha <= 1 and self.loss_fn.alpha >= 0
+            return np.quantile(conv_res, axis=(1, 2), q=self.loss_fn.alpha)[:, None]
+        elif self.loss_fn.method == "iqr":
+            assert self.loss_fn.alpha >= 1
+            q1, q3 = np.quantile(conv_res, axis=(1, 2), q=[0.25, 0.75])
+            res = q3 + 1.5 * (q3 - q1)
+            return res[:, None]
+        elif self.loss_fn.method == "zscore":
+            assert self.loss_fn.alpha >= 1
+            res = np.mean(conv_res, axis=(1, 2)) + self.loss_fn.alpha * np.std(conv_res, axis=(1, 2))
+            return res[:, None]
+        elif self.loss_fn.method == "mad":
+            assert self.loss_fn.alpha >= 1
+            median = np.median(conv_res, axis=(1, 2))
+            mad = np.median(np.abs(conv_res - median[:, None, None]), axis=(1, 2))
+            constant = 0.6745
+            res = median + self.loss_fn.alpha * mad / constant
+            return res[:, None]
 
     def fit(self, X):
         # Dataloader
