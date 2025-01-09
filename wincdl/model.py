@@ -15,13 +15,13 @@ class CSC1d(nn.Module):
         kernel_size,
         n_channels,
         lmbd,
-        device,
-        dtype,
-        random_state=2147483647,
         rank="full",
         window=False,
         D_init=None,
         positive_z=True,
+        random_state=None,
+        device=None,
+        dtype=None,
     ):
         super().__init__()
 
@@ -39,14 +39,14 @@ class CSC1d(nn.Module):
         self.device = device
         self.random_state = random_state
 
-        self.generator = torch.Generator(self.device)
+        self.generator = torch.Generator(device)
         self.generator.manual_seed(random_state)
 
 
         # Tukey window
         if window:
             self.window = torch.tensor(
-                tukey_window(*self.kernel_size), dtype=self.dtype, device=self.device
+                tukey_window(*self.kernel_size), dtype=dtype, device=device
             )[None, None, :]
         else:
             self.window = None
@@ -71,35 +71,37 @@ class CSC1d(nn.Module):
         self.reset_usage_statistics()
         self._resampled_atoms = []
 
+        self.to(device=device, dtype=dtype)
+
     def init_D(self, D_init):
 
         # Initialisation
         if D_init is None or (isinstance(D_init, str) and D_init == "random"):
-            D_hat = torch.rand(
+            D_hat = torch.randn(
                 (self.n_components, self.n_channels, *self.kernel_size),
                 generator=self.generator,
                 dtype=self.dtype,
                 device=self.device,
             )
         else:
-            D_hat = torch.tensor(D_init, dtype=torch.float, device=self.device)
+            D_hat = torch.tensor(D_init, dtype=self.dtype, device=self.device)
 
         if self.rank == "uv_constraint":
             u = D_hat[:, : self.n_channels][:, :, None]
             v = D_hat[:, self.n_channels :][:, None, :]
 
             self.u = nn.Parameter(
-                torch.tensor(u, dtype=torch.float, device=self.device)
+                torch.tensor(u, dtype=self.dtype, device=self.device)
             )
 
             self.v = nn.Parameter(
-                torch.tensor(v, dtype=torch.float, device=self.device)
+                torch.tensor(v, dtype=self.dtype, device=self.device)
             )
 
         elif self.rank == "full":
             self._D_hat = nn.Parameter(
                 torch.tensor(
-                    D_hat.clone().detach(), dtype=torch.float, device=self.device
+                    D_hat.clone().detach(), dtype=self.dtype, device=self.device
                 )
             )
 
@@ -107,7 +109,7 @@ class CSC1d(nn.Module):
 
     def reset_usage_statistics(self):
         self._z_usage = torch.zeros(
-            self.n_components, dtype=torch.int, device=self.device
+            self.n_components, dtype=torch.int32, device=self.device
         )
         self._processed_samples = 0
 
@@ -172,7 +174,7 @@ class CSC1d(nn.Module):
             D_init="random",
             random_state=self.random_state,
         )
-        self._D_hat[k0] = torch.tensor(D_temp, dtype=torch.float, device=self.device)
+        self._D_hat[k0] = torch.tensor(D_temp, dtype=self.dtype, device=self.device)
         self.rescale()
 
     def resample_atom(self):
@@ -183,7 +185,7 @@ class CSC1d(nn.Module):
             null_atom_indices = torch.where(z_nnz < 1e-3)[0]
             if len(null_atom_indices) > 0:
                 # resample a random atom
-                idx = torch.randint(len(null_atom_indices), (1,))
+                idx = torch.randint(len(null_atom_indices), (1,), generator=self.generator)
                 k0 = null_atom_indices[idx].item()
                 # no resampling of the last 2 resampled atoms
                 if k0 in self._resampled_atoms[-2:]:
@@ -289,13 +291,13 @@ class CSC2d(CSC1d):
         kernel_size,
         n_channels,
         lmbd,
-        device,
-        dtype,
-        random_state=2147483647,
         rank="full",
         window=False,
         D_init=None,
         positive_z=True,
+        random_state=None,
+        device=None,
+        dtype=None,
     ):
         super().__init__(
             self,

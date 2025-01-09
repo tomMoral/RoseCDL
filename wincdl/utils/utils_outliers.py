@@ -4,10 +4,13 @@ import torch.nn.functional as F
 
 def check_threshold(threshold):
     # Ensure that the threshold is either float or None
-    if threshold is not None and not isinstance(threshold, (float, int)):
-        raise ValueError(
-            f"threshold should be a float or None but is {type(threshold)}"
-        )
+    if threshold is not None:
+        if isinstance(threshold, torch.Tensor):
+            assert threshold.dtype in (torch.float32, torch.int32), f"threshold.dtype: {threshold.dtype}"
+        elif not isinstance(threshold, (float, int)):
+            raise ValueError(
+                f"threshold should be a float or None but is {type(threshold)}"
+            )
 
 
 
@@ -35,10 +38,13 @@ def get_threshold(data, method="quantile", alpha=0.05):
         If the method is 'iqr', alpha is the number of interquartile ranges to use.
         If the method is 'zscore' or 'mad', alpha is the number of standard
         deviations to use.
+    dim : int|tuple, optional
+        Dimensions along which to compute the threshold. If None, compute the threshold
+        over all dimensions.
 
     Returns
     -------
-    float
+    threshold : float or Tensor
         Outlier threshold.
 
     Raises

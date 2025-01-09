@@ -2,14 +2,13 @@ import json
 import warnings
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import torch
 import numpy as np
 import pandas as pd
 from scipy import signal
+import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
-
-from .utils_outliers import compute_error, get_outlier_mask
 
 
 def multi_channel_2d_correlate(dk, pat):
@@ -149,8 +148,6 @@ def get_method_name(outliers_kwargs):
         return "no detection"
 
     method = outliers_kwargs["method"]
-    if "unilateral" in method:
-        method = method.split("_")[0]
     if "alpha" in outliers_kwargs:
         alpha = outliers_kwargs["alpha"]
         method += f" (alpha={alpha})"
@@ -159,68 +156,19 @@ def get_method_name(outliers_kwargs):
 
 
 def get_outliers_metric(
-    wincdl,
     true_outliers_mask,
+    wincdl,
     X,
-    D,
-    return_mask=False,
-    per_patch=False,
-    with_opening_window=True,
 ):
     """
 
     wincdl: WinCDL instance
     """
-    X_hat = wincdl.get_prediction(X, D=D)
+    X = torch.tensor(X, dtype=wincdl.dtype, device=wincdl.device)
+    X_hat, z_hat = wincdl.csc(X)
 
-    kwargs = wincdl.outliers_kwargs
-    moving_average = kwargs.pop("moving_average", None)
-    opening_window = kwargs.pop("opening_window", True)
-    if not with_opening_window:
-        opening_window = False
-
-    model = wincdl.csc
-    err = compute_error(
-        prediction=X_hat,
-        X=X,
-        loss_fn=wincdl.loss_fn,
-        per_patch=model.n_times_atom if per_patch else False,
-        device=model.device,
-        z_hat=model._z_hat.clone() if per_patch else None,
-        lmbd=model.lmbd,
-    )
-    outliers_mask = (
-        get_outlier_mask(
-            data=err,
-            thresholds=None,  # Recompute thresholds
-            moving_average=moving_average if not per_patch else None,
-            opening_window=model.n_times_atom if opening_window else None,
-            **kwargs,
-        )
-        .detach()
-        .cpu()
-        .numpy()
-    )
-
-    if outliers_mask.ndim == 2 and X.ndim == 3:
-        # Duplicate across channels
-        outliers_mask = np.repeat(outliers_mask[:, None, :], X.shape[1], axis=1)
-
-    # outliers_mask = get_outlier_mask(
-    #     data=compute_error(
-    #         X_hat,
-    #         X,
-    #         wincdl.loss_fn,
-    #         per_patch=model.n_times_atom if PER_PATCH else False,
-    #         keep_dim=True,
-    #     ),
-    #     thresholds=None,
-    #     opening_window=wincdl.csc.n_times_atom if opening_window else None,
-    #     **kwargs,
-    # ).cpu().numpy()
-
-    if wincdl.outliers_kwargs["union_channels"]:
-        true_outliers_mask = np.minimum(true_outliers_mask.sum(axis=1), 1)
+    outliers_mask = wincdl.loss_fn.get_outliers_mask(X_hat, z_hat, X, opening=False)
+    outliers_mask = outliers_mask.detach().cpu().numpy()
 
     # Ensure masks have the same shape
     if true_outliers_mask.shape != outliers_mask.shape:
@@ -247,9 +195,6 @@ def get_outliers_metric(
         jaccard=jaccard,
         percentage=np.mean(outliers_mask),
     )
-
-    if return_mask:
-        return score_dict, outliers_mask
 
     return score_dict
 

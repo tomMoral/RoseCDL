@@ -8,7 +8,7 @@ from .train import train
 from .loss import OutlierLoss, LassoLoss
 
 
-class WinCDL:
+class WinCDL(torch.nn.Module):
     """
 
     uv_constraint
@@ -21,6 +21,7 @@ class WinCDL:
         kernel_size,
         n_channels,
         lmbd,
+        scale_lmbd=True,
         n_iterations=30,
         epochs=100,
         max_batch=10,
@@ -35,35 +36,40 @@ class WinCDL:
         window=False,
         D_init=None,
         positive_z=True,
-        list_D=False,
         n_samples=None,
         outliers_kwargs=None,
         callbacks=(),
         device=None,
         dtype=torch.float,
     ):
+        super().__init__()
 
         kernel_size = (kernel_size,) if isinstance(kernel_size, int) else kernel_size
+        self.dimN = len(kernel_size)
+
+        self.lmbd = lmbd
+        self.scale_lmbd = scale_lmbd
 
         self.stochastic = stochastic
-        self.mini_batch_window = mini_batch_window
-        self.mini_batch_size = mini_batch_size
-        self.random_state = random_state
         self.epochs = epochs
         self.max_batch = max_batch
-        self.device = device
-        self.dtype = dtype
-        self.list_D = list_D
+        self.mini_batch_size = mini_batch_size
+        self.mini_batch_window = mini_batch_window
         self.gamma = gamma
         self.optimizer_name = optimizer
-        self.dimN = len(kernel_size)
         self.n_samples = n_samples
         self.callbacks = callbacks
+
+        self.random_state = random_state
+        self.dtype = dtype
+        self.device = device
 
         self.loss_fn = LassoLoss(lmbd=lmbd, reduction="sum")
         if outliers_kwargs is not None:
             self.loss_fn = OutlierLoss(
                 self.loss_fn,
+                method=outliers_kwargs.get("method", "quantile"),
+                alpha=outliers_kwargs.get("alpha", 0.05),
                 moving_average=outliers_kwargs.get("moving_average", None),
                 opening_window=outliers_kwargs.get("opening_window", True),
                 union_channels=outliers_kwargs.get("union_channels", True),
@@ -78,20 +84,22 @@ class WinCDL:
             kernel_size,
             n_channels,
             lmbd,
-            device,
-            dtype,
-            random_state=self.random_state,
             rank=rank,
             window=window,
             D_init=D_init,
             positive_z=positive_z,
+            random_state=self.random_state,
+            device=device,
+            dtype=dtype,
         )
 
         # Optimizer
         if optimizer == "adam":
-            self.optimizer = torch.optim.Adam(self.csc.parameters(), lr)
+            self.optimizer = torch.optim.Adam(self.parameters(), lr)
         elif optimizer == "linesearch":
-            self.optimizer = SLS(self.csc.parameters(), sto=stochastic, lr=lr)
+            self.optimizer = SLS(self.parameters(), sto=stochastic, lr=lr)
+
+        self.to(device=device)
 
     @property
     def D_hat_(self):
@@ -106,52 +114,6 @@ class WinCDL:
             raise ValueError("X must be 2D or 3D.")
 
         return X
-
-    def get_lambda_max(self, X):
-        """For each atom, compute the regularization parameter scaling.
-        This value is usually defined as the smallest value for which 0 is
-        a solution of the optimization problem.
-        In order to avoid spurious values, this quantity can also be estimated
-        as the q-quantile of the correlation between signal patches and the
-        atom.
-
-        Parameters
-        ----------
-        X : array, shape (n_trials, n_times) or
-                shape (n_trials, n_channels, n_times)
-            The data
-
-        alpha : float
-            If method is quantile (default), the quantile to compute, which must be between 0 and 1 inclusive.
-            Default is 1, i.e., the maximum is returned.
-            If method is iqr, zscore or mad, the alpha parameter to use.
-
-        Returns
-        -------
-        lambda_max : array, shape (n_atoms, 1)
-        """
-        conv_res = self.csc.conv(X, self.csc.D_hat_).abs().cpu().numpy()
-
-        # TODO: this should reuse get_threshold
-        if self.loss_fn.method == "quantile":
-            assert self.loss_fn.alpha <= 1 and self.loss_fn.alpha >= 0
-            return np.quantile(conv_res, axis=(1, 2), q=self.loss_fn.alpha)[:, None]
-        elif self.loss_fn.method == "iqr":
-            assert self.loss_fn.alpha >= 1
-            q1, q3 = np.quantile(conv_res, axis=(1, 2), q=[0.25, 0.75])
-            res = q3 + 1.5 * (q3 - q1)
-            return res[:, None]
-        elif self.loss_fn.method == "zscore":
-            assert self.loss_fn.alpha >= 1
-            res = np.mean(conv_res, axis=(1, 2)) + self.loss_fn.alpha * np.std(conv_res, axis=(1, 2))
-            return res[:, None]
-        elif self.loss_fn.method == "mad":
-            assert self.loss_fn.alpha >= 1
-            median = np.median(conv_res, axis=(1, 2))
-            mad = np.median(np.abs(conv_res - median[:, None, None]), axis=(1, 2))
-            constant = 0.6745
-            res = median + self.loss_fn.alpha * mad / constant
-            return res[:, None]
 
     def fit(self, X):
         # Dataloader
@@ -171,6 +133,11 @@ class WinCDL:
                 dimN=self.dimN,
                 n_samples=self.n_samples,
             )
+
+        if self.scale_lmbd:
+            lambda_max = self.loss_fn.get_lambda_max(train_dataloader, self.csc.get_D())
+            self.loss_fn.lmbd = self.lmbd * lambda_max
+            self.csc.lmbd = self.lmbd * lambda_max
 
         print("Set up optimizer and scheduler...", end=" ")
         # LR scheduler
@@ -205,5 +172,6 @@ class WinCDL:
         return self
 
     def predict(self, X):
+        X = torch.tensor(X, device=self.device, dtype=self.dtype)
         X_hat, _ = self.csc(X)
         return X_hat.detach().cpu().numpy()

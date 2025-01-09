@@ -45,8 +45,66 @@ def reduce_loss(loss, reduction):
         raise ValueError(f"reduction={reduction} is not valid.")
     return loss
 
+class _ReconstructionLoss(_Loss):
 
-class OutlierLoss(_Loss):
+    def get_lambda_max(self, dataloader, D):
+        """Compute the maximum value of the regularization parameter.
+
+        This value is defined as the minimum value of the regularization parameter
+        for which the solution is the zero vector.
+
+        Parameters
+        ----------
+        X : array, shape (batch_size, n_channels, *support)
+            The signal tensor.
+        D : array, shape (n_atoms, n_channels, *kernel_size)
+            The dictionary tensor.
+
+        Returns
+        -------
+        lambda_max : float
+            The maximum value of the regularization parameter.
+        """
+        conv = F.conv1d if D.ndim == 3 else F.conv2d
+        with torch.no_grad():
+            n_samples, conv_res_i_batches = 0, []
+            for X in dataloader:
+                conv_res_i_batches.append(conv(X, D).abs().flatten())
+                n_samples += X.size(0)
+                if n_samples >= 300:
+                    # Compute threshold on maximum 300 samples
+                    break
+
+            conv_res = torch.cat(conv_res_i_batches)
+            if hasattr(self, "method"):
+                lmbd_max = get_threshold(conv_res, self.method, self.alpha)
+            else:
+                lmbd_max = conv_res.max()
+        return lmbd_max
+
+        # # TODO: this should reuse get_threshold
+        # if self.loss_fn.method == "quantile":
+        #     assert self.loss_fn.alpha <= 1 and self.loss_fn.alpha >= 0
+        #     return np.quantile(conv_res, axis=(1, 2), q=self.loss_fn.alpha)[:, None]
+        # elif self.loss_fn.method == "iqr":
+        #     assert self.loss_fn.alpha >= 1
+        #     q1, q3 = np.quantile(conv_res, axis=(1, 2), q=[0.25, 0.75])
+        #     res = q3 + 1.5 * (q3 - q1)
+        #     return res[:, None]
+        # elif self.loss_fn.method == "zscore":
+        #     assert self.loss_fn.alpha >= 1
+        #     res = np.mean(conv_res, axis=(1, 2)) + self.loss_fn.alpha * np.std(conv_res, axis=(1, 2))
+        #     return res[:, None]
+        # elif self.loss_fn.method == "mad":
+        #     assert self.loss_fn.alpha >= 1
+        #     median = np.median(conv_res, axis=(1, 2))
+        #     mad = np.median(np.abs(conv_res - median[:, None, None]), axis=(1, 2))
+        #     constant = 0.6745
+        #     res = median + self.loss_fn.alpha * mad / constant
+        #     return res[:, None]
+
+
+class OutlierLoss(_ReconstructionLoss):
     def __init__(
         self, loss_fn, method="quantile", alpha=0.05, reduction=None,
         moving_average=None, opening_window=True, union_channels=True,
@@ -85,8 +143,9 @@ class OutlierLoss(_Loss):
             self.reduction
         )
 
-    def get_outliers_mask(self, X_hat, z_hat, X):
+    def get_outliers_mask(self, X_hat, z_hat, X, opening=None):
         kernel_size = get_kernel_size(X_hat, z_hat)
+        opening = self.opening_window if opening is None else opening
 
         # Compute error vector, keep it 3D
         err = self.compute_patch_error(X_hat, z_hat, X)
@@ -95,7 +154,7 @@ class OutlierLoss(_Loss):
             data=err,
             threshold=self._threshold,
             moving_average=self.moving_average,
-            opening_window=kernel_size if self.opening_window else None,
+            opening_window=kernel_size if opening else None,
             union_channels=self.union_channels,
         )
 
@@ -150,7 +209,7 @@ class OutlierLoss(_Loss):
             self._threshold = get_threshold(err, method=self.method, alpha=self.alpha)
 
 
-class LassoLoss(_Loss):
+class LassoLoss(_ReconstructionLoss):
     def __init__(self, lmbd, reduction='mean', data_fit=torch.nn.MSELoss()):
         super().__init__(reduction=reduction)
         self.data_fit = data_fit
