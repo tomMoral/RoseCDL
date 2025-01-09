@@ -265,7 +265,7 @@ class CSC2d(nn.Module):
         self.device = device
         self.n_components = n_components
         # The kernel is not necessary a square
-        self.kernel_size1, self.kernel_size2 = kernel_size
+        self.kernel_size = kernel_size
         self.lmbd = lmbd
         self.n_channels = n_channels
         self.n_iterations = n_iterations
@@ -285,7 +285,7 @@ class CSC2d(nn.Module):
         if D_init is None:
             self._D_hat = nn.Parameter(
                 torch.rand(
-                    (n_components, n_channels, self.kernel_size1, self.kernel_size2),
+                    (n_components, n_channels, *self.kernel_size),
                     generator=self.generator,
                     dtype=self.dtype,
                     device=self.device,
@@ -346,7 +346,7 @@ class CSC2d(nn.Module):
             Resampled dictionary
         """
         D_temp = torch.rand(
-            (1, self.n_channels, self.kernel_size1, self.kernel_size2),
+            (1, self.n_channels, *self.kernel_size),
             generator=self.generator,
             dtype=self.dtype,
             device=self.device,
@@ -374,8 +374,8 @@ class CSC2d(nn.Module):
                 (
                     x.shape[0],
                     self.n_components,
-                    x.shape[2] - self.kernel_size1 + 1,
-                    x.shape[3] - self.kernel_size2 + 1,
+                    x.shape[2] - self.kernel_size[0] + 1,
+                    x.shape[3] - self.kernel_size[1] + 1,
                 ),
                 dtype=torch.float,
                 device=self.device,
