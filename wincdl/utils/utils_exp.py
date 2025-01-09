@@ -189,10 +189,6 @@ def get_outliers_metric(
         z_hat=model._z_hat.clone() if per_patch else None,
         lmbd=model.lmbd,
     )
-    # Compute outlier mask
-    # thresholds = get_thresholds(
-    #     err, method=outliers_kwargs['method'], alpha=outliers_kwargs['alpha']
-    # )
     outliers_mask = (
         get_outlier_mask(
             data=err,

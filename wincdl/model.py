@@ -46,7 +46,7 @@ class CSC1d(nn.Module):
         # Tukey window
         if window:
             self.window = torch.tensor(
-                tukey_window(self.kernel_size), dtype=self.dtype, device=self.device
+                tukey_window(*self.kernel_size), dtype=self.dtype, device=self.device
             )[None, None, :]
         else:
             self.window = None
@@ -76,7 +76,7 @@ class CSC1d(nn.Module):
         # Initialisation
         if D_init is None or (isinstance(D_init, str) and D_init == "random"):
             D_hat = torch.rand(
-                (self.n_components, self.n_channels, self.kernel_size),
+                (self.n_components, self.n_channels, *self.kernel_size),
                 generator=self.generator,
                 dtype=self.dtype,
                 device=self.device,
@@ -164,9 +164,9 @@ class CSC1d(nn.Module):
         # XXX: better resample?
         D_temp = init_dictionary(
             # Only using the shape of X to generate the dictionary
-            torch.zeros((self.n_components, self.n_channels, self.kernel_size)),
+            torch.zeros((self.n_components, self.n_channels, *self.kernel_size)),
             n_atoms=1,
-            n_times_atom=self.kernel_size,
+            n_times_atom=self.kernel_size[0],
             rank1=False,
             window=self.do_window,
             D_init="random",
@@ -191,6 +191,7 @@ class CSC1d(nn.Module):
                 # Create a new random atom and rescale
                 self._resample_atom(k0)
                 self._resampled_atoms.append(k0)
+                print(f"Resampled atom {k0}")
 
     def compute_lipschitz(self):
         """
@@ -208,8 +209,9 @@ class CSC1d(nn.Module):
             return lipschitz
 
     def init_z(self, x):
+        support_shape = tuple(fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size))
         return torch.zeros(
-            (x.shape[0], self.n_components, x.shape[2] - self.kernel_size + 1),
+            (x.shape[0], self.n_components, *support_shape),
             dtype=torch.float, device=self.device,
         )
 
@@ -315,24 +317,6 @@ class CSC2d(CSC1d):
         self.conv = F.conv2d
         self.convt = F.conv_transpose2d
 
-    def init_D(self, D_init):
-        # Initialisation
-        if D_init is None:
-            self._D_hat = nn.Parameter(
-                torch.rand(
-                    (self.n_components, self.n_channels, *self.kernel_size),
-                    generator=self.generator,
-                    dtype=self.dtype,
-                    device=self.device,
-                )
-            )
-        else:
-            self._D_hat = nn.Parameter(
-                torch.tensor(D_init, dtype=torch.float, device=self.device)
-            )
-
-        self.rescale()
-
     def rescale(self):
         """
         Constrains the dictionary to have normalized atoms
@@ -358,15 +342,3 @@ class CSC2d(CSC1d):
             if lipschitz == 0:
                 lipschitz = 1
             return lipschitz
-
-    def init_z(self, x):
-        return torch.zeros(
-                (
-                    x.shape[0],
-                    self.n_components,
-                    x.shape[2] - self.kernel_size[0] + 1,
-                    x.shape[3] - self.kernel_size[1] + 1,
-                ),
-                dtype=torch.float,
-                device=self.device,
-            )

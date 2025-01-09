@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss
 
 
-from .utils.utils_outliers import get_outlier_mask, get_thresholds
+from .utils.utils_outliers import get_outlier_mask, get_threshold
 
 
 def get_kernel_size(X, z):
@@ -43,6 +43,7 @@ def reduce_loss(loss, reduction):
         return loss.sum()
     elif reduction != "none":
         raise ValueError(f"reduction={reduction} is not valid.")
+    return loss
 
 
 class OutlierLoss(_Loss):
@@ -71,9 +72,8 @@ class OutlierLoss(_Loss):
         self.moving_average = moving_average
         self.opening_window = opening_window
         self.union_channels = union_channels
-        self.device = loss_fn.device
 
-        self._thresholds = None
+        self._threshold = None
 
     def forward(self, X_hat, z_hat, X, outliers_mask=None):
         if outliers_mask is None:
@@ -81,7 +81,7 @@ class OutlierLoss(_Loss):
                 outliers_mask = self.get_outliers_mask(X_hat, z_hat, X)
 
         return reduce_loss(
-            self.loss_fn(X_hat[~outliers_mask], X[~outliers_mask]),
+            self.loss_fn(X_hat, z_hat, X)[~outliers_mask],
             self.reduction
         )
 
@@ -93,7 +93,7 @@ class OutlierLoss(_Loss):
         # Remove outliers
         return get_outlier_mask(
             data=err,
-            thresholds=self._thresholds,
+            threshold=self._threshold,
             moving_average=self.moving_average,
             opening_window=kernel_size if self.opening_window else None,
             union_channels=self.union_channels,
@@ -130,12 +130,9 @@ class OutlierLoss(_Loss):
         diff = F.pad(diff, pad_size, "constant", 0)
         diff = avg_pool(diff, kernel_size, stride=1)
 
-        # Sum across channels
-        diff = torch.sum(diff, dim=1)
-
         return diff
 
-    def compute_outlier_thresholds(self, model, dataloader):
+    def compute_outlier_threshold(self, model, dataloader):
         with torch.no_grad():
             err_i_batches = []
             n_samples = 0
@@ -146,11 +143,11 @@ class OutlierLoss(_Loss):
 
                 n_samples += err_i.size(0)
                 if n_samples >= 300:
-                    # Compute thresholds on maximum 300 samples
+                    # Compute threshold on maximum 300 samples
                     break
 
             err = torch.cat(err_i_batches)
-            self._thresholds = get_thresholds(err, method=self.method, alpha=self.alpha)
+            self._threshold = get_threshold(err, method=self.method, alpha=self.alpha)
 
 
 class LassoLoss(_Loss):

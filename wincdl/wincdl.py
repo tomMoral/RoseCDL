@@ -64,9 +64,9 @@ class WinCDL:
         if outliers_kwargs is not None:
             self.loss_fn = OutlierLoss(
                 self.loss_fn,
-                moving_average=self.outliers_kwargs.get("moving_average", None),
-                opening_window=self.outliers_kwargs.get("opening_window", True),
-                union_channels=self.outliers_kwargs.get("union_channels", True),
+                moving_average=outliers_kwargs.get("moving_average", None),
+                opening_window=outliers_kwargs.get("opening_window", True),
+                union_channels=outliers_kwargs.get("union_channels", True),
             )
 
         # CSC solver

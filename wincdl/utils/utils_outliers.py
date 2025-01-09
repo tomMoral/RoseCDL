@@ -39,8 +39,7 @@ def get_threshold(data, method="quantile", alpha=0.05):
     Returns
     -------
     float
-        Outlier threshold(s). If the method is bilateral, returns (lower_threshold, upper_threshold).
-        If the method is unilateral, returns (threshold,).
+        Outlier threshold.
 
     Raises
     ------
@@ -50,25 +49,25 @@ def get_threshold(data, method="quantile", alpha=0.05):
     Notes
     -----
     Detailed information about each method:
-    - 'quantile': The lower and upper thresholds are determined by the specified quantile levels.
+    - 'quantile': The lower and upper threshold are determined by the specified quantile levels.
     - 'quantile_unilateral': Only the upper threshold is determined by the specified quantile level.
-    - 'iqr': The thresholds are determined based on the whiskers of the interquartile range.
+    - 'iqr': The threshold are determined based on the whiskers of the interquartile range.
     - 'iqr_unilateral': Only the upper threshold is determined based on the upper whisker of the interquartile range.
-    - 'zscore': The thresholds are determined based on the mean and standard deviation. A value is considered an outlier if it's
+    - 'zscore': The threshold are determined based on the mean and standard deviation. A value is considered an outlier if it's
       alpha standard deviations away from the mean.
-    - 'mad': The thresholds are determined based on the median and median absolute deviation. A value is considered
+    - 'mad': The threshold are determined based on the median and median absolute deviation. A value is considered
       an outlier if it's alpha median absolute deviations away from the median.
 
     """
     # Check which method to use for outlier detection
     if method == "quantile":
         # Method of quantile bilateral
-        # Calculate lower and upper thresholds using quantiles
+        # Calculate lower and upper threshold using quantiles
         threshold = torch.quantile(data, 1 - alpha)
 
     elif method == "iqr":
         # Method of interquartile range bilateral
-        # Calculate interquartile range and thresholds
+        # Calculate interquartile range and threshold
         q1 = torch.quantile(data, 0.25)
         q3 = torch.quantile(data, 0.75)
         iqr = q3 - q1
@@ -78,7 +77,7 @@ def get_threshold(data, method="quantile", alpha=0.05):
         # Method of standard deviation
         mean = torch.mean(data)
         std = torch.std(data)
-        # Calculate lower and upper thresholds
+        # Calculate lower and upper threshold
         threshold = mean + alpha * std
 
     elif method == "mad":
@@ -88,7 +87,7 @@ def get_threshold(data, method="quantile", alpha=0.05):
         # Scaling factor
         constant = 0.6745
         # "The constant 0.6745 is needed because E(MAD) = 0.6745CT for large n", Iglewicz and Hoaglin, 1993
-        # Calculate lower and upper thresholds
+        # Calculate lower and upper threshold
         threshold = median + alpha * mad / constant
 
     else:
@@ -97,6 +96,7 @@ def get_threshold(data, method="quantile", alpha=0.05):
             f"Invalid method: {method}, must be one of 'quantile', 'quantile_unilateral', 'iqr', 'iqr_unilateral', 'zscore', or 'mad'"
         )
 
+    threshold = threshold.item()
     check_threshold(threshold)
 
     return threshold
@@ -229,16 +229,12 @@ def get_outlier_mask(
 
     if threshold is None:
         alpha = kwargs.get("alpha", 0.05)
-        thresholds = get_threshold(data, method=method, alpha=alpha)
-    elif isinstance(thresholds, float):
-        thresholds = (None, thresholds)
+        threshold = get_threshold(data, method=method, alpha=alpha)
 
     check_threshold(threshold)
 
-    # Only take upper threshold into account
-    upper_threshold = thresholds[1]
-
-    outliers_mask = data > upper_threshold
+    # Compute the mask to detect the outliers
+    outliers_mask = data > threshold
 
     if opening_window is not None:
         if not isinstance(opening_window, int):
@@ -263,7 +259,7 @@ def get_outlier_mask(
 
 def remove_outliers(
     data,
-    thresholds=None,
+    threshold=None,
     method="quantile",
     opening_window=None,
     moving_average=None,
@@ -287,7 +283,7 @@ def remove_outliers(
 
     outliers_mask = get_outlier_mask(
         data,
-        thresholds=thresholds,
+        threshold=threshold,
         method=method,
         opening_window=opening_window,
         moving_average=moving_average,

@@ -88,9 +88,9 @@ def train(
     pbar = tqdm(range(epochs))
 
     for epoch in pbar:
-        # Compute thresholds for outliers detection
+        # Compute threshold for outliers detection
         if hasattr(loss_fn, "compute_outlier_threshold"):
-            loss_fn.compute_outlier_thresholds(model, train_dataloader)
+            loss_fn.compute_outlier_threshold(model.csc, train_dataloader)
 
         train_loss = train_loop(
             train_dataloader,
