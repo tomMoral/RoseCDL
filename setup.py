@@ -20,7 +20,6 @@ setuptools.setup(
         'matplotlib',
         'scikit-learn',
         'torch',
-        'pathlib',
         'tqdm',
         'joblib',
     ],

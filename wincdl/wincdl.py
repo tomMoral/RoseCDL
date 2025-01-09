@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from .datasets import create_conv_dataloader
 from .model import CSC1d, CSC2d
 from .optimizer import SLS
-from .train import compute_loss, train
+from .train import train
+from .loss import OutlierLoss, LassoLoss
 
 
 class WinCDL:
@@ -41,6 +41,7 @@ class WinCDL:
         dimN=1,
         n_samples=None,
         outliers_kwargs=None,
+        callbacks=(),
     ):
         self.stochastic = stochastic
         self.mini_batch_window = mini_batch_window
@@ -55,39 +56,34 @@ class WinCDL:
         self.optimizer_name = optimizer
         self.dimN = dimN
         self.n_samples = n_samples
-        self.outliers_kwargs = outliers_kwargs
-        self.loss_fn = torch.nn.MSELoss(reduction="sum")
+        self.callbacks = callbacks
+
+        self.loss_fn = LassoLoss(lmbd=lmbd, reduction="sum")
+        if outliers_kwargs is not None:
+            self.loss_fn = OutlierLoss(
+                self.loss_fn,
+                moving_average=self.outliers_kwargs.get("moving_average", None),
+                opening_window=self.outliers_kwargs.get("opening_window", True),
+                union_channels=self.outliers_kwargs.get("union_channels", True),
+            )
 
         # CSC solver
-        if dimN == 1:
-            self.csc = CSC1d(
-                n_iterations,
-                n_components,
-                kernel_size,
-                n_channels,
-                lmbd,
-                device,
-                dtype,
-                random_state=self.random_state,
-                rank=rank,
-                window=window,
-                D_init=D_init,
-                positive_z=positive_z,
-            )
+        csc_class = CSC1d if dimN == 1 else CSC2d
 
-        elif dimN == 2:
-            self.csc = CSC2d(
-                n_iterations,
-                n_components,
-                kernel_size,
-                n_channels,
-                lmbd,
-                device,
-                dtype,
-                random_state=self.random_state,
-                D_init=D_init,
-                positive_z=positive_z,
-            )
+        self.csc = csc_class(
+            n_iterations,
+            n_components,
+            kernel_size,
+            n_channels,
+            lmbd,
+            device,
+            dtype,
+            random_state=self.random_state,
+            rank=rank,
+            window=window,
+            D_init=D_init,
+            positive_z=positive_z,
+        )
 
         # Optimizer
         if optimizer == "adam":
@@ -126,10 +122,6 @@ class WinCDL:
                 dimN=self.dimN,
                 n_samples=self.n_samples,
             )
-        try:
-            self.subjects = train_dataloader.dataset.subjects
-        except:
-            pass
 
         print("Set up optimizer and scheduler...", end=" ")
         # LR scheduler
@@ -149,95 +141,20 @@ class WinCDL:
         print("Done.")
 
         # Train
-        train_hist = train(
-            self.csc,
+        train(
+            self,
             train_dataloader,
             self.optimizer,
             self.loss_fn,
             scheduler=self.scheduler,
             epochs=self.epochs,
             max_batch=self.max_batch,
-            save_list_D=self.list_D,
+            callbacks=self.callbacks,
             stopping_criterion=not self.stochastic,
-            outliers_kwargs=self.outliers_kwargs,
         )
 
-        losses = train_hist["train_losses"]
-        list_D = train_hist["list_D"]
-        times = train_hist["times"]
+        return self
 
-        self.train_hist = train_hist
-
-        return losses, list_D, times
-
-    def compute_loss_hist(self, X, list_D=None, adapt_alphacsc=False):
-        current_D = self.csc.D_hat_
-        assert X.ndim == 3, "X must be 3D, of shape (n_trials, n_channels, n_times)."
-
-        # Ensure X is a torch tensor
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=self.dtype, device=self.device)
-
-        if list_D is None:
-            list_D = self.train_hist["list_D"]
-
-        losses = []
-        pbar = tqdm(list_D)
-        pbar.set_description(f"Running loss computation for {len(list_D)} Ds.")
-        for D in pbar:
-            self.csc.set_D(D)
-            loss = compute_loss(
-                self.csc, self.loss_fn, X, adapt_alphacsc=adapt_alphacsc
-            )
-            losses.append(loss.item())
-
-        self.csc.set_D(current_D)
-        return losses
-
-    def get_prediction(self, X, D=None):
-        # Ensure X and D are torch tensors
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=self.dtype, device=self.device)
-
-        if D is not None and not isinstance(D, torch.Tensor):
-            D = torch.tensor(D, dtype=self.dtype, device=self.device)
-
-        X_hat = self.csc.forward(X, D)
-        z = self.csc.z_hat_
-
-        old_reg = self.csc.lmbd
-        self.csc.lmbd = 0
-
-        threshold = 0
-        null_support = torch.where(torch.abs(z) <= threshold)
-        X_hat = self.csc.forward(X, D, null_support=null_support)
-
-        self.csc.lmbd = old_reg
-
+    def predict(self, X):
+        X_hat, _ = self.csc(X)
         return X_hat.detach().cpu().numpy()
-
-    def compute_z_hat_history(self, X, list_D=None):
-        # Ensure X and D are torch tensors
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=self.dtype, device=self.device)
-
-        old_reg = self.csc.lmbd
-        self.csc.lmbd = 0
-
-        z_hat_history = []
-
-        if list_D is None:
-            list_D = self.train_hist["list_D"]
-
-        pbar = tqdm(list_D)
-        pbar.set_description(f"Running z_hat computation for {len(list_D)} Ds.")
-        for D in pbar:
-            if D is not None and not isinstance(D, torch.Tensor):
-                D = torch.tensor(D, dtype=self.dtype, device=self.device)
-
-            _ = self.csc.forward(X, D)
-            z_hat_history.append(self.csc.z_hat_)
-
-        self.csc.lmbd = old_reg
-
-        return z_hat_history

@@ -1,5 +1,3 @@
-import warnings
-
 import torch
 import torch.nn.functional as F
 
@@ -97,7 +95,7 @@ def get_thresholds(data, method="quantile", alpha=0.05):
         # Method of quantile unilateral
         # Calculate upper threshold using quantile
         upper_threshold = torch.quantile(data, 1 - alpha)
-        thresholds = (upper_threshold.item(), None)
+        thresholds = (None, upper_threshold.item())
 
     elif method == "iqr":
         # Method of interquartile range bilateral
@@ -116,7 +114,7 @@ def get_thresholds(data, method="quantile", alpha=0.05):
         q3 = torch.quantile(data, 0.75)
         iqr = q3 - q1
         upper_threshold = q3 + 1.5 * iqr
-        thresholds = (upper_threshold.item(), None)
+        thresholds = (None, upper_threshold.item())
 
     elif method == "zscore":
         # Method of standard deviation
@@ -279,7 +277,7 @@ def get_outlier_mask(
         alpha = kwargs.get("alpha", 0.05)
         thresholds = get_thresholds(data, method=method, alpha=alpha)
     elif isinstance(thresholds, float):
-        thresholds = (thresholds, None)
+        thresholds = (None, thresholds)
 
     check_thresholds(thresholds)
 
@@ -291,10 +289,7 @@ def get_outlier_mask(
     #     outliers_mask = (data < lower_threshold) | (data > upper_threshold)
 
     # Only take upper threshold into account
-    if thresholds[1] is None:
-        upper_threshold = thresholds[0]
-    else:
-        upper_threshold = thresholds[1]
+    upper_threshold = thresholds[1]
 
     outliers_mask = data > upper_threshold
 
@@ -359,13 +354,12 @@ def remove_outliers(
 def compute_error(
     prediction,
     X,
+    z_hat=None,
+    lmbd=1,
     loss_fn=torch.nn.MSELoss(),
-    use_proxy=False,
     per_patch=True,
     keep_dim=True,
     device="cuda:0",
-    z_hat=None,
-    lmbd=1,
 ):
     """Compute (lasso) reconstruction error per patch.
 
@@ -377,15 +371,6 @@ def compute_error(
     per_patch : False or int
 
     """
-
-    assert (
-        X.ndim == 3
-    ), f"X should be 3D of shape (n_trials, n_channels, n_times) but is {X.ndim}D of shape {X.shape}"
-
-    assert (
-        prediction.ndim == 3
-    ), f"prediction should be 3D of shape (n_trials, n_channels, n_times) but is {prediction.ndim}D of shape {prediction.shape}"
-
     assert (
         prediction.shape == X.shape
     ), f"prediction.shape: {prediction.shape}, X.shape: {X.shape}"
@@ -393,30 +378,12 @@ def compute_error(
     if not isinstance(prediction, torch.Tensor):
         prediction = torch.tensor(prediction, dtype=torch.float, device=device)
 
-    if not isinstance(X, torch.Tensor):
-        X = torch.tensor(X, dtype=torch.float, device=device)
-
     loss_fn_name = loss_fn.__class__.__name__
     list_loss_fn = ["MSELoss", "L1Loss"]
+    assert loss_fn_name in list_loss_fn
 
-    if use_proxy:
-        # Compute the "derivative" at each timepoint
-        diff = torch.diff(X, dim=-1)
-        # Complete diff with zeros so it is of same shape as X along the time dimension
-        diff = F.pad(diff, (1, 0), "constant", 0)
-        assert (
-            diff.shape == X.shape
-        ), f"diff_padded.shape: {diff.shape}, X.shape: {X.shape}"
-    else:
-        if loss_fn_name == "MSELoss":
-            diff = (prediction - X) ** 2
-        elif loss_fn_name == "L1Loss":
-            diff = torch.abs(prediction - X)
-        else:
-            warnings.warn(
-                f"Unsupported loss function: {loss_fn_name}. Available loss functions are: {list_loss_fn}. Defaulting to MSELoss."
-            )
-            diff = (prediction - X) ** 2
+    loss_fn = loss_fn.__class__(reduction='none')
+    diff = loss_fn(prediction, X)
 
     if per_patch:
         if isinstance(per_patch, int):
@@ -445,9 +412,8 @@ def compute_error(
             valid_counts, se, padding=0, groups=valid_counts.size(1)
         )
 
-        if True:
-            # Normalize the convolution output by the count of valid elements
-            diff = diff / valid_counts
+        # Normalize the convolution output by the count of valid elements
+        diff = diff / valid_counts
 
         assert diff.shape == X.shape, f"diff.shape: {diff.shape}, X.shape: {X.shape}"
 
@@ -475,9 +441,8 @@ def compute_error(
             valid_counts, se, padding=0, groups=valid_counts.size(1)
         )
 
-        if True:
-            # Normalize the convolution output by the count of valid elements
-            z_convolved = z_convolved / valid_counts
+        # Normalize the convolution output by the count of valid elements
+        z_convolved = z_convolved / valid_counts
 
         assert (
             z_convolved.shape[-1] == n_times

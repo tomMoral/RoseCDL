@@ -103,6 +103,7 @@ def get_lambda_max(X, D_hat, sample_weights=None, q=1, method="quantile"):
             for D_k in D_hat
         ]
 
+    # TODO: this should reuse get_thresholds
     if method == "quantile":
         assert q <= 1 and q >= 0
         return np.quantile(conv_res, axis=(1, 2), q=q)[:, None]

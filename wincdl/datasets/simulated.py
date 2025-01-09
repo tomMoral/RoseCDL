@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 from alphacsc.utils.convolution import construct_X
 from alphacsc.utils.dictionary import tukey_window
@@ -17,7 +16,6 @@ def simulate_1d(
     constant_amplitude=False,
     window=True,
     shapes=["triangle", "square", "sin", "gaussian"],
-    plot_atoms=False,
     p_acti=0.75,
     overlap=False,
     p_contaminate=0,
@@ -44,8 +42,6 @@ def simulate_1d(
         If True, applies Tukey window to smooth atom edges.
     shapes : list of str
         List of possible shapes for atoms if d is None.
-    plot_atoms : bool
-        If True, displays plot of the atoms.
     p_acti : float
         Probability of atom activation per time window.
     overlap : bool
@@ -78,18 +74,6 @@ def simulate_1d(
         # Use provided dictionary
         ds = d.copy()
         n_atoms, n_times_atom = ds.shape
-
-    # Plot if requested
-    if plot_atoms:
-        fig, axes = plt.subplots(
-            1, n_atoms, figsize=(3 * n_atoms, 3), sharex=True, sharey=True
-        )
-        if n_atoms == 1:
-            axes = [axes]
-        for ax, this_d in zip(axes, ds):
-            ax.plot(this_d)
-            ax.set_xlim(0, n_times_atom - 1)
-        plt.show()
 
     # Validate number of atoms
     assert (
