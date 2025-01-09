@@ -9,7 +9,7 @@ from scipy import signal
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
 
-from .utils.utils_outliers import compute_error, get_outlier_mask
+from .utils_outliers import compute_error, get_outlier_mask
 
 
 def get_lambda_max(X, D_hat, sample_weights=None, q=1, method="quantile"):
@@ -137,15 +137,28 @@ def multi_channel_2d_correlate(dk, pat):
 
     Parameters:
         dk, pat : np.ndarray
-            2D array of shape (n_channels, n_times_atom).
+            3D array of shape (n_channels, height, width) for 2D images, or
+            2D array of shape (n_channels, n_times_atom) for 1D signals.
 
     Returns:
-        np.ndarray : The 2D correlation.
+        np.ndarray : The correlation.
     """
-    return np.sum(
-        [signal.correlate(dk_c, pat_c, mode="full") for dk_c, pat_c in zip(dk, pat)],
-        axis=0,
-    )
+    if dk.ndim == 3 and pat.ndim == 3:  # 2D image case
+        return np.sum(
+            [
+                signal.correlate2d(dk_c, pat_c, mode="full")
+                for dk_c, pat_c in zip(dk, pat)
+            ],
+            axis=0,
+        )
+    else:  # 1D signal case
+        return np.sum(
+            [
+                signal.correlate(dk_c, pat_c, mode="full")
+                for dk_c, pat_c in zip(dk, pat)
+            ],
+            axis=0,
+        )
 
 
 def compute_best_assignment(corr):
@@ -169,26 +182,32 @@ def evaluate_D_hat(patterns, D_hat):
 
     Parameters:
         patterns : np.ndarray
-            The set of patterns, a 3D array (n_patterns, n_channels, n_times_atom).
+            The set of patterns, either:
+            - 4D array (n_patterns, n_channels, height, width) for 2D images
+            - 3D array (n_patterns, n_channels, n_times_atom) for 1D signals
         D_hat : np.ndarray
-            The learned dictionary, a 3D array (n_atoms, n_channels, n_times_atom).
+            The learned dictionary, same shape as patterns
 
     Returns:
-        float : The evaluation score.
+        float : The evaluation score (mean correlation of best assignments).
     """
     patterns, D_hat = patterns.copy(), D_hat.copy()
 
-    # axis = (2, 3)
-    axis = (1, 2)
-    patterns /= np.linalg.norm(patterns, ord="f", axis=axis, keepdims=True)
-    D_hat /= np.linalg.norm(D_hat, ord="f", axis=axis, keepdims=True)
+    # Normalize patterns and dictionary
+    for arr in [patterns, D_hat]:
+        norms = np.linalg.norm(arr.reshape(arr.shape[0], -1), axis=1)
+        norms[norms == 0] = 1  # Avoid division by zero
+        shape = [-1] + [1] * (arr.ndim - 1)
+        arr /= norms.reshape(shape)
 
+    # Compute correlation matrix
     corr = np.array(
         [
             [multi_channel_2d_correlate(dk, pat).max() for dk in D_hat]
             for pat in patterns
         ]
     )
+
     return compute_best_assignment(corr)
 
 
@@ -553,3 +572,57 @@ def sort_atoms(D, D_ref=None, return_permutation=False):
         return D_sorted, best_match
 
     return D_sorted
+
+
+def make_size(D, shape):
+    """
+    Makes the dictionary D have the specified shape by padding with zeros.
+
+    Parameters
+    ----------
+    D : ndarray of shape (n_atoms, n_channels, n_times_atom) or (n_atoms, n_channels, height, width)
+        The dictionary to be resized.
+    shape : tuple
+        The desired shape of the dictionary.
+
+    Notes
+    -----
+    If the difference in size is odd, the extra padding is added to the end.
+    """
+    if D.shape == shape:
+        return D
+
+    if len(shape) == 3:
+        if D.ndim == 2:
+            D = D[:, None, :]
+        _, _, n_times_atom = D.shape
+        _, _, n_times_atom_new = shape
+        diff = n_times_atom_new - n_times_atom
+        if diff < 0:
+            raise ValueError("Target shape must be larger than input shape")
+        pad_left = diff // 2
+        pad_right = diff - pad_left  # This handles odd-sized differences
+        new_D = np.pad(D, ((0, 0), (0, 0), (pad_left, pad_right)))
+        assert new_D.shape[1:] == shape[1:]  # Number of atoms can be different
+        return new_D
+
+    if len(shape) == 4:
+        if D.ndim == 3:
+            D = D[:, None, :, :]
+        _, _, height, width = D.shape
+        _, _, height_new, width_new = shape
+        diff_h = height_new - height
+        diff_w = width_new - width
+        if diff_h < 0 or diff_w < 0:
+            raise ValueError("Target shape must be larger than input shape")
+        pad_top = diff_h // 2
+        pad_bottom = diff_h - pad_top  # This handles odd-sized differences
+        pad_left = diff_w // 2
+        pad_right = diff_w - pad_left  # This handles odd-sized differences
+        new_D = np.pad(
+            D, ((0, 0), (0, 0), (pad_top, pad_bottom), (pad_left, pad_right))
+        )
+        assert new_D.shape[1:] == shape[1:]  # Number of atoms can be different
+        return new_D
+
+    raise ValueError("D should have 3 or 4 dimensions.")
