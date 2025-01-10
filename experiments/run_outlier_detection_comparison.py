@@ -165,10 +165,9 @@ if __name__ == "__main__":
         "epochs": 30,
         "max_batch": 10,
         "mini_batch_size": 5,
-        "mini_batch_window": 960,
+        "sample_window": 960,
         "optimizer": "linesearch",
         "n_iterations": 50,
-        "stochastic": True,
         "window": True,
         "device": DEVICE,
     }
