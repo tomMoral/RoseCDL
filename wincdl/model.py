@@ -185,7 +185,10 @@ class CSC1d(nn.Module):
             null_atom_indices = torch.where(z_nnz < 1e-3)[0]
             if len(null_atom_indices) > 0:
                 # resample a random atom
-                idx = torch.randint(len(null_atom_indices), (1,), generator=self.generator)
+                idx = torch.randint(
+                    len(null_atom_indices), (1,), generator=self.generator,
+                    device=self.device
+                )
                 k0 = null_atom_indices[idx].item()
                 # no resampling of the last 2 resampled atoms
                 if k0 in self._resampled_atoms[-2:]:

@@ -1,18 +1,74 @@
 import numpy as np
 import torch
+import warnings
 
-from .datasets import create_conv_dataloader
 from .loss import LassoLoss, OutlierLoss
 from .model import CSC1d, CSC2d
 from .optimizer import SLS
 from .train import train
 
+from .datasets import create_dataloader
+
 
 class WinCDL(torch.nn.Module):
     """
 
-    uv_constraint
-
+    Parameters
+    ----------
+    n_components : int
+        Number of atoms in the dictionary.
+    kernel_size : int or tuple of int
+        Size of the convolutional kernel. This is used to infer the dimensionality
+        of the data.
+    n_channels : int
+        Number of channels in the data.
+    lmbd : float
+        Regularization parameter.
+    scale_lmbd : bool, optional
+        If True, the regularization parameter will be scaled by the maximum value
+        it can take for the solution to be non-zero. This is useful to set the
+        regularization parameter in the interval [0, 1].
+    n_iterations : int, optional
+        Number of iterations for the internal CSC algorithm.
+    epochs : int, optional
+        Number of epochs for the training.
+    max_batch : int, optional
+        Maximum number of batches to process per epoch. If None, all batches will
+        be processed.
+    optimizer : str, optional
+        Name of the optimizer to use. Can be "adam" or "linesearch".
+    lr : float, optional
+        Learning rate for the optimizer.
+    gamma : float, optional
+        Learning rate decay for the Adam optimizer.
+    sample_window : int or tuple of int, optional
+        Size of minibatch windows. If int, the same window size will be used for
+        each dimension. If tuple, the number of elements should match the data
+        dimensionality. If None, no subwindows will be extracted and the dataset
+        will return each trial as is.
+    mini_batch_size : int, optional
+        Size of the mini-batch.
+    rank : str, optional
+        Rank of the dictionary. Can be "full" or "rank1". "rank1" will only be
+        used for 1D signals.
+    window : bool, optional
+        If True, the dictionary will be multiplied by a window function, to have
+        its value on the border to be zero.
+    D_init : array, optional
+        Initial dictionary. If None, the dictionary will be initialized randomly.
+    positive_z : bool, optional
+        If True, the activations will be constrained to be positive.
+    outliers_kwargs : dict, optional
+        Parameters for the outliers detection. If None, no outliers detection will
+        be used.
+    callbacks : tuple, optional
+        List of callbacks to use during the training. The callbacks should be callable
+        functions with signature `callback(model, epoch, loss)`.
+    device, dtype : str, optional
+        Device and data type for the data. If None, the data will be converted to
+        torch.tensor with default values.
+    random_state : int, optional
+        Random seed for reproducibility.
     """
 
     def __init__(
@@ -25,22 +81,20 @@ class WinCDL(torch.nn.Module):
         n_iterations=30,
         epochs=100,
         max_batch=10,
-        stochastic=False,
         optimizer="linesearch",
         lr=0.1,
         gamma=0.9,
-        mini_batch_window=1000,
+        sample_window=1000,
         mini_batch_size=10,
-        random_state=2147483647,
         rank="full",
         window=False,
         D_init=None,
         positive_z=True,
-        n_samples=None,
         outliers_kwargs=None,
         callbacks=(),
         device=None,
         dtype=torch.float,
+        random_state=2147483647,
     ):
         super().__init__()
 
@@ -50,14 +104,13 @@ class WinCDL(torch.nn.Module):
         self.lmbd = lmbd
         self.scale_lmbd = scale_lmbd
 
-        self.stochastic = stochastic
         self.epochs = epochs
         self.max_batch = max_batch
         self.mini_batch_size = mini_batch_size
-        self.mini_batch_window = mini_batch_window
-        self.gamma = gamma
+        self.stochastic = sample_window is not None
+        self.sample_window = sample_window
         self.optimizer_name = optimizer
-        self.n_samples = n_samples
+        self.gamma = gamma
         self.callbacks = callbacks
 
         self.random_state = random_state
@@ -97,7 +150,7 @@ class WinCDL(torch.nn.Module):
         if optimizer == "adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr)
         elif optimizer == "linesearch":
-            self.optimizer = SLS(self.parameters(), sto=stochastic, lr=lr)
+            self.optimizer = SLS(self.parameters(), sto=self.stochastic, lr=lr)
 
         self.to(device=device)
 
@@ -106,18 +159,35 @@ class WinCDL(torch.nn.Module):
         return self.csc.D_hat_.copy()
 
     def check_X(self, X):
-        # Check this is always of shape (batch, n_channels, *support)
+
         if self.dimN == 1:
             # X should be of shape (batch, n_channels, support)
-            if X.ndim == 2:
-                X = X[:, None, :]
+            expected_dim = 3
         elif self.dimN == 2:
             # X should be of shape (batch, n_channels, height, width)
-            if X.ndim == 3:
-                X = X[:, None, :, :]
-        expected_shape = (X.shape[0], self.csc.n_channels, *self.csc.kernel_size)
-        if X.shape != expected_shape:
-            raise ValueError(f"Expected X shape {expected_shape}, but got {X.shape}")
+            expected_dim = 4
+
+        # If missing one dimension, add a channel dimension.
+        # This will only work if n_channels=1
+        if X.ndim == expected_dim - 1:
+            X = X[:, None]
+
+        assert X.ndim == expected_dim, (
+            f"The input data X should be of dimension {expected_dim}, with shape "
+            f"(batch_size, n_channels, *support). Got X of shape {X.shape}"
+        )
+
+        if X.shape[1] != self.csc.n_channels:
+            raise ValueError(
+                f"The number of channel in X do not match the one specified in "
+                f"WinCDL. Got {X.shape[1]=}, while we expected {self.csc.n_channels}"
+            )
+
+        if any(supp < 3 * ks for supp, ks in zip(X.shape[2:], self.csc.kernel_size)):
+            warnings.warn(
+                "The support of the signal is smaller than 3 times the kernel size. "
+                "This may lead to poor performance."
+            )
 
         return X
 
@@ -128,16 +198,13 @@ class WinCDL(torch.nn.Module):
         else:
             # Generated Data
             X = self.check_X(X)  # Removes the channel dimension
-            train_dataloader = create_conv_dataloader(
+            train_dataloader = create_dataloader(
                 X,
-                self.device,
-                self.dtype,
-                sto=self.stochastic,
-                window=self.mini_batch_window,
+                sample_window=self.sample_window,
                 mini_batch_size=self.mini_batch_size,
                 random_state=self.random_state,
-                dimN=self.dimN,
-                n_samples=self.n_samples,
+                device=self.device,
+                dtype=self.dtype,
             )
 
         if self.scale_lmbd:

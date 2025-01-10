@@ -1,8 +1,9 @@
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
+import matplotlib.pyplot as plt
 
-from wincdl.datasets import ConvSignalDataset
+from wincdl.datasets import SubwindowsDataset
 from wincdl.datasets.simulated import simulate_1d as simulate_data2
 from wincdl.wincdl import WinCDL
 
@@ -13,7 +14,6 @@ N_TIMES = 500
 N_TIMES_ATOM = 50
 N_ATOMS = 5
 WINDOW = False
-STO = False
 OVERLAP = True
 RANDOM_STATE = 42
 P_ACTI = 0.7
@@ -26,10 +26,8 @@ KERNEL_SIZE = N_TIMES_ATOM
 N_CHANNELS = 1
 LMBD = 0.1
 N_ITERATIONS = 30
-EPOCHS = 10
-WINDOW = True
+SAMPLE_WINDOW = 300
 LIST_D = True
-STOCHASTIC = True
 
 
 # ======== CUSTOM DATASET ========
@@ -59,10 +57,14 @@ X, ds, _ = simulate_data2(
 X = X[:, np.newaxis, :]
 print("SHAPE X : ", X.shape)
 
-X_dataset = ConvSignalDataset(
-    X, sto=STO, device="cpu", dtype=torch.float32, window=WINDOW
+X_dataset = SubwindowsDataset(
+    X, sample_window=SAMPLE_WINDOW, device="cpu", dtype=torch.float32
 )
 loader = DataLoader(X_dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+losses = []
+def callback(model, epoch, loss):
+    losses.append(loss)
 
 
 model = WinCDL(
@@ -71,14 +73,14 @@ model = WinCDL(
     n_channels=N_CHANNELS,
     lmbd=LMBD,
     n_iterations=N_ITERATIONS,
-    epochs=EPOCHS,
+    epochs=40,
     window=WINDOW,
-    list_D=LIST_D,
-    stochastic=STOCHASTIC,
+    sample_window=SAMPLE_WINDOW,
+    callbacks=(callback,),
 )
 
-losses, list_D, time = model.fit(X)
+model.fit(X)
 
 print("SHAPE D : ", model.D_hat_.shape)
-print("LEN list_D : ", len(list_D))
-print(np.allclose(list_D[1], list_D[-1]))
+plt.plot(losses)
+plt.show()
