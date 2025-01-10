@@ -303,14 +303,13 @@ class CSC2d(CSC1d):
         dtype=None,
     ):
         super().__init__(
-            self,
-            n_iterations,
-            n_components,
-            kernel_size,
-            n_channels,
-            lmbd,
-            device,
-            dtype,
+            n_iterations=n_iterations,
+            n_components=n_components,
+            kernel_size=kernel_size,
+            n_channels=n_channels,
+            lmbd=lmbd,
+            device=device,
+            dtype=dtype,
             random_state=2147483647,
             rank="full",
             window=False,
@@ -347,3 +346,16 @@ class CSC2d(CSC1d):
             if lipschitz == 0:
                 lipschitz = 1
             return lipschitz
+
+    def _resample_atom(self, k0):
+        """Resample an atom if it is not used enough """
+
+        # XXX: better resample?
+        D_temp = torch.rand(
+            (1, self.n_channels, *self.kernel_size),
+            generator=self.generator,
+            dtype=self.dtype,
+            device=self.device,
+        )
+        self._D_hat[k0] = D_temp
+        self.rescale()

@@ -24,7 +24,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         torch.tensor with default values.
     """
 
-    def __init__(self, data, sample_window=False, device=None, dtype=None):
+    def __init__(self, data, sample_window=None, device=None, dtype=None):
         super().__init__()
         assert data.ndim in [3, 4], (
             "Data should be of shape (n_trials, n_channels, *support) with "
