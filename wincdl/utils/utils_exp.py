@@ -2,133 +2,13 @@ import json
 import warnings
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import torch
 import numpy as np
 import pandas as pd
 from scipy import signal
+import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
-
-from .utils.utils_outliers import compute_error, get_outlier_mask
-
-
-def get_lambda_max(X, D_hat, sample_weights=None, q=1, method="quantile"):
-    """For each atom, compute the regularization parameter scaling.
-    This value is usually defined as the smallest value for which 0 is
-    a solution of the optimization problem.
-    In order to avoid spurious values, this quantity can also be estimated
-    as the q-quantile of the correlation between signal patches and the
-    atom.
-
-    Parameters
-    ----------
-    X : array, shape (n_trials, n_times) or
-               shape (n_trials, n_channels, n_times)
-        The data
-
-    D_hat : array, shape (n_atoms, n_channels + n_times_atoms) or
-                   shape (n_atoms, n_channels, n_times_atom)
-        The atoms
-
-    sample_weights : None | array, shape (n_trials, n_times) or
-                                   shape (n_trials, n_channels, n_times)
-        Weights to apply to the data.
-        Defaults is None
-
-    q : float
-        If method is quantile (default), the quantile to compute, which must be between 0 and 1 inclusive.
-        Default is 1, i.e., the maximum is returned.
-        If method is iqr, zscore or mad, the alpha parameter to use.
-
-    method : str
-        Method to use to compute the lambda_max. Should be one of:
-        - quantile: q-quantile of the correlation between signal patches and the
-                    atom
-        - iqr: interquartile range of the correlation between signal patches
-               and the atom
-               Recommended value for alpha: 1.5
-        - zscore: mean + alpha * std of the correlation between signal patches
-                  and the atom
-                  Recommended values for alpha: 1, 2 or 3
-        - mad: median + alpha * mad of the correlation between signal patches
-               and the atom
-               Recommended values for alpha: 3.5
-
-    Returns
-    -------
-    lambda_max : array, shape (n_atoms, 1)
-    """
-    # univariate case, add a dimension (n_channels = 1)
-    if X.ndim == 2:
-        X = X[:, None, :]
-        D_hat = D_hat[:, None, :]
-        if sample_weights is not None:
-            sample_weights = sample_weights[:, None, :]
-
-    n_trials, n_channels, n_times = X.shape
-
-    if sample_weights is None:
-        # no need for the last dimension if we only have ones
-        if D_hat.ndim == 2:
-            sample_weights = np.ones(n_trials)
-        else:
-            sample_weights = np.ones((n_trials, n_channels))
-
-    # multivariate rank-1 case
-    if D_hat.ndim == 2:
-        conv_res = [
-            [
-                np.convolve(
-                    np.dot(uv_k[:n_channels], X_i * W_i),
-                    uv_k[: n_channels - 1 : -1],
-                    mode="valid",
-                )
-                for X_i, W_i in zip(X, sample_weights)
-            ]
-            for uv_k in D_hat
-        ]
-    # multivariate general case
-    else:
-        conv_res = [
-            [
-                np.sum(
-                    [
-                        np.correlate(D_kp, X_ip * W_ip, mode="valid")
-                        for D_kp, X_ip, W_ip in zip(D_k, X_i, W_i)
-                    ],
-                    axis=0,
-                )
-                for X_i, W_i in zip(X, sample_weights)
-            ]
-            for D_k in D_hat
-        ]
-
-    if method == "quantile":
-        assert q <= 1 and q >= 0
-        return np.quantile(conv_res, axis=(1, 2), q=q)[:, None]
-    elif method == "iqr":
-        alpha = q
-        assert alpha >= 1
-        q1, q3 = np.quantile(conv_res, axis=(1, 2), q=[0.25, 0.75])
-        res = q3 + 1.5 * (q3 - q1)
-        return res[:, None]
-    elif method == "zscore":
-        alpha = q
-        assert alpha >= 1
-        res = np.mean(conv_res, axis=(1, 2)) + alpha * np.std(conv_res, axis=(1, 2))
-        return res[:, None]
-    elif method == "mad":
-        alpha = q
-        assert alpha >= 1
-        median = np.median(conv_res, axis=(1, 2))
-        mad = np.median(np.abs(conv_res - median[:, None, None]), axis=(1, 2))
-        constant = 0.6745
-        res = median + alpha * mad / constant
-        return res[:, None]
-    else:
-        raise ValueError(
-            f"Unknown method {method}, should be one of " f"quantile, iqr, zscore, mad"
-        )
 
 
 def multi_channel_2d_correlate(dk, pat):
@@ -268,8 +148,6 @@ def get_method_name(outliers_kwargs):
         return "no detection"
 
     method = outliers_kwargs["method"]
-    if "unilateral" in method:
-        method = method.split("_")[0]
     if "alpha" in outliers_kwargs:
         alpha = outliers_kwargs["alpha"]
         method += f" (alpha={alpha})"
@@ -278,72 +156,19 @@ def get_method_name(outliers_kwargs):
 
 
 def get_outliers_metric(
-    wincdl,
     true_outliers_mask,
+    wincdl,
     X,
-    D,
-    return_mask=False,
-    per_patch=False,
-    with_opening_window=True,
 ):
     """
 
     wincdl: WinCDL instance
     """
-    X_hat = wincdl.get_prediction(X, D=D)
+    X = torch.tensor(X, dtype=wincdl.dtype, device=wincdl.device)
+    X_hat, z_hat = wincdl.csc(X)
 
-    kwargs = wincdl.outliers_kwargs
-    moving_average = kwargs.pop("moving_average", None)
-    opening_window = kwargs.pop("opening_window", True)
-    if not with_opening_window:
-        opening_window = False
-
-    model = wincdl.csc
-    err = compute_error(
-        prediction=X_hat,
-        X=X,
-        loss_fn=wincdl.loss_fn,
-        per_patch=model.n_times_atom if per_patch else False,
-        device=model.device,
-        z_hat=model._z_hat.clone() if per_patch else None,
-        lmbd=model.lmbd,
-    )
-    # Compute outlier mask
-    # thresholds = get_thresholds(
-    #     err, method=outliers_kwargs['method'], alpha=outliers_kwargs['alpha']
-    # )
-    outliers_mask = (
-        get_outlier_mask(
-            data=err,
-            thresholds=None,  # Recompute thresholds
-            moving_average=moving_average if not per_patch else None,
-            opening_window=model.n_times_atom if opening_window else None,
-            **kwargs,
-        )
-        .detach()
-        .cpu()
-        .numpy()
-    )
-
-    if outliers_mask.ndim == 2 and X.ndim == 3:
-        # Duplicate across channels
-        outliers_mask = np.repeat(outliers_mask[:, None, :], X.shape[1], axis=1)
-
-    # outliers_mask = get_outlier_mask(
-    #     data=compute_error(
-    #         X_hat,
-    #         X,
-    #         wincdl.loss_fn,
-    #         per_patch=model.n_times_atom if PER_PATCH else False,
-    #         keep_dim=True,
-    #     ),
-    #     thresholds=None,
-    #     opening_window=wincdl.csc.n_times_atom if opening_window else None,
-    #     **kwargs,
-    # ).cpu().numpy()
-
-    if wincdl.outliers_kwargs["union_channels"]:
-        true_outliers_mask = np.minimum(true_outliers_mask.sum(axis=1), 1)
+    outliers_mask = wincdl.loss_fn.get_outliers_mask(X_hat, z_hat, X, opening=False)
+    outliers_mask = outliers_mask.detach().cpu().numpy()
 
     # Ensure masks have the same shape
     if true_outliers_mask.shape != outliers_mask.shape:
@@ -370,9 +195,6 @@ def get_outliers_metric(
         jaccard=jaccard,
         percentage=np.mean(outliers_mask),
     )
-
-    if return_mask:
-        return score_dict, outliers_mask
 
     return score_dict
 

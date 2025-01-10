@@ -15,7 +15,7 @@ experiments/figures
 sub-*/
 experiments/results/
 outliers_detection/
-
+results/
 # C extensions
 *.so
 

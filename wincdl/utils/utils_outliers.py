@@ -1,36 +1,22 @@
-import warnings
-
 import torch
 import torch.nn.functional as F
 
 
-def check_thresholds(thresholds):
-    try:
-        lower_threshold, upper_threshold = thresholds
-    except ValueError:
-        raise ValueError(f"Thresholds should be a tuple but is {type(thresholds)}")
-
-    # Ensure that both thresholds are either float or None
-    if lower_threshold is not None and not isinstance(lower_threshold, (float, int)):
-        raise ValueError(
-            f"Lower threshold should be a float or None but is {type(lower_threshold)}"
-        )
-    if upper_threshold is not None and not isinstance(upper_threshold, (float, int)):
-        raise ValueError(
-            f"Upper threshold should be a float or None but is {type(upper_threshold)}"
-        )
-
-    # Ensure that if both thresholds are not None, upper is bigger than lower
-    if lower_threshold is not None and upper_threshold is not None:
-        if lower_threshold >= upper_threshold:
+def check_threshold(threshold):
+    # Ensure that the threshold is either float or None
+    if threshold is not None:
+        if isinstance(threshold, torch.Tensor):
+            assert threshold.dtype in (torch.float32, torch.int32), f"threshold.dtype: {threshold.dtype}"
+        elif not isinstance(threshold, (float, int)):
             raise ValueError(
-                f"Lower threshold should be smaller than upper threshold but is {lower_threshold} and {upper_threshold}"
+                f"threshold should be a float or None but is {type(threshold)}"
             )
 
 
-def get_thresholds(data, method="quantile", alpha=0.05):
+
+def get_threshold(data, method="quantile", alpha=0.05):
     """
-    Compute threshold(s).
+    Compute the outlier detection threshold.
 
     Parameters
     ----------
@@ -40,32 +26,26 @@ def get_thresholds(data, method="quantile", alpha=0.05):
         Method for outlier detection.
         - 'quantile' (default): Outliers are determined by values outside the
         specified quantile range.
-        - 'quantile_unilateral': Outliers are determined by values above the
-        specified quantile threshold.
         - 'iqr': Outliers are determined by values outside the whiskers of the
         interquartile range.
-        - 'iqr_unilateral': Outliers are determined by values above the upper
-        whisker of the interquartile range.
         - 'zscore': Outliers are determined by values that are a certain
         number of standard deviations away from the mean.
         - 'mad': Outliers are determined by values that are a
         certain number of median absolute deviations away from the median.
-        Source: B Iglewicz and DC Hoaglin, How to detect and handle outliers,
-        1993, p. 11
     alpha : float, optional (default: 0.05)
         Quantile level or threshold value for outlier detection.
-        If the method is 'quantile' or 'quantile_unilateral', alpha is the
-        quantile level.
-        If the method is 'iqr' or 'iqr_unilateral', alpha is the number of
-        interquartile ranges to use.
-        If the method is 'zscore' or 'mad', alpha is the number
-        of standard deviations to use.
+        If the method is 'quantile', alpha is the quantile level.
+        If the method is 'iqr', alpha is the number of interquartile ranges to use.
+        If the method is 'zscore' or 'mad', alpha is the number of standard
+        deviations to use.
+    dim : int|tuple, optional
+        Dimensions along which to compute the threshold. If None, compute the threshold
+        over all dimensions.
 
     Returns
     -------
-    tuple of float
-        Outlier threshold(s). If the method is bilateral, returns (lower_threshold, upper_threshold).
-        If the method is unilateral, returns (threshold,).
+    threshold : float or Tensor
+        Outlier threshold.
 
     Raises
     ------
@@ -75,57 +55,36 @@ def get_thresholds(data, method="quantile", alpha=0.05):
     Notes
     -----
     Detailed information about each method:
-    - 'quantile': The lower and upper thresholds are determined by the specified quantile levels.
+    - 'quantile': The lower and upper threshold are determined by the specified quantile levels.
     - 'quantile_unilateral': Only the upper threshold is determined by the specified quantile level.
-    - 'iqr': The thresholds are determined based on the whiskers of the interquartile range.
+    - 'iqr': The threshold are determined based on the whiskers of the interquartile range.
     - 'iqr_unilateral': Only the upper threshold is determined based on the upper whisker of the interquartile range.
-    - 'zscore': The thresholds are determined based on the mean and standard deviation. A value is considered an outlier if it's
+    - 'zscore': The threshold are determined based on the mean and standard deviation. A value is considered an outlier if it's
       alpha standard deviations away from the mean.
-    - 'mad': The thresholds are determined based on the median and median absolute deviation. A value is considered
+    - 'mad': The threshold are determined based on the median and median absolute deviation. A value is considered
       an outlier if it's alpha median absolute deviations away from the median.
 
     """
     # Check which method to use for outlier detection
     if method == "quantile":
         # Method of quantile bilateral
-        # Calculate lower and upper thresholds using quantiles
-        lower_threshold = torch.quantile(data, alpha)
-        upper_threshold = torch.quantile(data, 1 - alpha)
-        thresholds = (lower_threshold.item(), upper_threshold.item())
-
-    elif method == "quantile_unilateral":
-        # Method of quantile unilateral
-        # Calculate upper threshold using quantile
-        upper_threshold = torch.quantile(data, 1 - alpha)
-        thresholds = (upper_threshold.item(), None)
+        # Calculate lower and upper threshold using quantiles
+        threshold = torch.quantile(data, 1 - alpha)
 
     elif method == "iqr":
         # Method of interquartile range bilateral
-        # Calculate interquartile range and thresholds
+        # Calculate interquartile range and threshold
         q1 = torch.quantile(data, 0.25)
         q3 = torch.quantile(data, 0.75)
         iqr = q3 - q1
-        lower_threshold = q1 - alpha * iqr
-        upper_threshold = q3 + alpha * iqr
-        thresholds = (lower_threshold.item(), upper_threshold.item())
-
-    elif method == "iqr_unilateral":
-        # Method of interquartile range unilateral
-        # Calculate interquartile range and upper threshold
-        q1 = torch.quantile(data, 0.25)
-        q3 = torch.quantile(data, 0.75)
-        iqr = q3 - q1
-        upper_threshold = q3 + 1.5 * iqr
-        thresholds = (upper_threshold.item(), None)
+        threshold = q3 + alpha * iqr
 
     elif method == "zscore":
         # Method of standard deviation
         mean = torch.mean(data)
         std = torch.std(data)
-        # Calculate lower and upper thresholds
-        upper_threshold = mean + alpha * std
-        lower_threshold = mean - alpha * std
-        thresholds = (lower_threshold.item(), upper_threshold.item())
+        # Calculate lower and upper threshold
+        threshold = mean + alpha * std
 
     elif method == "mad":
         # Method of Modified Z-score
@@ -134,10 +93,8 @@ def get_thresholds(data, method="quantile", alpha=0.05):
         # Scaling factor
         constant = 0.6745
         # "The constant 0.6745 is needed because E(MAD) = 0.6745CT for large n", Iglewicz and Hoaglin, 1993
-        # Calculate lower and upper thresholds
-        upper_threshold = median + alpha * mad / constant
-        lower_threshold = median - alpha * mad / constant
-        thresholds = (lower_threshold.item(), upper_threshold.item())
+        # Calculate lower and upper threshold
+        threshold = median + alpha * mad / constant
 
     else:
         # Raise an error if an unsupported method is chosen
@@ -145,9 +102,10 @@ def get_thresholds(data, method="quantile", alpha=0.05):
             f"Invalid method: {method}, must be one of 'quantile', 'quantile_unilateral', 'iqr', 'iqr_unilateral', 'zscore', or 'mad'"
         )
 
-    check_thresholds(thresholds)
+    threshold = threshold.item()
+    check_threshold(threshold)
 
-    return thresholds
+    return threshold
 
 
 def gaussian_kernel(size, sigma):
@@ -263,7 +221,7 @@ def apply_opening(outliers_mask, window_size=15):
 
 def get_outlier_mask(
     data,
-    thresholds=None,
+    threshold=None,
     method="quantile",
     moving_average=None,
     opening_window=None,
@@ -275,28 +233,14 @@ def get_outlier_mask(
             moving_average = {}  # Apply with default parameters
         data = apply_moving_average(data, **moving_average)
 
-    if thresholds is None:
+    if threshold is None:
         alpha = kwargs.get("alpha", 0.05)
-        thresholds = get_thresholds(data, method=method, alpha=alpha)
-    elif isinstance(thresholds, float):
-        thresholds = (thresholds, None)
+        threshold = get_threshold(data, method=method, alpha=alpha)
 
-    check_thresholds(thresholds)
+    check_threshold(threshold)
 
-    # lower_threshold, upper_threshold = thresholds
-    # if upper_threshold is None:
-    #     upper_threshold = lower_threshold
-    #     outliers_mask = data > upper_threshold
-    # else:
-    #     outliers_mask = (data < lower_threshold) | (data > upper_threshold)
-
-    # Only take upper threshold into account
-    if thresholds[1] is None:
-        upper_threshold = thresholds[0]
-    else:
-        upper_threshold = thresholds[1]
-
-    outliers_mask = data > upper_threshold
+    # Compute the mask to detect the outliers
+    outliers_mask = data > threshold
 
     if opening_window is not None:
         if not isinstance(opening_window, int):
@@ -321,7 +265,7 @@ def get_outlier_mask(
 
 def remove_outliers(
     data,
-    thresholds=None,
+    threshold=None,
     method="quantile",
     opening_window=None,
     moving_average=None,
@@ -345,7 +289,7 @@ def remove_outliers(
 
     outliers_mask = get_outlier_mask(
         data,
-        thresholds=thresholds,
+        threshold=threshold,
         method=method,
         opening_window=opening_window,
         moving_average=moving_average,
@@ -354,148 +298,3 @@ def remove_outliers(
     )
 
     return torch.masked_select(data, ~outliers_mask), outliers_mask
-
-
-def compute_error(
-    prediction,
-    X,
-    loss_fn=torch.nn.MSELoss(),
-    use_proxy=False,
-    per_patch=True,
-    keep_dim=True,
-    device="cuda:0",
-    z_hat=None,
-    lmbd=1,
-):
-    """Compute (lasso) reconstruction error per patch.
-
-    prediction, X : numpy 3d-array
-        (n_trials, n_channels, n_times)
-
-    loss_fn : torch loss function
-
-    per_patch : False or int
-
-    """
-
-    assert (
-        X.ndim == 3
-    ), f"X should be 3D of shape (n_trials, n_channels, n_times) but is {X.ndim}D of shape {X.shape}"
-
-    assert (
-        prediction.ndim == 3
-    ), f"prediction should be 3D of shape (n_trials, n_channels, n_times) but is {prediction.ndim}D of shape {prediction.shape}"
-
-    assert (
-        prediction.shape == X.shape
-    ), f"prediction.shape: {prediction.shape}, X.shape: {X.shape}"
-
-    if not isinstance(prediction, torch.Tensor):
-        prediction = torch.tensor(prediction, dtype=torch.float, device=device)
-
-    if not isinstance(X, torch.Tensor):
-        X = torch.tensor(X, dtype=torch.float, device=device)
-
-    loss_fn_name = loss_fn.__class__.__name__
-    list_loss_fn = ["MSELoss", "L1Loss"]
-
-    if use_proxy:
-        # Compute the "derivative" at each timepoint
-        diff = torch.diff(X, dim=-1)
-        # Complete diff with zeros so it is of same shape as X along the time dimension
-        diff = F.pad(diff, (1, 0), "constant", 0)
-        assert (
-            diff.shape == X.shape
-        ), f"diff_padded.shape: {diff.shape}, X.shape: {X.shape}"
-    else:
-        if loss_fn_name == "MSELoss":
-            diff = (prediction - X) ** 2
-        elif loss_fn_name == "L1Loss":
-            diff = torch.abs(prediction - X)
-        else:
-            warnings.warn(
-                f"Unsupported loss function: {loss_fn_name}. Available loss functions are: {list_loss_fn}. Defaulting to MSELoss."
-            )
-            diff = (prediction - X) ** 2
-
-    if per_patch:
-        if isinstance(per_patch, int):
-            L = per_patch
-        elif isinstance(per_patch, bool):
-            if z_hat is not None:
-                n_trials, n_atoms, n_times_valid = z_hat.shape
-                n_times = X.shape[-1]
-                L = n_times - n_times_valid + 1
-            else:
-                raise ValueError("per_patch is True but z_hat is None")
-
-        # Create a tensor to count the number of valid (non-padded) elements in each sum
-        valid_counts = torch.ones_like(diff)
-
-        # Extend on left
-        diff = F.pad(diff, (L - 1, 0), "constant", 0)
-        valid_counts = F.pad(valid_counts, (L - 1, 0), "constant", 0)
-        # Create structuring element (kernel)
-        n_channels = X.shape[1]
-        se = torch.ones(n_channels, 1, L, device=diff.device)
-
-        # Performing the convolution operation
-        diff = F.conv1d(diff.float(), se, padding=0, groups=diff.size(1))
-        valid_counts = F.conv1d(
-            valid_counts, se, padding=0, groups=valid_counts.size(1)
-        )
-
-        if True:
-            # Normalize the convolution output by the count of valid elements
-            diff = diff / valid_counts
-
-        assert diff.shape == X.shape, f"diff.shape: {diff.shape}, X.shape: {X.shape}"
-
-        # Sum across channels
-        diff = torch.sum(diff, dim=1)
-
-    if z_hat is not None:
-        n_trials, n_atoms, n_times_valid = z_hat.shape
-        n_times = X.shape[-1]
-        L = n_times - n_times_valid + 1
-
-        z_hat = lmbd * torch.abs(z_hat)
-
-        # Create a tensor to count the number of valid (non-padded) elements in each sum
-        valid_counts = torch.ones_like(z_hat)
-
-        # Expand z_hat with 0 to match X's shape, plus avoiding border effects
-        z_hat = F.pad(z_hat, (L - 1, L - 1), "constant", 0)
-        valid_counts = F.pad(valid_counts, (L - 1, L - 1), "constant", 0)
-
-        # Performing the convolution operation
-        se = torch.ones(n_atoms, 1, L, device=z_hat.device)
-        z_convolved = F.conv1d(z_hat.float(), se, padding=0, groups=z_hat.size(1))
-        valid_counts = F.conv1d(
-            valid_counts, se, padding=0, groups=valid_counts.size(1)
-        )
-
-        if True:
-            # Normalize the convolution output by the count of valid elements
-            z_convolved = z_convolved / valid_counts
-
-        assert (
-            z_convolved.shape[-1] == n_times
-        ), f"z_convolved.shape: {z_convolved.shape}, n_times: {n_times}"
-
-        # Sum across atoms
-        z_convolved = torch.sum(z_convolved, dim=1)
-
-        if not per_patch:
-            # Duplicate across channels
-            z_convolved = z_convolved.unsqueeze(1).expand_as(X)
-        # else:
-        #     z_convolved /= L
-
-        # Add the values to diff
-        diff += z_convolved
-
-    if keep_dim:
-        return diff
-    else:
-        return torch.mean(diff)

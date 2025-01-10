@@ -13,7 +13,7 @@ from scipy.stats import norm
 from tqdm import tqdm
 
 from .utils_exp import sort_atoms, sort_list_D
-from .utils_signal import WaveFactory
+from .utils_simulated_waves import WaveFactory
 
 
 def generate_z(
