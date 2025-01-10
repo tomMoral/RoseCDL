@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss
 
-
 from .utils.utils_outliers import get_outlier_mask, get_threshold
 
 
@@ -116,7 +115,30 @@ class OutlierLoss(_ReconstructionLoss):
         ----------
         loss_fn : torch.nn.Module
             The loss function to trimm to compute the loss.
-        TODO: complete docstring
+        method : str, default="quantile"
+            Outlier detection method. One of:
+            - "quantile": Use quantile-based thresholding
+            - "iqr": Use interquartile range
+            - "zscore": Use z-score thresholding  
+            - "mad": Use median absolute deviation
+        alpha : float, default=0.05
+            Outlier detection parameter.
+        reduction : str, optional
+            Reduction method to apply ("mean", "sum", or "none").
+            Defaults to the reduction method of loss_fn.
+        moving_average : dict, optional
+            Parameters for moving average smoothing:
+            - window_size: Size of averaging window
+            - method: Averaging method ("mean" or "max") 
+            - gaussian: Whether to use Gaussian weighting
+        opening_window : bool, default=True
+            Whether to apply morphological opening when calculating thresholds
+        union_channels : bool, default=True
+            Whether to detect outliers jointly across channels
+        Attributes
+        ----------
+        _threshold : float
+            Current outlier detection threshold (None until computed)
         """
         super().__init__()
 

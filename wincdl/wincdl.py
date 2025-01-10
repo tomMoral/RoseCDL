@@ -2,10 +2,10 @@ import numpy as np
 import torch
 
 from .datasets import create_conv_dataloader
+from .loss import LassoLoss, OutlierLoss
 from .model import CSC1d, CSC2d
 from .optimizer import SLS
 from .train import train
-from .loss import OutlierLoss, LassoLoss
 
 
 class WinCDL(torch.nn.Module):
@@ -106,12 +106,18 @@ class WinCDL(torch.nn.Module):
         return self.csc.D_hat_.copy()
 
     def check_X(self, X):
-        # TODO: check this is always of shape (batch, n_channels, *support)
-        # Check the dimensions of X and reshape it if necessary
-        if X.ndim == 3:
-            X = X.transpose(1, 0, 2).reshape(X.shape[1], -1)
-        elif X.ndim != 2:
-            raise ValueError("X must be 2D or 3D.")
+        # Check this is always of shape (batch, n_channels, *support)
+        if self.dimN == 1:
+            # X should be of shape (batch, n_channels, support)
+            if X.ndim == 2:
+                X = X[:, None, :]
+        elif self.dimN == 2:
+            # X should be of shape (batch, n_channels, height, width)
+            if X.ndim == 3:
+                X = X[:, None, :, :]
+        expected_shape = (X.shape[0], self.csc.n_channels, *self.csc.kernel_size)
+        if X.shape != expected_shape:
+            raise ValueError(f"Expected X shape {expected_shape}, but got {X.shape}")
 
         return X
 
