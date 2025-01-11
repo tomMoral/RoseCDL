@@ -394,3 +394,57 @@ def sort_atoms(D, D_ref=None, return_permutation=False):
         return D_sorted, best_match
 
     return D_sorted
+
+
+def make_size(D, shape):
+    """
+    Makes the dictionary D have the specified shape by padding with zeros.
+
+    Parameters
+    ----------
+    D : ndarray of shape (n_atoms, n_channels, n_times_atom) or (n_atoms, n_channels, height, width)
+        The dictionary to be resized.
+    shape : tuple
+        The desired shape of the dictionary.
+
+    Notes
+    -----
+    If the difference in size is odd, the extra padding is added to the end.
+    """
+    if D.shape == shape:
+        return D
+
+    if len(shape) == 3:
+        if D.ndim == 2:
+            D = D[:, None, :]
+        _, _, n_times_atom = D.shape
+        _, _, n_times_atom_new = shape
+        diff = n_times_atom_new - n_times_atom
+        if diff < 0:
+            raise ValueError("Target shape must be larger than input shape")
+        pad_left = diff // 2
+        pad_right = diff - pad_left  # This handles odd-sized differences
+        new_D = np.pad(D, ((0, 0), (0, 0), (pad_left, pad_right)))
+        assert new_D.shape[1:] == shape[1:]  # Number of atoms can be different
+        return new_D
+
+    if len(shape) == 4:
+        if D.ndim == 3:
+            D = D[:, None, :, :]
+        _, _, height, width = D.shape
+        _, _, height_new, width_new = shape
+        diff_h = height_new - height
+        diff_w = width_new - width
+        if diff_h < 0 or diff_w < 0:
+            raise ValueError("Target shape must be larger than input shape")
+        pad_top = diff_h // 2
+        pad_bottom = diff_h - pad_top  # This handles odd-sized differences
+        pad_left = diff_w // 2
+        pad_right = diff_w - pad_left  # This handles odd-sized differences
+        new_D = np.pad(
+            D, ((0, 0), (0, 0), (pad_top, pad_bottom), (pad_left, pad_right))
+        )
+        assert new_D.shape[1:] == shape[1:]  # Number of atoms can be different
+        return new_D
+
+    raise ValueError("D should have 3 or 4 dimensions.")
