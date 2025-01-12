@@ -24,7 +24,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         torch.tensor with default values.
     """
 
-    def __init__(self, data, sample_window=False, device=None, dtype=None):
+    def __init__(self, data, sample_window=None, device=None, dtype=None):
         super().__init__()
         assert data.ndim in [3, 4], (
             "Data should be of shape (n_trials, n_channels, *support) with "
@@ -68,12 +68,13 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         elif self.sto and self.dimN == 2:
             idx_i = idx // self.n_windows[1]
             idx_j = idx % self.n_windows[1]
+
+            # using slices for readability
+            slice_i = slice(idx_i, idx_i + self.sample_window[0])
+            slice_j = slice(idx_j, idx_j + self.sample_window[1])
+
             return torch.tensor(
-                self.data[
-                    idx_samp, :,
-                    idx_i * self.sample_window[0] : (idx_i + 1) * self.sample_window[0],
-                    idx_j * self.sample_window[1] : (idx_j + 1) * self.sample_window[1],
-                ],
+                self.data[idx_samp, :, slice_i, slice_j],
                 device=self.device,
                 dtype=self.dtype,
             )
