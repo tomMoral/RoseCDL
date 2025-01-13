@@ -54,32 +54,20 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         else:
             self.n_windows = (1,)
             self.data = torch.tensor(data, device=self.device, dtype=self.dtype)
+            self.sample_window = data.shape[2:]
 
     def __getitem__(self, idx):
-        total_n_windows = np.prod(self.n_windows)
-        idx_samp = idx // total_n_windows
-        idx = idx % total_n_windows
-        if self.sto and self.dimN == 1:
-            return torch.tensor(
-                self.data[idx_samp, :, idx : (idx + self.sample_window[0])],
-                device=self.device,
-                dtype=self.dtype,
-            )
-        elif self.sto and self.dimN == 2:
-            idx_i = idx // self.n_windows[1]
-            idx_j = idx % self.n_windows[1]
+        # Adding support for negative indexing
+        if idx < 0:
+            idx += len(self)
 
-            # using slices for readability
-            slice_i = slice(idx_i, idx_i + self.sample_window[0])
-            slice_j = slice(idx_j, idx_j + self.sample_window[1])
+        # Using unravel_index to get the sample index and the window indices
+        idx_samp, *idx_windows = np.unravel_index(idx, (self.n_samples, *self.n_windows))
+        slice_window = [slice(i, i + sw) for i, sw in zip(idx_windows, self.sample_window)]
 
-            return torch.tensor(
-                self.data[idx_samp, :, slice_i, slice_j],
-                device=self.device,
-                dtype=self.dtype,
-            )
-        else:
-            return self.data[idx_samp]
+        return torch.tensor(
+            self.data[idx_samp, :, *slice_window], device=self.device, dtype=self.dtype
+        )
 
     def __len__(self):
         if self.sto:
