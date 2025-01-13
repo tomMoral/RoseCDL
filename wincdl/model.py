@@ -100,9 +100,7 @@ class CSC1d(nn.Module):
 
         elif self.rank == "full":
             self._D_hat = nn.Parameter(
-                torch.tensor(
-                    D_hat.clone().detach(), dtype=self.dtype, device=self.device
-                )
+                D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
             )
 
         self.rescale()
@@ -125,7 +123,7 @@ class CSC1d(nn.Module):
 
     @property
     def D_hat_(self):
-        return self.get_D().to("cpu").detach().numpy()
+        return self.get_D().detach().cpu().numpy()
 
     @property
     def uv_hat_(self):
@@ -138,24 +136,24 @@ class CSC1d(nn.Module):
         with torch.no_grad():
             if self.rank == "uv_constraint":
                 if self.do_window:
-                    norm_col_v = torch.norm(self.window * self.v, dim=2, keepdim=True)
+                    norm_col_v = torch.linalg.vector_norm(self.window * self.v, dim=2, keepdim=True)
                 else:
-                    norm_col_v = torch.norm(self.v, dim=2, keepdim=True)
+                    norm_col_v = torch.linalg.vector_norm(self.v, dim=2, keepdim=True)
                 norm_col_v[torch.nonzero((norm_col_v == 0), as_tuple=False)] = 1
                 self.v /= norm_col_v
 
-                norm_col_u = torch.norm(self.u, dim=1, keepdim=True)
+                norm_col_u = torch.linalg.vector_norm(self.u, dim=1, keepdim=True)
                 norm_col_u[torch.nonzero((norm_col_u == 0), as_tuple=False)] = 1
                 self.u /= norm_col_u
                 return norm_col_v, norm_col_u
 
             elif self.rank == "full":
                 if self.do_window:
-                    norm_atoms = torch.norm(
+                    norm_atoms = torch.linalg.vector_norm(
                         self.window * self._D_hat, dim=(1, 2), keepdim=True
                     )
                 else:
-                    norm_atoms = torch.norm(self._D_hat, dim=(1, 2), keepdim=True)
+                    norm_atoms = torch.linalg.vector_norm(self._D_hat, dim=(1, 2), keepdim=True)
                 norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
                 self._D_hat /= norm_atoms
                 return norm_atoms
@@ -303,14 +301,13 @@ class CSC2d(CSC1d):
         dtype=None,
     ):
         super().__init__(
-            self,
-            n_iterations,
-            n_components,
-            kernel_size,
-            n_channels,
-            lmbd,
-            device,
-            dtype,
+            n_iterations=n_iterations,
+            n_components=n_components,
+            kernel_size=kernel_size,
+            n_channels=n_channels,
+            lmbd=lmbd,
+            device=device,
+            dtype=dtype,
             random_state=2147483647,
             rank="full",
             window=False,
@@ -327,7 +324,7 @@ class CSC2d(CSC1d):
         Constrains the dictionary to have normalized atoms
         """
         with torch.no_grad():
-            norm_atoms = torch.norm(self._D_hat, dim=(1, 2, 3), keepdim=True, p=2)
+            norm_atoms = torch.linalg.vector_norm(self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True)
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
 
@@ -347,3 +344,16 @@ class CSC2d(CSC1d):
             if lipschitz == 0:
                 lipschitz = 1
             return lipschitz
+
+    def _resample_atom(self, k0):
+        """Resample an atom if it is not used enough """
+
+        # XXX: better resample?
+        D_temp = torch.rand(
+            (1, self.n_channels, *self.kernel_size),
+            generator=self.generator,
+            dtype=self.dtype,
+            device=self.device,
+        )
+        self._D_hat[k0] = D_temp
+        self.rescale()

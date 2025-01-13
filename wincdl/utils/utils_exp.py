@@ -17,10 +17,11 @@ def multi_channel_2d_correlate(dk, pat):
 
     Parameters:
         dk, pat : np.ndarray
-            2D array of shape (n_channels, n_times_atom).
+            3D array of shape (n_channels, height, width) for 2D images, or
+            2D array of shape (n_channels, n_times_atom) for 1D signals.
 
     Returns:
-        np.ndarray : The 2D correlation.
+        np.ndarray : The correlation.
     """
     return np.sum(
         [signal.correlate(dk_c, pat_c, mode="full") for dk_c, pat_c in zip(dk, pat)],
@@ -49,19 +50,31 @@ def evaluate_D_hat(patterns, D_hat):
 
     Parameters:
         patterns : np.ndarray
-            The set of patterns, a 3D array (n_patterns, n_channels, n_times_atom).
+            The set of patterns, either:
+            - 4D array (n_patterns, n_channels, height, width) for 2D images
+            - 3D array (n_patterns, n_channels, n_times_atom) for 1D signals
         D_hat : np.ndarray
-            The learned dictionary, a 3D array (n_atoms, n_channels, n_times_atom).
+            The learned dictionary, same shape as patterns
 
     Returns:
-        float : The evaluation score.
+        float : The evaluation score (mean correlation of best assignments).
     """
     patterns, D_hat = patterns.copy(), D_hat.copy()
 
     # axis = (2, 3)
-    axis = (1, 2)
-    patterns /= np.linalg.norm(patterns, ord="f", axis=axis, keepdims=True)
-    D_hat /= np.linalg.norm(D_hat, ord="f", axis=axis, keepdims=True)
+    if patterns.ndim == 4:
+        axis = (1, 2, 3)
+    else:
+        axis = (1, 2)
+
+    patterns = torch.from_numpy(patterns)
+    D_hat = torch.from_numpy(D_hat)
+
+    patterns /= torch.linalg.vector_norm(patterns, dim=axis, keepdim=True)
+    D_hat /= torch.linalg.vector_norm(D_hat, dim=axis, keepdim=True)
+
+    patterns = patterns.numpy()
+    D_hat = D_hat.numpy()
 
     corr = np.array(
         [
