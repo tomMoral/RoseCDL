@@ -21,12 +21,17 @@ def run_2d_experiment(wincdl_params, data_path, exp_dir, seed=None):
 
     # Setup the callback for monitoring and visualization
     results = []
+    t_start = time.perf_counter()
 
     def callback_fn(model, epoch, loss):
+        global t_start
+        runtime = time.perf_counter() - t_start
         D_true_resized = make_size(D_true, model.D_hat_.shape)
         score = evaluate_D_hat(D_true_resized, model.D_hat_)
 
-        results.append({"seed": seed, "epoch": epoch, "loss": loss, "score": score})
+        results.append({"seed": seed, "epoch": epoch, "loss": loss, "score": score, "time": runtime})
+        
+        t_start = time.perf_counter()
 
     # Run WinCDL
     wincdl = WinCDL(**wincdl_params, callbacks=[callback_fn])
