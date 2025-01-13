@@ -138,24 +138,24 @@ class CSC1d(nn.Module):
         with torch.no_grad():
             if self.rank == "uv_constraint":
                 if self.do_window:
-                    norm_col_v = torch.norm(self.window * self.v, dim=2, keepdim=True)
+                    norm_col_v = torch.linalg.vector_norm(self.window * self.v, dim=2, keepdim=True)
                 else:
-                    norm_col_v = torch.norm(self.v, dim=2, keepdim=True)
+                    norm_col_v = torch.linalg.vector_norm(self.v, dim=2, keepdim=True)
                 norm_col_v[torch.nonzero((norm_col_v == 0), as_tuple=False)] = 1
                 self.v /= norm_col_v
 
-                norm_col_u = torch.norm(self.u, dim=1, keepdim=True)
+                norm_col_u = torch.linalg.vector_norm(self.u, dim=1, keepdim=True)
                 norm_col_u[torch.nonzero((norm_col_u == 0), as_tuple=False)] = 1
                 self.u /= norm_col_u
                 return norm_col_v, norm_col_u
 
             elif self.rank == "full":
                 if self.do_window:
-                    norm_atoms = torch.norm(
+                    norm_atoms = torch.linalg.vector_norm(
                         self.window * self._D_hat, dim=(1, 2), keepdim=True
                     )
                 else:
-                    norm_atoms = torch.norm(self._D_hat, dim=(1, 2), keepdim=True)
+                    norm_atoms = torch.linalg.vector_norm(self._D_hat, dim=(1, 2), keepdim=True)
                 norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
                 self._D_hat /= norm_atoms
                 return norm_atoms
@@ -326,7 +326,7 @@ class CSC2d(CSC1d):
         Constrains the dictionary to have normalized atoms
         """
         with torch.no_grad():
-            norm_atoms = torch.norm(self._D_hat, dim=(1, 2, 3), keepdim=True, p=2)
+            norm_atoms = torch.linalg.vector_norm(self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True)
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
 

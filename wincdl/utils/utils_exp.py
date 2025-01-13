@@ -70,8 +70,8 @@ def evaluate_D_hat(patterns, D_hat):
     patterns = torch.from_numpy(patterns)
     D_hat = torch.from_numpy(D_hat)
 
-    patterns /= torch.norm(patterns, dim=axis, keepdim=True, p=2)
-    D_hat /= torch.norm(D_hat, dim=axis, keepdim=True, p=2)
+    patterns /= torch.linalg.vector_norm(patterns, dim=axis, keepdim=True)
+    D_hat /= torch.linalg.vector_norm(D_hat, dim=axis, keepdim=True)
 
     patterns = patterns.numpy()
     D_hat = D_hat.numpy()
