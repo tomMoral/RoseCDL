@@ -2,43 +2,16 @@
 
 from pathlib import Path
 import numpy as np
-import pandas as pd
 from torch import cuda
 
 from wincdl.utils.utils_exp import evaluate_D_hat, make_size
 from wincdl.wincdl import WinCDL
 
+import time
+
 
 EXP_DIR = Path("results")
 EXP_DIR.mkdir(exist_ok=True, parents=True)
-
-
-def run_2d_experiment(wincdl_params, data_path, exp_dir, seed=None):
-    # Load the data
-    data = np.load(data_path)
-    X = data.get("X")
-    D_true = data.get("D")
-
-    # Setup the callback for monitoring and visualization
-    results = []
-    t_start = time.perf_counter()
-
-    def callback_fn(model, epoch, loss):
-        global t_start
-        runtime = time.perf_counter() - t_start
-        D_true_resized = make_size(D_true, model.D_hat_.shape)
-        score = evaluate_D_hat(D_true_resized, model.D_hat_)
-
-        results.append({"seed": seed, "epoch": epoch, "loss": loss, "score": score, "time": runtime})
-        
-        t_start = time.perf_counter()
-
-    # Run WinCDL
-    wincdl = WinCDL(**wincdl_params, callbacks=[callback_fn])
-    wincdl.fit(X)
-
-    return results
-
 
 if __name__ == "__main__":
     import argparse
@@ -62,7 +35,7 @@ if __name__ == "__main__":
     # WinCDL parameters for 2D processing
     wincdl_params = {
         "n_components": 6,
-        "kernel_size": 35,
+        "kernel_size": (35, 35),
         "n_channels": 1,
         "lmbd": args.reg,
         "scale_lmbd": True,
@@ -76,6 +49,37 @@ if __name__ == "__main__":
         "device": DEVICE,
     }
 
-    # Run experiment and save results
-    results = run_2d_experiment(wincdl_params, args.data_path, exp_dir, seed)
-    pd.DataFrame(results).to_csv(exp_dir / "wincdl_results.csv", index=False)
+    # Load the data
+    data = np.load(args.data_path)
+    X = data.get("X")
+    D_true = data.get("D")
+
+    if X.ndim == 2:
+        X = X[np.newaxis, np.newaxis, :, :]
+
+    # Setup the callback for monitoring and visualization
+    results = []
+    t_start = time.perf_counter()
+
+    def callback_fn(model, epoch, loss):
+        global t_start
+        runtime = time.perf_counter() - t_start
+        D_true_resized = make_size(D_true, model.D_hat_.shape)
+        score = evaluate_D_hat(D_true_resized, model.D_hat_)
+
+        results.append(
+            {
+                "seed": seed,
+                "epoch": epoch,
+                "loss": loss,
+                "score": score,
+                "time": runtime,
+            }
+        )
+        t_start = time.perf_counter()
+
+    # Run WinCDL
+    wincdl = WinCDL(**wincdl_params, callbacks=[callback_fn])
+    wincdl.fit(X)
+
+    print(results)
