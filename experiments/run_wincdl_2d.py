@@ -27,38 +27,19 @@ if __name__ == "__main__":
     parser.add_argument("--reg", type=float, default=0.8, help="Regularization parameter")
     args = parser.parse_args()
 
-    DEVICE = "cuda" if cuda.is_available() else "cpu"
     seed = args.seed if args.seed is not None else np.random.randint(0, 2**32 - 1)
+    print(f"Seed: {seed}")
 
     exp_dir = EXP_DIR / f"wincdl_2d_reg_{args.reg}"
     exp_dir.mkdir(exist_ok=True, parents=True)
-
-    # WinCDL parameters for 2D processing
-    wincdl_params = {
-        "n_components": 6,
-        "kernel_size": (35, 35),
-        "n_channels": 1,
-        "lmbd": args.reg,
-        "scale_lmbd": True,
-        "epochs": 100,
-        "max_batch": 20,
-        "mini_batch_size": 10,
-        "sample_window": 500,
-        "optimizer": "linesearch",
-        "n_iterations": 50,
-        "window": True,
-        "device": DEVICE,
-    }
 
     # Load the data
     data = np.load(args.data_path)
     X = data.get("X")
     D_true = data.get("d")
 
-    X = X[100:600, 100:600]
-
     if X.ndim == 2:
-        X = X[None, None, :, :]
+        X = X[None, None]
 
     # Setup the callback for monitoring and visualization
     results = []
@@ -81,7 +62,22 @@ if __name__ == "__main__":
         t_start = time.perf_counter()
 
     # Run WinCDL
-    wincdl = WinCDL(**wincdl_params, callbacks=[callback_fn])
+    wincdl = WinCDL(
+        n_components=6,
+        kernel_size=(35, 35),
+        n_channels=1,
+        lmbd=args.reg,
+        scale_lmbd=True,
+        epochs=30,
+        max_batch=1,
+        mini_batch_size=1,
+        sample_window=500,
+        optimizer="linesearch",
+        n_iterations=50,
+        window=True,
+        device="cuda" if cuda.is_available() else "cpu",
+        callbacks=[callback_fn]
+    )
     wincdl.fit(X)
 
     results = pd.DataFrame(results)
@@ -95,7 +91,7 @@ if __name__ == "__main__":
     fig.savefig(exp_dir / "learning_curve.png")
 
     # Plot atoms learned
-    fig, ax = plt.subplots(1, wincdl_params["n_components"], figsize=(10, 5))
+    fig, ax = plt.subplots(1, wincdl.D_hat_.shape[0], figsize=(10, 5))
     for i, atom in enumerate(wincdl.D_hat_):
         ax[i].imshow(atom.squeeze(), cmap="gray")
         ax[i].axis("off")

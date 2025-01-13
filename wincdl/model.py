@@ -100,9 +100,7 @@ class CSC1d(nn.Module):
 
         elif self.rank == "full":
             self._D_hat = nn.Parameter(
-                torch.tensor(
-                    D_hat.clone().detach(), dtype=self.dtype, device=self.device
-                )
+                D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
             )
 
         self.rescale()
@@ -125,7 +123,7 @@ class CSC1d(nn.Module):
 
     @property
     def D_hat_(self):
-        return self.get_D().to("cpu").detach().numpy()
+        return self.get_D().detach().cpu().numpy()
 
     @property
     def uv_hat_(self):
