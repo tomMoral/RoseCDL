@@ -53,12 +53,12 @@ if __name__ == "__main__":
     # Load the data
     data = np.load(args.data_path)
     X = data.get("X")
-    D_true = data.get("D")
+    D_true = data.get("d")
 
     X = X[100:600, 100:600]
 
     if X.ndim == 2:
-        X = X[np.newaxis, np.newaxis, :, :]
+        X = X[None, None, :, :]
 
     # Setup the callback for monitoring and visualization
     results = []
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     def callback_fn(model, epoch, loss):
         global t_start
         runtime = time.perf_counter() - t_start
-        score = evaluate_D_hat(np.expand_dims(D_true, axis=1), model.D_hat_)
+        score = evaluate_D_hat(D_true[:, None], model.D_hat_)
 
         results.append(
             {
