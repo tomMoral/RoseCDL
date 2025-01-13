@@ -3,8 +3,9 @@
 from pathlib import Path
 import numpy as np
 from torch import cuda
+import matplotlib.pyplot as plt
 
-from wincdl.utils.utils_exp import evaluate_D_hat, make_size
+from wincdl.utils.utils_exp import evaluate_D_hat
 from wincdl.wincdl import WinCDL
 
 import time
@@ -39,7 +40,7 @@ if __name__ == "__main__":
         "n_channels": 1,
         "lmbd": args.reg,
         "scale_lmbd": True,
-        "epochs": 50,
+        "epochs": 100,
         "max_batch": 20,
         "mini_batch_size": 10,
         "sample_window": 500,
@@ -54,6 +55,8 @@ if __name__ == "__main__":
     X = data.get("X")
     D_true = data.get("D")
 
+    X = X[100:600, 100:600]
+
     if X.ndim == 2:
         X = X[np.newaxis, np.newaxis, :, :]
 
@@ -64,8 +67,7 @@ if __name__ == "__main__":
     def callback_fn(model, epoch, loss):
         global t_start
         runtime = time.perf_counter() - t_start
-        D_true_resized = make_size(D_true, model.D_hat_.shape)
-        score = evaluate_D_hat(D_true_resized, model.D_hat_)
+        score = evaluate_D_hat(np.expand_dims(D_true, axis=1), model.D_hat_)
 
         results.append(
             {
@@ -83,3 +85,12 @@ if __name__ == "__main__":
     wincdl.fit(X)
 
     print(results)
+
+    # Plot atoms learned
+    fig, ax = plt.subplots(1, wincdl_params["n_components"], figsize=(10, 5))
+    for i, atom in enumerate(wincdl.D_hat_):
+        ax[i].imshow(atom.squeeze(), cmap="gray")
+        ax[i].axis("off")
+
+    plt.savefig("atoms_learned_wincdl.png")
+
