@@ -23,22 +23,10 @@ def multi_channel_2d_correlate(dk, pat):
     Returns:
         np.ndarray : The correlation.
     """
-    if dk.ndim == 3 and pat.ndim == 3:  # 2D image case
-        return np.sum(
-            [
-                signal.correlate2d(dk_c, pat_c, mode="full")
-                for dk_c, pat_c in zip(dk, pat)
-            ],
-            axis=0,
-        )
-    else:  # 1D signal case
-        return np.sum(
-            [
-                signal.correlate(dk_c, pat_c, mode="full")
-                for dk_c, pat_c in zip(dk, pat)
-            ],
-            axis=0,
-        )
+    return np.sum(
+        [signal.correlate(dk_c, pat_c, mode="full") for dk_c, pat_c in zip(dk, pat)],
+        axis=0,
+    )
 
 
 def compute_best_assignment(corr):
@@ -73,21 +61,27 @@ def evaluate_D_hat(patterns, D_hat):
     """
     patterns, D_hat = patterns.copy(), D_hat.copy()
 
-    # Normalize patterns and dictionary
-    for arr in [patterns, D_hat]:
-        norms = np.linalg.norm(arr.reshape(arr.shape[0], -1), axis=1)
-        norms[norms == 0] = 1  # Avoid division by zero
-        shape = [-1] + [1] * (arr.ndim - 1)
-        arr /= norms.reshape(shape)
+    # axis = (2, 3)
+    if patterns.ndim == 4:
+        axis = (1, 2, 3)
+    else:
+        axis = (1, 2)
 
-    # Compute correlation matrix
+    patterns = torch.from_numpy(patterns)
+    D_hat = torch.from_numpy(D_hat)
+
+    patterns /= torch.norm(patterns, dim=axis, keepdim=True, p=2)
+    D_hat /= torch.norm(D_hat, dim=axis, keepdim=True, p=2)
+
+    patterns = patterns.numpy()
+    D_hat = D_hat.numpy()
+
     corr = np.array(
         [
             [multi_channel_2d_correlate(dk, pat).max() for dk in D_hat]
             for pat in patterns
         ]
     )
-
     return compute_best_assignment(corr)
 
 
