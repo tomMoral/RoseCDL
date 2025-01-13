@@ -31,13 +31,11 @@ class SubwindowsDataset(torch.utils.data.Dataset):
             f"support being either 1D or 2D. Got {data.shape=}"
         )
         self.data = data
-        self.n_samples = data.shape[0]
         self.dimN = 1 if data.ndim == 3 else 2
 
         self.device = device
         self.dtype = dtype
 
-        self.sto = sample_window is not None
         if sample_window:
             if isinstance(sample_window, int):
                 sample_window = tuple(sample_window for _ in range(self.dimN))
@@ -48,13 +46,15 @@ class SubwindowsDataset(torch.utils.data.Dataset):
             self.sample_window = tuple(
                 min(w, ds) for w, ds in zip(sample_window, data.shape[2:])
             )
-            self.n_windows = tuple(
+            self._n_windows = tuple(
                 ds - sw + 1 for ds, sw in zip(data.shape[2:], self.sample_window)
             )
         else:
-            self.n_windows = (1,)
             self.data = torch.tensor(data, device=self.device, dtype=self.dtype)
             self.sample_window = data.shape[2:]
+            self._n_windows = tuple(1 for _ in range(self.dimN))
+
+        self._n_windows = (len(data), *self._n_windows)
 
     def __getitem__(self, idx):
         # Adding support for negative indexing
@@ -62,7 +62,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
             idx += len(self)
 
         # Using unravel_index to get the sample index and the window indices
-        idx_samp, *idx_windows = np.unravel_index(idx, (self.n_samples, *self.n_windows))
+        idx_samp, *idx_windows = np.unravel_index(idx, self._n_windows)
         slice_window = [slice(i, i + sw) for i, sw in zip(idx_windows, self.sample_window)]
 
         return torch.tensor(
@@ -70,7 +70,4 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         )
 
     def __len__(self):
-        if self.sto:
-            return self.n_samples * np.prod(self.n_windows)
-        else:
-            return self.n_samples
+        return np.prod(self._n_windows)
