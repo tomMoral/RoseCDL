@@ -73,10 +73,10 @@ class WinCDL(torch.nn.Module):
 
     def __init__(
         self,
-        n_components,
-        kernel_size,
-        n_channels,
         lmbd,
+        n_components=None,
+        kernel_size=None,
+        n_channels=None,
         scale_lmbd=True,
         n_iterations=30,
         epochs=100,
@@ -84,8 +84,8 @@ class WinCDL(torch.nn.Module):
         optimizer="linesearch",
         lr=0.1,
         gamma=0.9,
-        sample_window=1000,
         mini_batch_size=10,
+        sample_window=1000,
         rank="full",
         window=False,
         D_init=None,
@@ -97,6 +97,14 @@ class WinCDL(torch.nn.Module):
         random_state=2147483647,
     ):
         super().__init__()
+
+        if n_components is None:
+            assert hasattr(D_init, "shape"), (
+                "If D_init is not an array-like argument (has a .shape attribute), "
+                "the shape of the dictionary should be specified with "
+                "(n_components, n_channels, *kernel_size)."
+            )
+            n_components, n_channels, *kernel_size = D_init.shape
 
         kernel_size = (kernel_size,) if isinstance(kernel_size, int) else kernel_size
         self.dimN = len(kernel_size)
