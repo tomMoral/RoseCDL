@@ -6,12 +6,14 @@ def check_threshold(threshold):
     # Ensure that the threshold is either float or None
     if threshold is not None:
         if isinstance(threshold, torch.Tensor):
-            assert threshold.dtype in (torch.float32, torch.int32), f"threshold.dtype: {threshold.dtype}"
+            assert threshold.dtype in (
+                torch.float32,
+                torch.int32,
+            ), f"threshold.dtype: {threshold.dtype}"
         elif not isinstance(threshold, (float, int)):
             raise ValueError(
                 f"threshold should be a float or None but is {type(threshold)}"
             )
-
 
 
 def get_threshold(data, method="quantile", alpha=0.05):
@@ -298,3 +300,72 @@ def remove_outliers(
     )
 
     return torch.masked_select(data, ~outliers_mask), outliers_mask
+
+
+def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=None):
+    """
+    Add outliers to 2D data.
+
+    Parameters
+    ----------
+    X : torch.Tensor
+        4D data of shape (n_trials, n_channels, height, width).
+    patch_size : int, tuple, optional
+        Size of the patch to add outliers, by default None.
+        if int, the size of the patch is (patch_size, patch_size).
+        if None, randomly select a patch size between 5 and 15% of the image size.
+    seed : int, optional
+        Random seed for reproducibility, by default None
+
+    Returns
+    -------
+    torch.Tensor
+        Data with outliers
+    torch.Tensor
+        Mask indicating where outliers were added (1 for outliers, 0 for clean data)
+    """
+    # Set up generator for reproducible randomness
+    generator = None
+    if seed is not None:
+        generator = torch.Generator(device=X.device)
+        generator.manual_seed(seed)
+
+    n_trials, n_channels, height, width = X.shape
+
+    X_outliers = X.clone()
+    outlier_mask = torch.zeros_like(X, dtype=torch.int)
+    running_contamination = 0
+    ratio_contam = 0
+
+    while ratio_contam < contmination:
+        if patch_size is None:
+            patch_size = (
+                torch.randint(
+                    int(0.05 * height), int(0.30 * height), (1,), generator=generator
+                ).item(),
+                torch.randint(
+                    int(0.05 * width), int(0.30 * width), (1,), generator=generator
+                ).item(),
+            )
+
+        start = (
+            torch.randint(0, height - patch_size[0], (1,), generator=generator).item(),
+            torch.randint(0, width - patch_size[1], (1,), generator=generator).item(),
+        )
+        end = start[0] + patch_size[0], start[1] + patch_size[1]
+
+        # Add random uniform noise to the patch using the same generator
+        X_outliers[:, :, start[0] : end[0], start[1] : end[1]] += (
+            strength
+            * torch.rand_like(
+                X_outliers[:, :, start[0] : end[0], start[1] : end[1]],
+                generator=generator,
+            )
+        )
+        # Mark the outlier region in the mask with 1s
+        outlier_mask[:, :, start[0] : end[0], start[1] : end[1]] = 1
+        # Update the contamination ratio
+        running_contamination += torch.prod(torch.tensor(patch_size))
+        ratio_contam = running_contamination / (height * width)
+
+    return X_outliers, outlier_mask
