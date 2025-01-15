@@ -19,12 +19,42 @@ from wincdl.utils.utils_exp import (
     plot_dicts,
 )
 from wincdl.utils.utils_signal import generate_experiment
+from wincdl.utils_outliers import get_outlier_mask, get_threshold
 from wincdl.wincdl import WinCDL
 
 EXP_DIR = Path.home() / "data/wincdl"
 
-
 mem = Memory(location="__cache__", verbose=0)
+
+
+def remove_outliers_before_cdl(
+    data: np.array,
+    method_spec: dict[str, str or float],
+    outliers_kwargs: dict[str, str or bool],
+) -> np.array:
+    """Remove outliers before CDL.
+
+    Args:
+        data: array of shape (n_trials, n_channels, n_times)
+        method_spec: dict with two keys ("name" and "alpha") that specifies
+            the outlier detection method
+        outlier_kwargs: additional arguments for outlier detection
+            (moving_average, opening_window, union_channels)
+    """
+    threshold = get_threshold(
+        data, method=method_spec["name"], alpha=method_spec["alpha"]
+    )
+    outlier_mask = get_outlier_mask(
+        data,
+        threshold=threshold,
+        method=method_spec["name"],
+        moving_average=outliers_kwargs["moving_average"],
+        opening_window=outliers_kwargs["opening_window"],
+        union_channels=outliers_kwargs["union_channels"],
+    )
+
+    data[outlier_mask] = data.mean()
+    return data
 
 
 def allowed_detection_timings(
@@ -158,7 +188,11 @@ def run_one(
 
     # Perform outlier detection on the data before CDL
     if outlier_detection_timing == "before":
-        pass
+        X = remove_outliers_before_cdl(
+            data=X,
+            method_spec=outlier_detection_method,
+            outliers_kwargs=outliers_kwargs,
+        )
 
     # Run the experiment
     if cdl_package == "wincdl":
