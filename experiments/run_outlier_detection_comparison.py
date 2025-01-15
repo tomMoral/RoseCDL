@@ -8,6 +8,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
@@ -54,9 +55,9 @@ def remove_outliers_before_cdl(
     )
 
     outlier_mask = outlier_loss.get_outliers_mask(
-        X_hat=np.zeros_like(data),
-        z_hat=np.zeros(activation_vector_shape),
-        X=data,
+        X_hat=torch.from_numpy(np.zeros_like(data)),
+        z_hat=torch.zeros(activation_vector_shape),
+        X=torch.from_numpy(data),
     )
 
     data[outlier_mask] = data.mean()
