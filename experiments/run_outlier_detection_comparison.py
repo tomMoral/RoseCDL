@@ -12,6 +12,7 @@ from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
 
+from wincdl.loss import LassoLoss, OutlierLoss
 from wincdl.utils.utils_exp import (
     evaluate_D_hat,
     get_method_name,
@@ -29,6 +30,7 @@ mem = Memory(location="__cache__", verbose=0)
 
 def remove_outliers_before_cdl(
     data: np.array,
+    lmbd: float,
     method_spec: dict[str, str or float],
     outliers_kwargs: dict[str, str or bool],
 ) -> np.array:
@@ -41,10 +43,20 @@ def remove_outliers_before_cdl(
         outlier_kwargs: additional arguments for outlier detection
             (moving_average, opening_window, union_channels)
     """
+    lasso_loss = LassoLoss(lmbd=lmbd, reduction="sum")
+    outlier_loss = OutlierLoss(
+        lasso_loss,
+        method=method_spec["name"],
+        alpha=method_spec["alpha"],
+        moving_average=outliers_kwargs["moving_average"],
+        opening_window=outliers_kwargs["opening_window"],
+        union_channels=outliers_kwargs["union_channels"],
+    )
+
     threshold = get_threshold(
         data, method=method_spec["name"], alpha=method_spec["alpha"]
     )
-    outlier_mask = get_outlier_mask(
+    outlier_mask = outlier_loss.get_outliers_mask(
         data,
         threshold=threshold,
         method=method_spec["name"],
