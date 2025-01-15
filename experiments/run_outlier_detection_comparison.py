@@ -369,6 +369,7 @@ if __name__ == "__main__":
             simulation_params=simulation_params,
             seed=seed,
             i=i,
+            exp_dir=exp_dir,
         )
         for i, seed in enumerate(list_seeds)
         for run_config in run_config_list
