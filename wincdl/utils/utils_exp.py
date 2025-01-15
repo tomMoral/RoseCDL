@@ -2,11 +2,11 @@ import json
 import warnings
 from pathlib import Path
 
-import torch
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 from scipy import signal
-import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import (
     f1_score,
@@ -164,16 +164,12 @@ def check_and_initialize(
     return df_results
 
 
-def get_method_name(outliers_kwargs):
-    if outliers_kwargs is None:
+def get_method_name(method_spec: dict[str or float]) -> str:
+    """Convert method specification to string format."""
+    if method_spec["name"] == "none":
         return "no detection"
 
-    method = outliers_kwargs["method"]
-    if "alpha" in outliers_kwargs:
-        alpha = outliers_kwargs["alpha"]
-        method += f" (alpha={alpha})"
-
-    return method
+    return f"{method_spec['name']} (alpha={method_spec['alpha']:.02f})"
 
 
 def get_outliers_metric(

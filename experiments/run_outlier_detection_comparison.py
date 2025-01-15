@@ -21,6 +21,9 @@ from wincdl.utils.utils_exp import (
 from wincdl.utils.utils_signal import generate_experiment
 from wincdl.wincdl import WinCDL
 
+EXP_DIR = Path.home() / "data/wincdl"
+
+
 mem = Memory(location="__cache__", verbose=0)
 
 
@@ -77,8 +80,9 @@ def run_one(
     outliers_kwargs: dict[str, str or float],
     cdl_params: dict[str, str or float],
     simulation_params: dict[str, str or float],
-    seed: float,
+    seed: int,
     i: int,
+    exp_dir: str,
 ):
     """Run the experiment for a given CDL package and outlier detection method.
 
@@ -94,8 +98,9 @@ def run_one(
         outliers_kwargs (dict): Additional parameters for outlier detection.
         cdl_params (dict): Parameters for the CDL algorithm.
         simulation_params (dict): Parameters for data simulation.
-        seed (float): Random seed.
+        seed (int): Random seed.
         i (int): Counting index of the run.
+        exp_dir (str): Name of the directory to store the results
 
     """
 
@@ -112,12 +117,15 @@ def run_one(
         fig.savefig(exp_dir / "dict_true.pdf")
 
     # retrieve the method
-    method_name = get_method_name(method)
-    if method is None:
-        method = {}
+    method_name = get_method_name(outlier_detection_method)
+    if outlier_detection_method["name"] == "name":
+        summary_method = {}
         this_outliers_kwargs = None
     else:
-        this_outliers_kwargs = dict(**outliers_kwargs, **method)
+        summary_method = outlier_detection_method
+        this_outliers_kwargs = dict(
+            **outliers_kwargs, **outlier_detection_method
+        )
 
     # Setup the callback
     results = []
@@ -134,7 +142,7 @@ def run_one(
         results.append(
             {
                 "name": method_name,
-                **method,
+                **summary_method,
                 **info_contam,
                 **metrics,
                 "recovery_score": recovery_score,
@@ -157,6 +165,16 @@ def run_one(
     if i == 0:
         fig = plot_dicts(wincdl.D_hat_)
         fig.savefig(exp_dir / f"D_hat_{method_name}.pdf")
+
+    # Save the results
+    df_results = pd.DataFrame(results)
+    file_name = (
+        f"{cdl_package}_"
+        f"{method_name.replace(' ','_')}_"
+        f"{outlier_detection_timing}_"
+        f"seed_{seed}.csv"
+    )
+    df_results.to_csv(exp_dir / file_name, index=False)
 
     return results
 
@@ -282,9 +300,6 @@ if __name__ == "__main__":
             "sporco": sporco_params,
             "wincdl": wincdl_params,
         }[run_config["package"]]
-
-    for run_config in run_config_list:
-        pass
 
     list_seeds = rng.integers(0, 2**32 - 1, n_runs)
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
