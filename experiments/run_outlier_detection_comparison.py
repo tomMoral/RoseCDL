@@ -24,6 +24,51 @@ from wincdl.wincdl import WinCDL
 mem = Memory(location="__cache__", verbose=0)
 
 
+def allowed_detection_timings(
+    cdl_package: str, outlier_detection_timing_list: list[str]
+):
+    if cdl_package == "wincdl":
+        return outlier_detection_timing_list
+    return [
+        timing for timing in outlier_detection_timing_list if timing != "during"
+    ]
+
+
+def allowed_detection_methods(
+    outlier_detection_timing: str, outlier_detection_method_list: list[str]
+) -> list[str]:
+    if outlier_detection_timing == "never":
+        return [
+            method
+            for method in outlier_detection_method_list
+            if method["name"] == "none"
+        ]
+    return [
+        method
+        for method in outlier_detection_method_list
+        if method["name"] != "none"
+    ]
+
+
+def generate_run_config_list(
+    cdl_package_list: list,
+    outlier_detection_method_list: list,
+    outlier_detection_timing_list: list,
+):
+    run_config_list = []
+    for package in cdl_package_list:
+        for timing in allowed_detection_timings(
+            package, outlier_detection_timing_list
+        ):
+            for method in allowed_detection_methods(
+                timing, outlier_detection_method_list
+            ):
+                run_config_list.append(
+                    {"package": package, "method": method, "timing": timing}
+                )
+    return run_config_list
+
+
 @mem.cache
 def run_one(
     cdl_package: str,
@@ -50,7 +95,7 @@ def run_one(
         cdl_params (dict): Parameters for the CDL algorithm.
         simulation_params (dict): Parameters for data simulation.
         seed (float): Random seed.
-        i (int):
+        i (int): Counting index of the run.
 
     """
 
@@ -210,46 +255,9 @@ if __name__ == "__main__":
         "window": True,
         "device": DEVICE,
     }
+    alphacsc_params = {}
+    sporco_params = {}
 
-    # Define list of methods to test
-
-    run_config_list = [
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "none", "alpha": -1.0},
-            "outlier_detection_timing": "never",
-        },
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "quantile", "alpha": 0.05},
-            "outlier_detection_timing": "before",
-        },
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "quantile", "alpha": 0.1},
-            "outlier_detection_timing": "before",
-        },
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "quantile", "alpha": 0.2},
-            "outlier_detection_timing": "before",
-        },
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "quantile", "alpha": 0.05},
-            "outlier_detection_timing": "before",
-        },
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "quantile", "alpha": 0.1},
-            "outlier_detection_timing": "before",
-        },
-        {
-            "cdl_package": "wincdl",
-            "outlier_detection_method": {"name": "quantile", "alpha": 0.2},
-            "outlier_detection_timing": "before",
-        },
-    ]
     cdl_package_list = ["wincdl", "alphacsc", "sporco"]
     outlier_detection_method_list = [
         {"method": "none", "alpha": -1},
@@ -263,67 +271,39 @@ if __name__ == "__main__":
     ]
     outlier_detection_timing_list = ["before", "during", "never"]
 
-    def allowed_detection_timings(
-        cdl_package: str, outlier_detection_timing_list: list[str]
-    ):
-        if cdl_package == "wincdl":
-            return outlier_detection_timing_list
-        return [
-            timing
-            for timing in outlier_detection_timing_list
-            if timing != "during"
-        ]
+    run_config_list = generate_run_config_list(
+        cdl_package_list=cdl_package_list,
+        outlier_detection_method_list=outlier_detection_method_list,
+        outlier_detection_timing_list=outlier_detection_timing_list,
+    )
+    for run_config in run_config_list:
+        run_config["cdl_params"] = {
+            "alphacsc": alphacsc_params,
+            "sporco": sporco_params,
+            "wincdl": wincdl_params,
+        }[run_config["package"]]
 
-    def allowed_detection_methods(
-        outlier_detection_timing: str, outlier_detection_method_list: list[str]
-    ) -> list[str]:
-        if outlier_detection_timing == "never":
-            return [
-                method
-                for method in outlier_detection_method_list
-                if method["name"] == "none"
-            ]
-        return [
-            method
-            for method in outlier_detection_method_list
-            if method["name"] != "none"
-        ]
-
-    def generate_run_config_list(
-        cdl_package_list: list,
-        outlier_detection_method_list: list,
-        outlier_detection_timing_list: list,
-    ):
-        run_config_list = []
-        for package in cdl_package_list:
-            for timing in allowed_detection_timings(
-                package, outlier_detection_timing_list
-            ):
-                for method in allowed_detection_methods(
-                    timing, outlier_detection_method_list
-                ):
-                    run_config_list.append(
-                        {"package": package, "method": method, "timing": timing}
-                    )
-        return run_config_list
+    for run_config in run_config_list:
+        pass
 
     list_seeds = rng.integers(0, 2**32 - 1, n_runs)
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
         delayed(run_one)(
-            this_method,
-            outliers_kwargs,
-            wincdl_params,
-            simulation_params,
-            i,
-            seed,
-            exp_dir,
+            cdl_package=run_config["package"],
+            outlier_detection_method=run_config["method"],
+            outlier_detection_timing=run_config["timing"],
+            outliers_kwargs=outliers_kwargs,
+            cdl_params=run_config["cdl_params"],
+            simulation_params=simulation_params,
+            seed=seed,
+            i=i,
         )
         for i, seed in enumerate(list_seeds)
-        for this_method in list_methods
+        for run_config in run_config_list
     )
     results = list(
         r
-        for res in tqdm(results, "Running", total=n_runs * len(list_methods))
+        for res in tqdm(results, "Running", total=n_runs * len(run_config_list))
         for r in res
     )
 
