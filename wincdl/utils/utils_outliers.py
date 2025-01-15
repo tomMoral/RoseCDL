@@ -243,8 +243,7 @@ def apply_opening(outliers_mask, window_size=15):
     if ndim == 3:  # 1D case
         # Create 1D structuring element
         se = torch.ones(mask.size(1), 1, window_size, device=mask.device)
-        # Pad to avoid boundary effects
-        padded_mask = F.pad(mask, (window_size - 1, 0), "constant", 0)
+        padded_mask = F.pad(mask, (0, window_size - 1), "constant", 0)
         # Apply convolution
         convolved = F.conv1d(padded_mask, se, padding=0, groups=mask.size(1))
 
