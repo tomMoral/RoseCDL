@@ -20,7 +20,6 @@ from wincdl.utils.utils_exp import (
     plot_dicts,
 )
 from wincdl.utils.utils_signal import generate_experiment
-from wincdl.utils_outliers import get_outlier_mask, get_threshold
 from wincdl.wincdl import WinCDL
 
 EXP_DIR = Path.home() / "data/wincdl"
@@ -30,6 +29,7 @@ mem = Memory(location="__cache__", verbose=0)
 
 def remove_outliers_before_cdl(
     data: np.array,
+    activation_vector_shape: tuple,
     lmbd: float,
     method_spec: dict[str, str or float],
     outliers_kwargs: dict[str, str or bool],
@@ -53,16 +53,10 @@ def remove_outliers_before_cdl(
         union_channels=outliers_kwargs["union_channels"],
     )
 
-    threshold = get_threshold(
-        data, method=method_spec["name"], alpha=method_spec["alpha"]
-    )
     outlier_mask = outlier_loss.get_outliers_mask(
-        data,
-        threshold=threshold,
-        method=method_spec["name"],
-        moving_average=outliers_kwargs["moving_average"],
-        opening_window=outliers_kwargs["opening_window"],
-        union_channels=outliers_kwargs["union_channels"],
+        X_hat=np.zeros_like(data),
+        z_hat=np.zeros(activation_vector_shape),
+        X=data,
     )
 
     data[outlier_mask] = data.mean()
@@ -148,7 +142,7 @@ def run_one(
 
     # Generate the data
     simulation_params["rng"] = seed
-    X, _, D_true, D_init, info_contam = generate_experiment(
+    X, z, D_true, D_init, info_contam = generate_experiment(
         simulation_params,
         return_info_contam=True,
     )
@@ -202,6 +196,8 @@ def run_one(
     if outlier_detection_timing == "before":
         X = remove_outliers_before_cdl(
             data=X,
+            activation_vector_shape=z.shape,
+            lmbd=cdl_params["lmbd"],
             method_spec=outlier_detection_method,
             outliers_kwargs=outliers_kwargs,
         )
