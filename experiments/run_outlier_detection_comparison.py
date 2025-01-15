@@ -120,12 +120,16 @@ def run_one(
     method_name = get_method_name(outlier_detection_method)
     if outlier_detection_method["name"] == "name":
         summary_method = {}
-        this_outliers_kwargs = None
     else:
         summary_method = outlier_detection_method
-        this_outliers_kwargs = dict(
-            **outliers_kwargs, **outlier_detection_method
-        )
+
+    # Parameters for WinCDL's outlier loss.
+    # (only for cdl_package="wincdl" and outlier_detection_timing="during")
+    online_outliers_kwargs = {
+        "never": {},
+        "before": {},
+        "during": outliers_kwargs,
+    }[outlier_detection_timing]
 
     # Setup the callback
     results = []
@@ -152,14 +156,25 @@ def run_one(
             }
         )
 
+    # Perform outlier detection on the data before CDL
+    if outlier_detection_timing == "before":
+        pass
+
     # Run the experiment
-    wincdl = WinCDL(
-        **wincdl_params,
-        D_init=D_init,
-        outliers_kwargs=this_outliers_kwargs,
-        callbacks=[callback_fn],
-    )
-    wincdl.fit(X)
+    if cdl_package == "wincdl":
+        wincdl = WinCDL(
+            **cdl_params,
+            D_init=D_init,
+            outliers_kwargs=online_outliers_kwargs,
+            callbacks=[callback_fn],
+        )
+        wincdl.fit(X)
+    elif cdl_package == "alphacsc":
+        pass
+    elif cdl_package == "sporco":
+        pass
+    else:
+        raise ValueError(f"Unknown CDL package {cdl_package}")
 
     # Plot true dictionary
     if i == 0:
