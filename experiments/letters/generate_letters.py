@@ -1,197 +1,210 @@
-# This script gives the ICML letters
-# And generates a 2D dataset using the letters
-# as the dictionary.
-
-
+import os
+import string
+import pathlib
 import numpy as np
+import matplotlib.pyplot as plt
+
+from alphacsc.utils.validation import check_random_state
+from alphacsc.update_d_multi import prox_d
+
+DATA_HOME = pathlib.Path('data')
+DATA_HOME.mkdir(exist_ok=True)
+
+TMP = pathlib.Path('/tmp')
+if not TMP.exists():
+    TMP = pathlib.Path('.')
+
+TEXT_DATA_DIR = DATA_HOME 
+HEADER_FILE = os.path.join(os.path.dirname(__file__), 'header.tex')
 
 
-def create_i(mean=0.5, std=0.01):
-    value = np.random.normal(mean, std)
+##############################################################################
+# Command line to generate the image from the text using pandoc, pdfcrop
+# and ImageMagik. One should make sure these utilities are available on
+# the pass to use the function in this module.
+#
 
-    # Create a 29x25 array of zeros
-    image = np.zeros((29, 25))
+PANDOC_CMD = f"""pandoc \
+    -f gfm --include-in-header {HEADER_FILE} \
+    -V geometry:a4paper -V geometry:margin=2cm \
+    -V fontsize=8pt -V mainfont='typewriter' \
+    -V monofont='typewriter' \
+    {{name}}.md -o {{name}}.pdf
+"""
 
-    # Set the pixels of the letter "I" to value
-    image[2:27, 11:15] = value
+PDFCROP_CMD = """
+    pdfcrop --margin {margin} \
+    {name}.pdf {name}.pdf > /dev/null
+"""
 
-    image[0:4, 5:21] = value
-    image[24:28, 5:21] = value
+CONVERT_CMD = """convert \
+    -quality 100 -density 300 \
+    -alpha off -negate -strip \
+    {name}.pdf {name}.png
+"""
 
-    return image
 
+def convert_str_to_png(text, margin=12):
+    """Returns the image associated to a string of characters.
 
-def create_c(height=29, width=25, mean=0.5, std=0.1):
+    Parameters
+    ----------
+    text: str
+        Text to encode as an image.
+    margin: int (default: 12)
+        Margin to add around the text. To generate a dictionary element, one
+        should use 0 as a margin.
+
+    Returns
+    -------
+    im : ndarray, shape (height, width)
+        image associated to `text`.
+
     """
-    Create a binary image of the letter C with moderate smoothing
+    filename = str(TMP / 'sample')
+    with open(f"{filename}.md", 'w') as f:
+        f.write(text)
+    assert os.system(PANDOC_CMD.format(name=filename)) == 0
+    assert os.system(PDFCROP_CMD.format(
+        name=filename, margin=margin)) == 0
+    assert os.system(CONVERT_CMD.format(name=filename)) == 0
+    im = plt.imread(f"{filename}.png")
+    return im
 
-    Parameters:
-    height (int): Height of the image
-    width (int): Width of the image
-    mean (float): Mean value of the letter C
-    std (float): Standard deviation of the letter C
 
-    Returns:
-    numpy.ndarray: Binary image of the letter C
+def get_centered_padding(shape, expected_shape):
+    """Compute a padding to have an array centered in the expected_shape.
+
+    Parameters
+    ----------
+    shape: tuple
+      Original array dimensions.
+    expected_shape: ndarray, tuple
+      Expected array dimensions.
+
+    Returns
+    -------
+    padding: list
+        padding necessary for original array to have the `expected_shape`.
     """
-    value = np.random.normal(mean, std)
 
-    # Create an empty array
-    image = np.zeros((height, width), dtype=np.float64)
-
-    # Center of the image
-    center_y = height / 2
-    center_x = width / 2
-
-    # Radius and thickness parameters
-    radius_x = width * 0.4
-    radius_y = height * 0.4
-    thickness = width * 0.06
-
-    # Create C shape
-    for y in range(height):
-        for x in range(width):
-            # Normalized coordinates
-            norm_x = (x - center_x) / radius_x
-            norm_y = (y - center_y) / radius_y
-
-            # Distance from center
-            dist = np.sqrt(norm_x**2 + norm_y**2)
-
-            # Angle calculation
-            angle = np.arctan2(norm_y, norm_x)
-
-            # Check if point is within the C shape
-            if (
-                dist >= 1 - thickness / radius_x
-                and dist <= 1 + thickness / radius_x
-                and (angle > np.pi / 4 or angle < -np.pi / 4)
-            ):
-                image[y, x] = value
-
-    return image
+    padding = []
+    for s, es in zip(shape, expected_shape):
+        pad = es - s
+        padding.append((pad // 2, (pad + 1) // 2))
+    return padding
 
 
-def create_m(mean=0.5, std=0.01):
-    value = np.random.normal(mean, std)
+def generate_text(n_atoms=5, text_length=3000, n_spaces=3, random_state=None):
+    """Generate a text image with text_length leters chosen among n_atoms.
 
-    # Create a 29x25 array of zeros
-    image = np.zeros((29, 25))
+    Parameters
+    ----------
+    n_atoms: int (default: 5)
+        Number of letters used to generate the text. This should not be above
+        26 as only lower-case ascii letters are used here.
+    text_length: int (default: 3000)
+        Number of character that compose the text image. This also account for
+        white space characters.
+    random_state : int, RandomState instance or None (default)
+        Determines random number generation for centroid initialization and
+        random reassignment. Use an int to make the randomness deterministic.
 
-    # Set the pixels of the letter "M" to value
-    image[0:28, 2:6] = value
-    image[0:28, 18:22] = value
-
-    for i in range(6, 18):
-        x = min((i - 6), (18 - i))
-        image[x : x + 5, i] = value
-
-    return image
-
-
-def create_l(mean=0.5, std=0.01):
-    value = np.random.normal(mean, std)
-
-    image = np.zeros((29, 25))
-
-    image[2:27, 5:9] = value
-    image[23:27, 5:20] = value
-
-    return image
-
-
-def create_icml(height, width):
+    Returns
+    -------
+    X: ndarray, shape (height, width)
+        Image composed of a text of `text_length` characters drawn uniformly
+        among `n_atoms` letters and 2 whitespaces.
+    D: ndarray, shape (n_atoms, *atom_support)
+        Images of the characters used to generate the image `X`.
     """
-    Creates a 2D image that looks like a text page made of ICML letters
-    Optimized version with vectorized operations
+
+    if random_state == 'ICML':
+        rng = check_random_state(0)
+        D_char = np.array(list('ICML' + ' ' * n_spaces))
+    else:
+        rng = check_random_state(random_state)
+        chars = list(string.ascii_lowercase)
+        D_char = np.r_[rng.choice(chars, replace=False, size=n_atoms),
+                       [' '] * n_spaces]
+    text_char_idx = rng.choice(len(D_char), replace=True, size=text_length)
+
+    text = ''.join([D_char[i] for i in text_char_idx])
+
+    X = convert_str_to_png(text, margin=0)
+    D = [convert_str_to_png(D_k, margin=0) for D_k in D_char[:-n_spaces]]
+
+    # Reshape all atoms to the same shape
+    D_reshaped = []
+    atom_shape = np.array([dk.shape for dk in D]).max(axis=0)
+    for dk in D:
+        padding = get_centered_padding(dk.shape, atom_shape)
+        D_reshaped.append(np.pad(dk, padding))
+    D = np.array(D_reshaped)
+    D = prox_d(D)
+
+    print(f"{text_length} - image shape: {X.shape}, pattern shape: {D.shape}")
+
+    return X, D
+
+
+def generate_text_npy(n_atoms=5, text_length=3000, random_state=None):
+    """Generate a file with image and patterns from func:`generate_text`.
+
+    Parameters
+    ----------
+    n_atoms: int (default: 5)
+        Number of letters used to generate the text. This should not be above
+        26 as only lower-case ascii letters are used here.
+    text_length: int (default: 3000)
+        Number of character that compose the text image. This also account for
+        white space characters.
+    random_state : int, RandomState instance or None (default)
+        Determines random number generation for centroid initialization and
+        random reassignment. Use an int to make the randomness deterministic.
+
+    Returns
+    -------
+    filename: str
+        Name of the generated file.
     """
-    # Create dictionary of letter generators
-    letters = {"I": create_i, "C": create_c, "M": create_m, "L": create_l}
-
-    # Create output image
-    result = np.zeros((height, width))
-
-    # Page layout parameters
-    top_margin = 10
-    left_margin = 10
-    line_spacing = 40
-    word_spacing = 15
-    letter_width = 25
-    letter_height = 29
-
-    # Pre-calculate all possible vertical positions
-    y_positions = np.arange(
-        top_margin, height - letter_height - top_margin, line_spacing
-    )
-
-    # For each line
-    for y_pos in y_positions:
-        # Pre-calculate possible word positions on this line
-        # max_words = (width - left_margin) // (letter_width * 2 + word_spacing)
-        x_positions = []
-        current_x = left_margin
-
-        # Generate words for the entire line at once
-        while current_x < width - letter_width * 2:
-            word_length = np.random.randint(2, 7)
-            word_width = word_length * letter_width
-
-            if current_x + word_width > width - 2:
-                break
-
-            x_positions.append((current_x, word_length))
-            current_x += word_width + word_spacing
-
-        # Generate and place all words for this line in a batch
-        for x_pos, word_length in x_positions:
-            # Generate word with 40% probability of "ICML" if length is 4
-            if word_length == 4 and np.random.rand() < 0.4:
-                word = np.hstack(
-                    [
-                        letters["I"](mean=1, std=0),
-                        letters["C"](mean=1, std=0),
-                        letters["M"](mean=1, std=0),
-                        letters["L"](mean=1, std=0),
-                    ]
-                )
-            else:
-                # Generate random word
-                chosen_letters = np.random.choice(
-                    list(letters.keys()), size=word_length
-                )
-                word = np.hstack(
-                    [letters[letter](mean=1, std=0) for letter in chosen_letters]
-                )
-
-            # Place word using efficient slice assignment
-            result[
-                int(y_pos) : int(y_pos) + letter_height, x_pos : x_pos + word.shape[1]
-            ] = word
-
-    return result
+    X, D = generate_text(n_atoms=n_atoms, text_length=text_length,
+                         random_state=random_state)
+    tag = f"{n_atoms}_{text_length}"
+    if isinstance(random_state, (int, str)):
+        tag = f"{tag}_{random_state}"
+    filename = f'text_{tag}.npz'
+    np.savez(TEXT_DATA_DIR / filename, X=X, D=D, text_length=text_length)
+    return filename
 
 
-def load_icml_data(path):
-    """Load ICML data."""
-    data = np.load(path)
-    X = data.get("X")
-    d = data.get("d")
-    return X, d
+if __name__ == '__main__':
 
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Generate data for the text experiment for Dicodile')
+    parser.add_argument('--max-length', '-l', type=int, default=5000,
+                        help='Maximal length of the generate image.')
+    parser.add_argument('--n-rep', '-r', type=int, default=5,
+                        help='Number of repetition that will be required.')
+    parser.add_argument('--n-atoms', '-k', type=int, default=5,
+                        help='Number of letters used to generate the image.')
+    parser.add_argument('--ICML', action='store_true',
+                        help='Generate an data with ICML letters.')
+    args = parser.parse_args()
 
-if __name__ == "__main__":
-    # generate a 2D dataset using the letters as the dictionary
-    np.random.seed(42)
+    if args.ICML:
+        print(generate_text_npy(n_atoms=4, text_length=5000,
+                                random_state='ICML'))
+        raise SystemExit(0)
 
-    height = 2000
-    width = 2000
-
-    image = create_icml(height, width)
-
-    # Save the dataset and the dictionary to a single npz file
-    dictionary = np.array(
-        [create_i(), create_c(), create_m(), create_l()], dtype=np.float64
-    )
-    np.savez("icml.npz", X=image, d=dictionary)
-
-    print("Dataset and dictionary saved to icml.npz")
+    files = []
+    for l in np.logspace(np.log10(150 + .1),  # noqa: E741
+                         np.log10(args.max_length + .1),
+                         num=5, dtype=int):
+        for seed in range(args.n_rep):
+            files.append(generate_text_npy(
+                n_atoms=args.n_atoms, text_length=l, random_state=seed
+            ))
+    print(' '.join(files))
+    print(files)
