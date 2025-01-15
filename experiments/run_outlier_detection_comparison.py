@@ -216,9 +216,9 @@ def run_one(
         )
         wincdl.fit(X)
     elif cdl_package == "alphacsc":
-        pass
+        return []
     elif cdl_package == "sporco":
-        pass
+        return []
     else:
         raise ValueError(f"Unknown CDL package {cdl_package}")
 
