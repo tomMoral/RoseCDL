@@ -335,14 +335,14 @@ if __name__ == "__main__":
 
     cdl_package_list = ["wincdl", "alphacsc", "sporco"]
     outlier_detection_method_list = [
-        {"method": "none", "alpha": -1},
-        {"method": "quantile", "alpha": 0.05},
-        {"method": "quantile", "alpha": 0.1},
-        {"method": "quantile", "alpha": 0.2},
-        {"method": "iqr", "alpha": 1.5},
-        {"method": "zscore", "alpha": 1},
-        {"method": "zscore", "alpha": 2},
-        {"method": "mad", "alpha": 3.5},
+        {"name": "none", "alpha": -1},
+        {"name": "quantile", "alpha": 0.05},
+        {"name": "quantile", "alpha": 0.1},
+        {"name": "quantile", "alpha": 0.2},
+        {"name": "iqr", "alpha": 1.5},
+        {"name": "zscore", "alpha": 1},
+        {"name": "zscore", "alpha": 2},
+        {"name": "mad", "alpha": 3.5},
     ]
     outlier_detection_timing_list = ["before", "during", "never"]
 
