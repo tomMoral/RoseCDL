@@ -167,6 +167,20 @@ def run_one(
         exp_dir (str): Name of the directory to store the results
 
     """
+
+    print(80 * "=")
+    print("New run")
+    print()
+    print(f"i, seed: {i}, {seed}")
+    print("package:", cdl_package)
+    print(
+        "outlier detection:",
+        get_method_name(outlier_detection_method),
+        outlier_detection_timing,
+    )
+    print()
+    print(80 * "=")
+    print()
     if cdl_package == "alphacsc":
         return []
     elif cdl_package == "sporco":
