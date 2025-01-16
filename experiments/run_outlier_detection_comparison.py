@@ -372,7 +372,17 @@ if __name__ == "__main__":
         "window": True,
         "device": DEVICE,
     }
-    alphacsc_params = {}
+    alphacsc_params = {
+        "n_atoms": 4,
+        "n_times_atom": 64,
+        "reg": 0.8,
+        "n_iter": 30,
+        "solver_z": "lgcd",
+        "rank1": False,
+        "window": True,
+        "lmbd_max": "fixed",
+        "verbose": 0,
+    }
     sporco_params = {}
 
     cdl_package_list = ["wincdl", "alphacsc", "sporco"]
