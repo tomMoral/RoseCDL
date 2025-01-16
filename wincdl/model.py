@@ -138,6 +138,7 @@ class CSC1d(nn.Module):
         with torch.no_grad():
             if self.rank == "uv_constraint":
                 if self.positive_D:
+                    # Work on data as u, v are nn.Parameter
                     self.u.data = F.relu(self.u.data)
                     self.v.data = F.relu(self.v.data)
 
@@ -155,6 +156,7 @@ class CSC1d(nn.Module):
 
             elif self.rank == "full":
                 if self.positive_D:
+                    # Work on data as _D_hat is a nn.Parameter
                     self._D_hat.data = F.relu(self._D_hat.data)
 
                 if self.do_window:
@@ -336,6 +338,7 @@ class CSC2d(CSC1d):
         """
         with torch.no_grad():
             if self.positive_D:
+                # Work on data as _D_hat is a nn.Parameter
                 self._D_hat.data = F.relu(self._D_hat.data)
             norm_atoms = torch.linalg.vector_norm(self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True)
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
