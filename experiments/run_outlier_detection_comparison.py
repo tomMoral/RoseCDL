@@ -244,13 +244,11 @@ def run_one(
 
     # Perform outlier detection on the data before CDL
     if outlier_detection_timing == "before":
-        reg_param_csc = {"wincdl": cdl_params["lmbd"], "alphacsc": cdl_params["reg"]}[
-            cdl_package
-        ]
+        reg_param_key = {"wincdl": "lmbd", "alphacsc": "reg"}[cdl_package]
         X = remove_outliers_before_cdl(
             data=X,
             activation_vector_shape=z.shape,
-            lmbd=reg_param_csc,
+            lmbd=cdl_params[reg_param_key],
             method_spec=outlier_detection_method,
             outliers_kwargs=outliers_kwargs,
         )
@@ -267,6 +265,7 @@ def run_one(
     elif cdl_package == "alphacsc":
         cdl = BatchCDL(**cdl_params, D_init=D_init)
         cdl.callback = callback_fn
+        cdl.fit(X)
     else:
         raise ValueError(f"Unknown CDL package {cdl_package}")
 
