@@ -172,6 +172,7 @@ def run_one(
     print("New run")
     print()
     print(f"i, seed: {i}, {seed}")
+    print()
     print("package:", cdl_package)
     print(
         "outlier detection:",
