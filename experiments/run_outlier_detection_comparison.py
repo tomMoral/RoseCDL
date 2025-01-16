@@ -70,9 +70,7 @@ def allowed_detection_timings(
 ):
     if cdl_package == "wincdl":
         return outlier_detection_timing_list
-    return [
-        timing for timing in outlier_detection_timing_list if timing != "during"
-    ]
+    return [timing for timing in outlier_detection_timing_list if timing != "during"]
 
 
 def allowed_detection_methods(
@@ -85,9 +83,7 @@ def allowed_detection_methods(
             if method["name"] == "none"
         ]
     return [
-        method
-        for method in outlier_detection_method_list
-        if method["name"] != "none"
+        method for method in outlier_detection_method_list if method["name"] != "none"
     ]
 
 
@@ -98,9 +94,7 @@ def generate_run_config_list(
 ):
     run_config_list = []
     for package in cdl_package_list:
-        for timing in allowed_detection_timings(
-            package, outlier_detection_timing_list
-        ):
+        for timing in allowed_detection_timings(package, outlier_detection_timing_list):
             for method in allowed_detection_methods(
                 timing, outlier_detection_method_list
             ):
@@ -108,6 +102,38 @@ def generate_run_config_list(
                     {"package": package, "method": method, "timing": timing}
                 )
     return run_config_list
+
+
+def make_file_path_from_run_config(
+    run_config: dict[str, str or dict], exp_dir: Path, seed: int
+) -> Path:
+    method_name = get_method_name(run_config["method"])
+    file_name = (
+        f"{run_config['package']}_"
+        f"{method_name.replace(' ','_')}_"
+        f"{run_config['timing']}_"
+        f"seed_{seed}.csv"
+    )
+    return exp_dir / file_name
+
+
+def check_for_already_run_experiments(
+    run_config_list: list[str, str or dict], exp_dir: Path, seed: int
+) -> list[str]:
+    """Filter out experiments that have already run."""
+
+    run_config_to_path_dict = {
+        str(make_file_path_from_run_config(run_config, exp_dir, seed)): run_config
+        for run_config in run_config_list
+    }
+    already_run_experiments = {
+        file_path for file_path in run_config_to_path_dict if Path(file_path).exists()
+    }
+    return [
+        run_config
+        for file_path, run_config in run_config_to_path_dict.items()
+        if file_path not in already_run_experiments
+    ]
 
 
 @mem.cache
@@ -141,6 +167,10 @@ def run_one(
         exp_dir (str): Name of the directory to store the results
 
     """
+    if cdl_package == "alphacsc":
+        return []
+    elif cdl_package == "sporco":
+        return []
 
     # Generate the data
     simulation_params["rng"] = seed
@@ -217,10 +247,6 @@ def run_one(
             callbacks=[callback_fn],
         )
         wincdl.fit(X)
-    elif cdl_package == "alphacsc":
-        return []
-    elif cdl_package == "sporco":
-        return []
     else:
         raise ValueError(f"Unknown CDL package {cdl_package}")
 
@@ -231,12 +257,7 @@ def run_one(
 
     # Save the results
     df_results = pd.DataFrame(results)
-    file_name = (
-        f"{cdl_package}_"
-        f"{method_name.replace(' ','_')}_"
-        f"{outlier_detection_timing}_"
-        f"seed_{seed}.csv"
-    )
+    file_name = make_file_path_from_run_config(run_config, exp_dir, seed)
     df_results.to_csv(exp_dir / file_name, index=False)
 
     return results
@@ -357,6 +378,7 @@ if __name__ == "__main__":
         outlier_detection_method_list=outlier_detection_method_list,
         outlier_detection_timing_list=outlier_detection_timing_list,
     )
+    run_config_list = check_for_already_run_experiments(run_config_list, exp_dir, seed)
     for run_config in run_config_list:
         run_config["cdl_params"] = {
             "alphacsc": alphacsc_params,
