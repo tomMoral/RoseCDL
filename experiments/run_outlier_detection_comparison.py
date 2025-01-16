@@ -244,10 +244,13 @@ def run_one(
 
     # Perform outlier detection on the data before CDL
     if outlier_detection_timing == "before":
+        reg_param_csc = {"wincdl": cdl_params["lmbd"], "alphacsc": cdl_params["reg"]}[
+            cdl_package
+        ]
         X = remove_outliers_before_cdl(
             data=X,
             activation_vector_shape=z.shape,
-            lmbd=cdl_params["lmbd"],
+            lmbd=reg_param_csc,
             method_spec=outlier_detection_method,
             outliers_kwargs=outliers_kwargs,
         )
@@ -387,7 +390,8 @@ if __name__ == "__main__":
     }
     sporco_params = {}
 
-    cdl_package_list = ["wincdl", "alphacsc", "sporco"]
+    # cdl_package_list = ["wincdl", "alphacsc", "sporco"]
+    cdl_package_list = ["alphacsc"]
     outlier_detection_method_list = [
         {"name": "none", "alpha": -1},
         {"name": "quantile", "alpha": 0.05},
