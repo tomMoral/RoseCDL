@@ -59,7 +59,8 @@ def remove_outliers_before_cdl(
         z_hat=torch.zeros(activation_vector_shape),
         X=torch.from_numpy(data),
     )
-
+    outlier_mask = np.expand_dims(outlier_mask, axis=1)
+    outlier_mask = np.broadcast_to(outlier_mask, shape=data.shape)
     data[outlier_mask] = data.mean()
     return data
 
