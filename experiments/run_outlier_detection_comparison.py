@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+from alphacsc import BatchCDL
 from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
@@ -182,9 +183,7 @@ def run_one(
     print()
     print(80 * "=")
     print()
-    if cdl_package == "alphacsc":
-        return []
-    elif cdl_package == "sporco":
+    if cdl_package == "sporco":
         return []
 
     # Generate the data
@@ -255,19 +254,22 @@ def run_one(
 
     # Run the experiment
     if cdl_package == "wincdl":
-        wincdl = WinCDL(
+        cdl = WinCDL(
             **cdl_params,
             D_init=D_init,
             outliers_kwargs=online_outliers_kwargs,
             callbacks=[callback_fn],
         )
-        wincdl.fit(X)
+        cdl.fit(X)
+    elif cdl_package == "alphacsc":
+        cdl = BatchCDL(**cdl_params, D_init=D_init)
+        cdl.callback = callback_fn
     else:
         raise ValueError(f"Unknown CDL package {cdl_package}")
 
     # Plot true dictionary
     if i == 0:
-        fig = plot_dicts(wincdl.D_hat_)
+        fig = plot_dicts(cdl.D_hat_)
         fig.savefig(exp_dir / f"D_hat_{method_name}.pdf")
 
     # Save the results
