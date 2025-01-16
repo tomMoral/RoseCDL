@@ -91,9 +91,7 @@ def get_threshold(data, method="quantile", alpha=0.05):
     elif method == "mad":
         # Method of Modified Z-score
         median = torch.median(data)
-        mad = torch.median(
-            torch.abs(data - median)
-        )  # median absolute deviation
+        mad = torch.median(torch.abs(data - median))  # median absolute deviation
         # Scaling factor
         constant = 0.6745
         # "The constant 0.6745 is needed because E(MAD) = 0.6745CT for large n", Iglewicz and Hoaglin, 1993
@@ -153,18 +151,13 @@ def apply_moving_average(data, window_size=15, method="average"):
 
     if method == "average":
         # Create structuring element (kernel)
-        se = (
-            torch.ones(data.size(1), 1, window_size, device=data.device)
-            / window_size
-        )
+        se = torch.ones(data.size(1), 1, window_size, device=data.device) / window_size
         # Perform convolution
         convolved_data = F.conv1d(
             data.float(), se, padding=window_size // 2, groups=data.size(1)
         )
     elif method == "gaussian":
-        sigma = (
-            window_size / 3
-        )  # A common choice for sigma relative to window size
+        sigma = window_size / 3  # A common choice for sigma relative to window size
         se = gaussian_kernel(window_size, sigma).to(data.device).view(1, 1, -1)
         se = se.repeat(data.size(1), 1, 1)  # Repeat kernel
         convolved_data = F.conv1d(
@@ -208,13 +201,9 @@ def apply_opening(outliers_mask, window_size=15):
         raise ValueError(f"outliers_mask should be 2D or 3D but is {ndim}D")
 
     # Pad mask to avoid boundary effects
-    outliers_mask = F.pad(
-        outliers_mask.float(), (0, window_size - 1), "constant", 0
-    )
+    outliers_mask = F.pad(outliers_mask.float(), (0, window_size - 1), "constant", 0)
     # Creating a structuring element for the convolution
-    se = torch.ones(
-        outliers_mask.size(1), 1, window_size, device=outliers_mask.device
-    )
+    se = torch.ones(outliers_mask.size(1), 1, window_size, device=outliers_mask.device)
     # Performing the convolution operation
     convolved_mask = F.conv1d(
         outliers_mask.float(), se, padding=0, groups=outliers_mask.size(1)
