@@ -166,7 +166,11 @@ def run_one(
     online_outliers_kwargs = {
         "never": {},
         "before": {},
-        "during": {**outliers_kwargs, **outlier_detection_method},
+        "during": {
+            **outliers_kwargs,
+            **outlier_detection_method,
+            "method": outlier_detection_method["name"],
+        },
     }[outlier_detection_timing]
 
     # Setup the callback
