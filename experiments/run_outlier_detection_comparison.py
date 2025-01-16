@@ -244,6 +244,11 @@ def run_one(
 
     def alphacsc_callback_fn(z_encoder, pobj):
         recovery_score = evaluate_D_hat(D_true, z_encoder.D_hat)
+        epoch = len(pobj)
+        if epoch == 0:
+            loss = -1
+        else:
+            loss = pobj[-1]
         results.append(
             {
                 "name": method_name,
@@ -251,8 +256,8 @@ def run_one(
                 **info_contam,
                 "recovery_score": recovery_score,
                 "seed": seed,
-                "epoch": len(pobj),
-                "loss": pobj[-1],
+                "epoch": epoch,
+                "loss": loss,
             }
         )
 
