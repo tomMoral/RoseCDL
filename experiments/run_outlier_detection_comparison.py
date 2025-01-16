@@ -220,7 +220,7 @@ def run_one(
     # Setup the callback
     results = []
 
-    def callback_fn(model, epoch, loss):
+    def wincdl_callback_fn(model, epoch, loss):
         if hasattr(model.loss_fn, "method"):
             metrics = get_outliers_metric(
                 info_contam["outliers_mask"].max(axis=1), model, X
@@ -242,6 +242,20 @@ def run_one(
             }
         )
 
+    def alphacsc_callback_fn(z_encoder, pobj):
+        recovery_score = evaluate_D_hat(D_true, z_encoder.D_hat)
+        results.append(
+            {
+                "name": method_name,
+                **summary_method,
+                **info_contam,
+                "recovery_score": recovery_score,
+                "seed": seed,
+                "epoch": len(pobj),
+                "loss": pobj[-1],
+            }
+        )
+
     # Perform outlier detection on the data before CDL
     if outlier_detection_timing == "before":
         reg_param_key = {"wincdl": "lmbd", "alphacsc": "reg"}[cdl_package]
@@ -259,12 +273,12 @@ def run_one(
             **cdl_params,
             D_init=D_init,
             outliers_kwargs=online_outliers_kwargs,
-            callbacks=[callback_fn],
+            callbacks=[wincdl_callback_fn],
         )
         cdl.fit(X)
     elif cdl_package == "alphacsc":
         cdl = BatchCDL(**cdl_params, D_init=D_init)
-        cdl.callback = callback_fn
+        cdl.callback = alphacsc_callback_fn
         cdl.fit(X)
     else:
         raise ValueError(f"Unknown CDL package {cdl_package}")
@@ -384,7 +398,7 @@ if __name__ == "__main__":
         "solver_z": "lgcd",
         "rank1": False,
         "window": True,
-        "lmbd_max": "fixed",
+        "lmbd_max": "scaled",
         "verbose": 0,
     }
     sporco_params = {}
