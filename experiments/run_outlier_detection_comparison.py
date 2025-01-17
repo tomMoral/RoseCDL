@@ -209,10 +209,13 @@ def run_one(
 
     # retrieve the method
     method_name = get_method_name(outlier_detection_method)
-    if outlier_detection_method["name"] == "name":
+    if outlier_detection_method["name"] == "none":
         summary_method = {}
     else:
-        summary_method = outlier_detection_method
+        summary_method = {
+            "method": outlier_detection_method["name"],
+            "alpha": outlier_detection_method["alpha"],
+        }
 
     # Parameters for WinCDL's outlier loss.
     # (only for cdl_package="wincdl" and outlier_detection_timing="during")
@@ -221,12 +224,15 @@ def run_one(
         "before": {},
         "during": {
             **outliers_kwargs,
-            **outlier_detection_method,
-            "method": outlier_detection_method["name"],
+            **summary_method
         },
     }[outlier_detection_timing]
 
     # Setup the callback
+    summary_name = f"[{cdl_package}] {method_name}"
+    if outlier_detection_timing != "never":
+        summary_name += f" ({outlier_detection_timing})"
+
     results = []
 
     def wincdl_callback_fn(model, epoch, loss):
@@ -237,10 +243,6 @@ def run_one(
         else:
             metrics = {}
         recovery_score = evaluate_D_hat(D_true, model.D_hat_)
-
-        summary_name = f"[{cdl_package}] {method_name}"
-        if outlier_detection_timing != "never":
-            summary_name += f" ({outlier_detection_timing})"
         results.append(
             {
                 "name": summary_name,
@@ -263,9 +265,7 @@ def run_one(
             loss = pobj[-1]
         results.append(
             {
-                "package": cdl_package,
-                "name": method_name,
-                "timing": outlier_detection_timing,
+                "name": summary_name,
                 **summary_method,
                 **info_contam,
                 "recovery_score": recovery_score,
@@ -429,6 +429,7 @@ if __name__ == "__main__":
     sporco_params = {}
 
     # cdl_package_list = ["wincdl", "alphacsc", "sporco"]
+    cdl_package_list = ["wincdl", "alphacsc"]
     cdl_package_list = ["alphacsc"]
     outlier_detection_method_list = [
         {"name": "none", "alpha": -1},
@@ -441,6 +442,7 @@ if __name__ == "__main__":
         {"name": "mad", "alpha": 3.5},
     ]
     outlier_detection_timing_list = ["before", "during", "never"]
+    outlier_detection_timing_list = ["never"]
 
     run_config_list = generate_run_config_list(
         cdl_package_list=cdl_package_list,
