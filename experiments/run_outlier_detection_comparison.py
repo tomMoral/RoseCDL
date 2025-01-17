@@ -169,6 +169,12 @@ def run_one(
 
     """
 
+    run_config = {
+        "package": cdl_package,
+        "method": outlier_detection_method,
+        "timing": outlier_detection_timing,
+    }
+
     print(80 * "=")
     print("New run")
     print()
@@ -182,7 +188,7 @@ def run_one(
     )
     print()
     print("Results for this run will be store in:")
-    print(str(make_file_path_from_run_config(run_config)))
+    print(str(make_file_path_from_run_config(run_config, exp_dir, seed)))
     print()
     print(80 * "=")
     print()
@@ -232,9 +238,12 @@ def run_one(
             metrics = {}
         recovery_score = evaluate_D_hat(D_true, model.D_hat_)
 
+        summary_name = f"[{cdl_package}] {method_name}"
+        if outlier_detection_timing != "never":
+            summary_name += f" ({outlier_detection_timing})"
         results.append(
             {
-                "name": method_name,
+                "name": summary_name,
                 **summary_method,
                 **info_contam,
                 **metrics,
@@ -254,7 +263,9 @@ def run_one(
             loss = pobj[-1]
         results.append(
             {
+                "package": cdl_package,
                 "name": method_name,
+                "timing": outlier_detection_timing,
                 **summary_method,
                 **info_contam,
                 "recovery_score": recovery_score,
@@ -422,11 +433,11 @@ if __name__ == "__main__":
     outlier_detection_method_list = [
         {"name": "none", "alpha": -1},
         {"name": "quantile", "alpha": 0.05},
-        {"name": "quantile", "alpha": 0.1},
-        {"name": "quantile", "alpha": 0.2},
-        {"name": "iqr", "alpha": 1.5},
-        {"name": "zscore", "alpha": 1},
-        {"name": "zscore", "alpha": 2},
+        # {"name": "quantile", "alpha": 0.1},
+        # {"name": "quantile", "alpha": 0.2},
+        # {"name": "iqr", "alpha": 1.5},
+        # {"name": "zscore", "alpha": 1},
+        # {"name": "zscore", "alpha": 2},
         {"name": "mad", "alpha": 3.5},
     ]
     outlier_detection_timing_list = ["before", "during", "never"]
@@ -470,8 +481,12 @@ if __name__ == "__main__":
     df_results = pd.DataFrame(results)
     df_results.to_csv(exp_dir / "df_results.csv", index=False)
 
+    # Plot recovery score
+    fig, ax = plt.subplots(1, 1)
     curves = df_results.groupby(["name", "epoch"])["recovery_score"].mean()
     for name in df_results.name.unique():
-        curves.loc[name].plot(label=name)
-    plt.legend()
-    plt.savefig(exp_dir / "recovery_score.pdf")
+        curves.loc[name].plot(label=name, ax=ax)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Recovery score")
+    ax.legend()
+    fig.savefig(exp_dir / "recovery_score.pdf")
