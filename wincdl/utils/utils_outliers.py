@@ -117,108 +117,154 @@ def gaussian_kernel(size, sigma):
     return gauss / gauss.sum()
 
 
+def gaussian_kernel_2d(size, sigma):
+    """Generates a 2D Gaussian kernel."""
+    x = torch.arange(size).float() - size // 2
+    y = x.unsqueeze(0)
+    x = x.unsqueeze(1)
+    gauss = torch.exp(-(x.pow(2) + y.pow(2)) / (2 * sigma**2))
+    return gauss / gauss.sum()
+
+
 def apply_moving_average(data, window_size=15, method="average"):
-    """
+    """Apply moving average to 1D or 2D data.
 
     Parameters
     ----------
     data : torch.Tensor
-        Data vector of shape (batch_size, n_channels, n_times).
-
-    window_size : int, optional
-        Size of the window, by default 15
-
-    method : str, optional
-        Method for moving average. Can be 'average', 'max', or 'gaussian', by default 'average'
+        Data tensor of shape:
+        - 3D: (batch_size, n_channels, n_times) for 1D signals
+        - 4D: (batch_size, n_channels, height, width) for 2D signals
+    window_size : int
+        Size of the window. For 2D, creates a square window.
+    method : str
+        Method for moving average:
+        - 'average': Simple moving average
+        - 'gaussian': Gaussian weighted average
+        - 'max': Maximum value in window
 
     Returns
     -------
     torch.Tensor
-        Data vector of shape (batch_size, n_channels, n_times) after moving average.
+        Processed data with same shape as input
 
+    Raises
+    ------
+    ValueError
+        If method is not one of 'average', 'gaussian', or 'max'
+        If data dimensions are not 3D or 4D
     """
+    # Ensure odd window size
     if window_size % 2 != 1:
         window_size += 1
 
-    n_dims = data.dim()
-    original_shape = data.shape  # Store the original shape
+    ndim = data.dim()
+    if ndim not in [3, 4]:
+        raise ValueError(f"Data must be 3D or 4D but got {ndim}D")
 
-    # Reshape data for 1D convolution
-    if n_dims == 2:  # Shape (n_trials, n_times)
-        data = data.unsqueeze(1)  # Add a channel dimension
-    elif n_dims != 3:  # Shape (n_trials, n_channels, n_times)
-        raise ValueError("Data must be either 2D or 3D.")
+    if method not in ["average", "gaussian", "max"]:
+        raise ValueError(f"Unknown method: {method}")
 
-    if method == "average":
-        # Create structuring element (kernel)
-        se = torch.ones(data.size(1), 1, window_size, device=data.device) / window_size
-        # Perform convolution
-        convolved_data = F.conv1d(
-            data.float(), se, padding=window_size // 2, groups=data.size(1)
-        )
-    elif method == "gaussian":
-        sigma = window_size / 3  # A common choice for sigma relative to window size
-        se = gaussian_kernel(window_size, sigma).to(data.device).view(1, 1, -1)
-        se = se.repeat(data.size(1), 1, 1)  # Repeat kernel
-        convolved_data = F.conv1d(
-            data.float(), se, padding=window_size // 2, groups=data.size(1)
-        )
-    elif method == "max":
-        # Perform max pooling
-        convolved_data = F.max_pool1d(
-            data.float(), window_size, stride=1, padding=window_size // 2
-        )
+    original_shape = data.shape
+    data = data.float()  # Ensure float type for convolution
 
-    # Reshape back to original shape
-    if n_dims == 2:
-        convolved_data = convolved_data.squeeze(1)
+    if ndim == 3:  # 1D case
+        if method == "average":
+            se = (
+                torch.ones(data.size(1), 1, window_size, device=data.device)
+                / window_size
+            )
+            result = F.conv1d(data, se, padding=window_size // 2, groups=data.size(1))
+
+        elif method == "gaussian":
+            sigma = window_size / 3
+            kernel = gaussian_kernel(window_size, sigma).to(data.device).view(1, 1, -1)
+            se = kernel.repeat(data.size(1), 1, 1)
+            result = F.conv1d(data, se, padding=window_size // 2, groups=data.size(1))
+
+        else:  # method == "max"
+            result = F.max_pool1d(data, window_size, stride=1, padding=window_size // 2)
+
+    else:  # 2D case
+        if method == "average":
+            se = torch.ones(
+                data.size(1), 1, window_size, window_size, device=data.device
+            ) / (window_size * window_size)
+            result = F.conv2d(data, se, padding=window_size // 2, groups=data.size(1))
+
+        elif method == "gaussian":
+            sigma = window_size / 3
+            kernel = gaussian_kernel_2d(window_size, sigma).to(data.device)
+            se = kernel.view(1, 1, window_size, window_size).repeat(
+                data.size(1), 1, 1, 1
+            )
+            result = F.conv2d(data, se, padding=window_size // 2, groups=data.size(1))
+
+        else:  # method == "max"
+            result = F.max_pool2d(data, window_size, stride=1, padding=window_size // 2)
 
     assert (
-        convolved_data.shape == original_shape
-    ), f"Shape mismatch: {convolved_data.shape}, {original_shape}"
-    return convolved_data
+        result.shape == original_shape
+    ), f"Shape mismatch: got {result.shape}, expected {original_shape}"
+
+    return result
 
 
 def apply_opening(outliers_mask, window_size=15):
-    """ """
-    # Apply opening to remove isolated outliers, see Mathematical morphology
-    # Ensure it is a strictly positive int
-    window_size = int(window_size)
-    if window_size <= 0:
-        # Do nothing
+    """Apply opening operation to remove isolated outliers.
+
+    Parameters
+    ----------
+    outliers_mask : torch.Tensor
+        Boolean mask of shape:
+        - 3D: (batch, channels, n_times) for 1D signals
+        - 4D: (batch, channels, height, width) for 2D signals
+    window_size : int
+        Size of the opening window. For 2D, creates a square window.
+
+    Returns
+    -------
+    torch.Tensor
+        Processed mask with same shape as input
+    """
+    # Input validation
+    if not isinstance(window_size, int) or window_size <= 0:
         return outliers_mask
 
     ndim = outliers_mask.ndim
+    if ndim not in [3, 4]:
+        raise ValueError(f"outliers_mask should be 3D or 4D but is {ndim}D")
+
     original_shape = outliers_mask.shape
 
-    if ndim == 2:
-        outliers_mask = outliers_mask.unsqueeze(1)
-        # n_channels = 1
-    elif ndim == 3:
-        # n_channels = outliers_mask.shape[1]
-        pass
-    else:
-        raise ValueError(f"outliers_mask should be 2D or 3D but is {ndim}D")
+    # Convert to float for convolution
+    mask = outliers_mask.float()
 
-    # Pad mask to avoid boundary effects
-    outliers_mask = F.pad(outliers_mask.float(), (0, window_size - 1), "constant", 0)
-    # Creating a structuring element for the convolution
-    se = torch.ones(outliers_mask.size(1), 1, window_size, device=outliers_mask.device)
-    # Performing the convolution operation
-    convolved_mask = F.conv1d(
-        outliers_mask.float(), se, padding=0, groups=outliers_mask.size(1)
-    )
-    # Thresholding to get the final mask
-    convolved_outliers_mask = (convolved_mask > 0).bool()
+    if ndim == 3:  # 1D case
+        # Create 1D structuring element
+        se = torch.ones(mask.size(1), 1, window_size, device=mask.device)
+        padded_mask = F.pad(mask, (0, window_size - 1), "constant", 0)
+        # Apply convolution
+        convolved = F.conv1d(padded_mask, se, padding=0, groups=mask.size(1))
 
-    if ndim == 2:
-        convolved_outliers_mask = convolved_outliers_mask.squeeze(1)
+    else:  # 2D case
+        # Create 2D square structuring element
+        se = torch.ones(mask.size(1), 1, window_size, window_size, device=mask.device)
+        # Pad to avoid boundary effects
+        padded_mask = F.pad(
+            mask, (window_size - 1, 0, window_size - 1, 0), "constant", 0
+        )
+        # Apply convolution
+        convolved = F.conv2d(padded_mask, se, padding=0, groups=mask.size(1))
+
+    # Threshold to get binary mask
+    result = (convolved > 0).bool()
 
     assert (
-        convolved_outliers_mask.shape == original_shape
-    ), f"convolved_outliers_mask.shape: {convolved_outliers_mask.shape}, outliers_mask.shape: {original_shape}"
+        result.shape == original_shape
+    ), f"Shape mismatch: got {result.shape}, expected {original_shape}"
 
-    return convolved_outliers_mask
+    return result
 
 
 def get_outlier_mask(
@@ -300,3 +346,74 @@ def remove_outliers(
     )
 
     return torch.masked_select(data, ~outliers_mask), outliers_mask
+
+
+def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=None):
+    """
+    Add outliers to 2D data.
+
+    Parameters
+    ----------
+    X : torch.Tensor
+        4D data of shape (n_trials, n_channels, height, width).
+    patch_size : int, tuple, optional
+        Size of the patch to add outliers, by default None.
+        if int, the size of the patch is (patch_size, patch_size).
+        if None, randomly select a patch size between 5 and 15% of the image size.
+    seed : int, optional
+        Random seed for reproducibility, by default None
+
+    Returns
+    -------
+    torch.Tensor
+        Data with outliers
+    torch.Tensor
+        Mask indicating where outliers were added (1 for outliers, 0 for clean data)
+    """
+    # If numpy array, convert to tensor
+    if not torch.is_tensor(X):
+        X = torch.tensor(X)
+
+    # Set up generator for reproducible randomness
+    generator = None
+    if seed is not None:
+        generator = torch.Generator(device=X.device)
+        generator.manual_seed(seed)
+
+    n_trials, n_channels, height, width = X.shape
+
+    X_outliers = X.clone()
+    outlier_mask = torch.zeros_like(X, dtype=torch.int)
+    running_contamination = 0
+    ratio_contam = 0
+
+    while ratio_contam < contmination:
+        if patch_size is None:
+            patch_size = (
+                torch.randint(
+                    int(0.05 * height), int(0.30 * height), (1,), generator=generator
+                ).item(),
+                torch.randint(
+                    int(0.05 * width), int(0.30 * width), (1,), generator=generator
+                ).item(),
+            )
+
+        start = (
+            torch.randint(0, height - patch_size[0], (1,), generator=generator).item(),
+            torch.randint(0, width - patch_size[1], (1,), generator=generator).item(),
+        )
+        end = start[0] + patch_size[0], start[1] + patch_size[1]
+
+        # Using torch.rand instead of torch.rand_like with generator
+        patch_shape = (n_trials, n_channels, end[0] - start[0], end[1] - start[1])
+        random_patch = torch.rand(patch_shape, device=X.device, generator=generator)
+        X_outliers[:, :, start[0] : end[0], start[1] : end[1]] += (
+            strength * random_patch
+        )
+
+        outlier_mask[:, :, start[0] : end[0], start[1] : end[1]] = 1
+        # Update the contamination ratio
+        running_contamination += torch.prod(torch.tensor(patch_size))
+        ratio_contam = running_contamination / (height * width)
+
+    return X_outliers, outlier_mask

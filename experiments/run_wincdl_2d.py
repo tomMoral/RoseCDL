@@ -36,7 +36,7 @@ if __name__ == "__main__":
     # Load the data
     data = np.load(args.data_path)
     X = data.get("X")
-    D_true = data.get("d")
+    D_true = data.get("D")
 
     if X.ndim == 2:
         X = X[None, None]
@@ -76,7 +76,8 @@ if __name__ == "__main__":
         n_iterations=50,
         window=True,
         device="cuda" if cuda.is_available() else "cpu",
-        callbacks=[callback_fn]
+        callbacks=[callback_fn],
+        random_state=seed,
     )
     wincdl.fit(X)
 

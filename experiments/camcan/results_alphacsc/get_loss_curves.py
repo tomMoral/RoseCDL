@@ -5,7 +5,6 @@ from pathlib import Path
 
 from alphacsc import GreedyCDL
 from alphacsc.utils.signal import split_signal
-from alphacsc.init_dict import init_dictionary
 
 
 from dripp.cdl.plotting import display_atoms

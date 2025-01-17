@@ -7,20 +7,11 @@ with their own dict.
 # %%
 import numpy as np
 import pandas as pd
-import json
 import pickle
-from tqdm import tqdm
 from pathlib import Path
-from joblib import Memory, Parallel, delayed
-import seaborn as sns
-import matplotlib.pyplot as plt
+from joblib import Parallel, delayed
 
-from alphacsc.update_z_multi import update_z_multi
-from alphacsc.loss_and_gradient import compute_X_and_objective_multi
-from alphacsc.init_dict import init_dictionary
-from alphacsc.utils.dictionary import get_lambda_max
 
-from wincdl.wincdl import WinCDL
 from experiments.scripts.utils import get_lambda_global, get_D_sub, get_subject_z_and_cost
 
 

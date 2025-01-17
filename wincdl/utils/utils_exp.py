@@ -179,6 +179,11 @@ def get_outliers_metric(
 
     wincdl: WinCDL instance
     """
+    # Converting true_outliers_mask to numpy array if not already
+    if isinstance(true_outliers_mask, torch.Tensor):
+        true_outliers_mask = true_outliers_mask.detach().cpu().numpy()
+        true_outliers_mask = true_outliers_mask.astype(np.int32)
+
     X = torch.tensor(X, dtype=wincdl.dtype, device=wincdl.device)
     X_hat, z_hat = wincdl.csc(X)
 
@@ -193,6 +198,10 @@ def get_outliers_metric(
             f"Shape of true_outliers_mask ({true_outliers_mask.shape}) "
             f"does not match shape of outliers_mask ({outliers_mask.shape})"
         )
+
+    # Ensure masks have the same dtype
+    if true_outliers_mask.dtype != outliers_mask.dtype and outliers_mask.dtype == bool:
+        outliers_mask = outliers_mask.astype(np.int32)
 
     accuracy = np.mean(outliers_mask == true_outliers_mask)
     precision = precision_score(

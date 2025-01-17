@@ -19,6 +19,7 @@ class CSC1d(nn.Module):
         window=False,
         D_init=None,
         positive_z=True,
+        positive_D=False,
         random_state=None,
         device=None,
         dtype=None,
@@ -32,6 +33,7 @@ class CSC1d(nn.Module):
 
         self.lmbd = lmbd
         self.positive_z = positive_z
+        self.positive_D = positive_D
 
         self.n_iterations = n_iterations
 
@@ -135,6 +137,11 @@ class CSC1d(nn.Module):
         """
         with torch.no_grad():
             if self.rank == "uv_constraint":
+                if self.positive_D:
+                    # Work on data as u, v are nn.Parameter
+                    self.u.data = F.relu(self.u.data)
+                    self.v.data = F.relu(self.v.data)
+
                 if self.do_window:
                     norm_col_v = torch.linalg.vector_norm(self.window * self.v, dim=2, keepdim=True)
                 else:
@@ -148,6 +155,10 @@ class CSC1d(nn.Module):
                 return norm_col_v, norm_col_u
 
             elif self.rank == "full":
+                if self.positive_D:
+                    # Work on data as _D_hat is a nn.Parameter
+                    self._D_hat.data = F.relu(self._D_hat.data)
+
                 if self.do_window:
                     norm_atoms = torch.linalg.vector_norm(
                         self.window * self._D_hat, dim=(1, 2), keepdim=True
@@ -296,6 +307,7 @@ class CSC2d(CSC1d):
         window=False,
         D_init=None,
         positive_z=True,
+        positive_D=False,
         random_state=None,
         device=None,
         dtype=None,
@@ -311,8 +323,9 @@ class CSC2d(CSC1d):
             random_state=2147483647,
             rank="full",
             window=False,
-            D_init=None,
-            positive_z=True,
+            D_init=D_init,
+            positive_z=positive_z,
+            positive_D=positive_D,
         )
 
         # Convolution
@@ -324,9 +337,13 @@ class CSC2d(CSC1d):
         Constrains the dictionary to have normalized atoms
         """
         with torch.no_grad():
+            if self.positive_D:
+                # Work on data as _D_hat is a nn.Parameter
+                self._D_hat.data = F.relu(self._D_hat.data)
             norm_atoms = torch.linalg.vector_norm(self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True)
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
+            return norm_atoms
 
     def compute_lipschitz(self):
         """

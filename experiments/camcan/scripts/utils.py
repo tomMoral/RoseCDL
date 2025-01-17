@@ -12,7 +12,6 @@ from alphacsc.loss_and_gradient import compute_X_and_objective_multi
 
 
 from wincdl.wincdl import WinCDL
-from .camcan import load_data as load_data_camcan
 
 
 DEVICE = "cuda:1"
