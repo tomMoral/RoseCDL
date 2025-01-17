@@ -220,8 +220,8 @@ def run_one(
     # Parameters for WinCDL's outlier loss.
     # (only for cdl_package="wincdl" and outlier_detection_timing="during")
     online_outliers_kwargs = {
-        "never": {},
-        "before": {},
+        "never": None,
+        "before": None,
         "during": {**outliers_kwargs, **summary_method},
     }[outlier_detection_timing]
 
@@ -426,10 +426,10 @@ if __name__ == "__main__":
     sporco_params = {}
 
     # cdl_package_list = ["wincdl", "alphacsc", "sporco"]
-    cdl_package_list = ["wincdl", "alphacsc"]
+    cdl_package_list = ["wincdl"]
     outlier_detection_method_list = [
         {"name": "none", "alpha": -1},
-        {"name": "quantile", "alpha": 0.05},
+        # {"name": "quantile", "alpha": 0.05},
         # {"name": "quantile", "alpha": 0.1},
         # {"name": "quantile", "alpha": 0.2},
         # {"name": "iqr", "alpha": 1.5},
