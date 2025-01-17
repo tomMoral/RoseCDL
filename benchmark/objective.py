@@ -35,7 +35,9 @@ class Objective(BaseObjective):
     min_benchopt_version = "1.6"
 
     install_cmd = 'conda'
-    requirements = ['pip:alphacsc']
+    requirements = [
+        'pip:alphacsc', 'pip:git+https://github.com/tommoral/WinCDL'
+    ]
 
     parameters = {
         'reg': [8e-1],
