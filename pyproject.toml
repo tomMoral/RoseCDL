@@ -1,0 +1,23 @@
+
+
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".ipynb_checkpoints",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "__cache__",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4

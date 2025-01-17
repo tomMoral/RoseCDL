@@ -191,22 +191,23 @@ class OutlierLoss(_ReconstructionLoss):
             The sparse code tensor.
         X : torch.Tensor, shape (n_batch, n_channels, *full_support)
             The original signal tensor.
-        patch_size : int
-            The size of the patch to compute the error on.
 
         Returns
         -------
-        err : torch.Tensor, shape (n_batch, *patch_support)
-            The reconstruction error per patch.
+        err : torch.Tensor, shape (n_batch, n_channels, *patch_support)
+            The reconstruction error per patch, maintaining channel dimension.
         """
         kernel_size = get_kernel_size(X_hat, z_hat)
 
         # Compute non-reduced loss
+        old_red = self.loss_fn.reduction
+        self.loss_fn.reduction = "none"
         diff = self.loss_fn(X_hat, z_hat, X)
+        self.loss_fn.reduction = old_red
 
         avg_pool = F.avg_pool1d if X.ndim == 3 else F.avg_pool2d
 
-        # Extend on right to get patched aligned with coefficient z
+        # Extend on right to get patches aligned with coefficient z
         pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks-1))
         diff = F.pad(diff, pad_size, "constant", 0)
         diff = avg_pool(diff, kernel_size, stride=1)
@@ -242,13 +243,13 @@ class LassoLoss(_ReconstructionLoss):
     def forward(self, X_hat, z_hat, X):
         kernel_size = get_kernel_size(X_hat, z_hat)
 
-        # should be of shape (batch_size, *full_suppport)
-        loss = self.data_fit(X_hat, X).sum(dim=1)
+        # should be of shape (batch_size, 1, *full_suppport)
+        loss = self.data_fit(X_hat, X).sum(dim=1, keepdim=True)
 
         # Compute the L1 norm and pad it to be able to add it to each patch
         if self.lmbd > 0:
             pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks-1))
-            z_hat = F.pad(z_hat.abs().sum(dim=1), pad_size, "constant", 0)
+            z_hat = F.pad(z_hat.abs().sum(dim=1, keepdim=True), pad_size, "constant", 0)
             loss += self.lmbd * z_hat
 
         loss = reduce_loss(loss, self.reduction)

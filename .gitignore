@@ -12,6 +12,7 @@ __pycache__/
 experiments/physionet/apnea-ecg
 experiments/figures
 *joblib/
+__cache__/
 sub-*/
 experiments/results/
 outliers_detection/
@@ -63,6 +64,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 
 # Translations
 *.mo

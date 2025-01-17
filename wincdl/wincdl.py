@@ -58,6 +58,9 @@ class WinCDL(torch.nn.Module):
         Initial dictionary. If None, the dictionary will be initialized randomly.
     positive_z : bool, optional
         If True, the activations will be constrained to be positive.
+    positive_D : bool, optional
+        If True, the dictionary will be constrained to be positive.
+        Useful for images.
     outliers_kwargs : dict, optional
         Parameters for the outliers detection. If None, no outliers detection will
         be used.
@@ -90,6 +93,7 @@ class WinCDL(torch.nn.Module):
         window=False,
         D_init=None,
         positive_z=True,
+        positive_D=False,  # Add this parameter
         outliers_kwargs=None,
         callbacks=(),
         device=None,
@@ -149,6 +153,7 @@ class WinCDL(torch.nn.Module):
             window=window,
             D_init=D_init,
             positive_z=positive_z,
+            positive_D=positive_D,
             random_state=self.random_state,
             device=device,
             dtype=dtype,

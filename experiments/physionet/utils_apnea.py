@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 from alphacsc.learn_d_z import learn_d_z, compute_X_and_objective
 from alphacsc.learn_d_z_multi import learn_d_z_multi
-from alphacsc.utils.convolution import construct_X
 from alphacsc.update_z import update_z
 
 import wfdb
@@ -86,11 +85,11 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
         warnings.warn('The returned labels do not match the data as T != 60 '
                       f'(got T = {T}).')
         return X, labels
-    
+
 
 def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_section=0):
     """
-    
+
     n_sections : int
         number of sections to plot
 
@@ -102,7 +101,6 @@ def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_sec
     """
 
     data_path=Path('apnea-ecg')
-    subject_dir = Path(f'apnea-ecg/{subject_id}')
     record_name = str(data_path / subject_id)
     ecg_record = rdrecord(record_name=record_name)
     ann = rdann(
@@ -113,12 +111,12 @@ def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_sec
     )
 
     for idx_min in (np.array(range(n_sections)) + first_section)*5:
-        fig = wfdb.plot.plot_wfdb(
+        wfdb.plot.plot_wfdb(
             ecg_record, ann, title=f'ECG-Apnea Record {subject_id}',
-            return_fig=True, figsize=(50,4))
+            return_fig=True, figsize=(50,4)
+        )
 
         plt.xlim(idx_min*60, (idx_min + n_min_per_plot)*60)
-        # plt.savefig(subject_dir / f'record.pdf', dpi=300)
         plt.show()
 
 
