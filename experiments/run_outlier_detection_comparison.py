@@ -222,10 +222,7 @@ def run_one(
     online_outliers_kwargs = {
         "never": {},
         "before": {},
-        "during": {
-            **outliers_kwargs,
-            **summary_method
-        },
+        "during": {**outliers_kwargs, **summary_method},
     }[outlier_detection_timing]
 
     # Setup the callback
@@ -430,7 +427,6 @@ if __name__ == "__main__":
 
     # cdl_package_list = ["wincdl", "alphacsc", "sporco"]
     cdl_package_list = ["wincdl", "alphacsc"]
-    cdl_package_list = ["alphacsc"]
     outlier_detection_method_list = [
         {"name": "none", "alpha": -1},
         {"name": "quantile", "alpha": 0.05},
@@ -442,7 +438,6 @@ if __name__ == "__main__":
         {"name": "mad", "alpha": 3.5},
     ]
     outlier_detection_timing_list = ["before", "during", "never"]
-    outlier_detection_timing_list = ["never"]
 
     run_config_list = generate_run_config_list(
         cdl_package_list=cdl_package_list,
@@ -484,7 +479,7 @@ if __name__ == "__main__":
     df_results.to_csv(exp_dir / "df_results.csv", index=False)
 
     # Plot recovery score
-    fig, ax = plt.subplots(1, 1)
+    fig, ax = plt.subplots(1, 1, figsize=(12, 10))
     curves = df_results.groupby(["name", "epoch"])["recovery_score"].mean()
     for name in df_results.name.unique():
         curves.loc[name].plot(label=name, ax=ax)
