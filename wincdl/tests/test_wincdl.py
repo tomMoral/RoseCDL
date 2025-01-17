@@ -18,8 +18,8 @@ from wincdl.wincdl import WinCDL
 def test_wincdl(
     n_components, n_channels, kernel_size, support, rank, positive_D
 ):
-    """Test positive dictionary constraint with 1D data"""
-    # Setup 1D test data
+    """Test positive dictionary constraint with 1D and 2D data"""
+    # Setup test data
     X = np.random.rand(10, n_channels, *support)
 
     # Initialize WinCDL and fit it
@@ -44,5 +44,5 @@ def test_wincdl(
     # If positive_D is True, assert that all values in the dictionary are positive
     if positive_D:
         assert np.all(cdl.D_hat_ >= 0), (
-            "1D dictionary contains negative values, while using positive_D=True"
+            f"{len(support)}D dictionary contains negative values, while using positive_D=True"
         )
