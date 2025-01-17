@@ -181,6 +181,9 @@ def run_one(
         outlier_detection_timing,
     )
     print()
+    print("Results for this run will be store in:")
+    print(str(make_file_path_from_run_config(run_config)))
+    print()
     print(80 * "=")
     print()
     if cdl_package == "sporco":
@@ -290,8 +293,14 @@ def run_one(
 
     # Plot true dictionary
     if i == 0:
+        fig_file_name = (
+            f"D_hat_"
+            f"{cdl_package}_"
+            f"{method_name.replace(' ', '_')}_"
+            f"{outlier_detection_timing}.pdf"
+        )
         fig = plot_dicts(cdl.D_hat_)
-        fig.savefig(exp_dir / f"D_hat_{method_name}.pdf")
+        fig.savefig(exp_dir / fig_file_name)
 
     # Save the results
     df_results = pd.DataFrame(results)
