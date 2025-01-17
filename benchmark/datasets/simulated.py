@@ -18,8 +18,6 @@ class Dataset(BaseDataset):
         'random_state': [27],
     }
 
-    requirements = ["git+https://github.com/tommoral/WinCDL.git@master"]
-
     def get_data(self):
         X, D, _ = simulate_1d(
             n_atoms=10, n_times_atom=50, n_trials=self.n_samples,

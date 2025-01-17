@@ -1,3 +1,4 @@
+from pathlib import Path
 from benchopt import BaseObjective, safe_import_context
 
 # Protect the import with `safe_import_context()`. This allows:
@@ -10,6 +11,9 @@ with safe_import_context() as import_ctx:
     from wincdl.utils.utils_exp import evaluate_D_hat
 
 
+WINCDL_DIR = Path(__file__).parent.parent
+
+
 # The benchmark objective must be named `Objective` and
 # inherit from `BaseObjective` for `benchopt` to work properly.
 class Objective(BaseObjective):
@@ -20,23 +24,13 @@ class Objective(BaseObjective):
     # URL of the main repo for this benchmark.
     url = "https://github.com/tommoral/WinCDL"
 
-
-    # List of packages needed to run the benchmark.
-    # They are installed with conda; to use pip, use 'pip:packagename'. To
-    # install from a specific conda channel, use 'channelname:packagename'.
-    # Packages that are not necessary to the whole benchmark but only to some
-    # solvers or datasets should be declared in Dataset or Solver (see
-    # simulated.py and python-gd.py).
-    # Example syntax: requirements = ['numpy', 'pip:jax', 'pytorch:pytorch']
-    requirements = []
-
     # Minimal version of benchopt required to run this benchmark.
     # Bump it up if the benchmark depends on a new feature of benchopt.
     min_benchopt_version = "1.6"
 
     install_cmd = 'conda'
     requirements = [
-        'pip:alphacsc', 'pip:git+https://github.com/tommoral/WinCDL#egg=wincdl'
+        'pip:alphacsc', f'pip:-e {WINCDL_DIR}'
     ]
 
     parameters = {
