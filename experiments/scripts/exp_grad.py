@@ -9,8 +9,7 @@ from scipy.linalg import norm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from alphacsc.loss_and_gradient import _l2_gradient_d, _dense_transpose_convolve_z
-from alphacsc.update_z_multi import update_z_multi
+from alphacsc.loss_and_gradient import _dense_transpose_convolve_z
 from alphacsc.utils import construct_X_multi
 
 from simulate import simulate_data

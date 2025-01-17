@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 from alphacsc.learn_d_z import learn_d_z, compute_X_and_objective
 from alphacsc.learn_d_z_multi import learn_d_z_multi
-from alphacsc.utils.convolution import construct_X
 from alphacsc.update_z import update_z
 
 import wfdb

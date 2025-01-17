@@ -16,7 +16,6 @@ from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils import construct_X_multi
 
 from wincdl.wincdl import WinCDL
-from experiments.scripts.utils import get_camcan_info, get_subject_z_and_cost
 from experiments.scripts.camcan import load_data as load_data_camcan
 
 BASE_PATH = Path('/storage/store2/work/bmalezie')

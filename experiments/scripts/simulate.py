@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
 
-from alphacsc.utils import check_random_state, construct_X, construct_X_multi
+from alphacsc.utils import check_random_state, construct_X_multi
 from alphacsc.utils.dictionary import tukey_window
 
 

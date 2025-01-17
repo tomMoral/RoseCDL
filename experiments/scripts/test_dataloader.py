@@ -1,8 +1,6 @@
 # %%
-from pathlib import Path
-import torch
 
-from wincdl.datasets import PhysionetDataset, create_physionet_dataloader
+from wincdl.datasets import create_physionet_dataloader
 from wincdl.wincdl import WinCDL
 
 

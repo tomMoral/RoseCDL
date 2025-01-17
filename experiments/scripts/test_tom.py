@@ -2,12 +2,9 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from joblib import Parallel, delayed
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from alphacsc.utils.convolution import construct_X_multi
-from experiments.scripts.utils import get_lambda_global
 
 BASE_PATH = Path('/storage/store2/work/bmalezie')
 DICT_PATH = BASE_PATH / 'cdl-population/results/camcan'

@@ -1,5 +1,4 @@
 # %%
-import torch
 import os
 import numpy as np
 from pathlib import Path
@@ -7,8 +6,6 @@ import pickle
 
 from alphacsc.init_dict import init_dictionary
 
-from wincdl.datasets import create_conv_dataloader, MEGPopDataset
-from wincdl.train import train
 from wincdl.wincdl import WinCDL
 from experiments.scripts.utils import get_lambda_global
 

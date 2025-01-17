@@ -4,12 +4,8 @@ Compute the evolution of cost as the number of atoms learned
 # %%
 import numpy as np
 import pandas as pd
-import json
-from tqdm import tqdm
 from pathlib import Path
 
-from alphacsc.utils.convolution import sort_atoms_by_explained_variances
-from dripp.cdl.plotting import display_atoms
 # from dripp.cdl.camcan import load_data as load_data_camcan
 
 from experiments.scripts.utils import \

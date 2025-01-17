@@ -2,11 +2,10 @@
 import numpy as np
 from pathlib import Path
 
-from alphacsc.utils.dictionary import get_uv
 from dripp.cdl.plotting import display_atoms
 
 from experiments.scripts.utils import \
-    get_lambda_global, get_D_sub, get_subject_z_and_cost, get_camcan_info
+    get_camcan_info
 
 N_ATOMS = 70
 N_TIMES_ATOM = 150
