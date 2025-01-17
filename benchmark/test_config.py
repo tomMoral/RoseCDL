@@ -1,6 +1,4 @@
-import sys  # noqa: F401
-
-import pytest  # noqa: F401
+import pytest
 
 
 def check_test_solver_install(solver_class):
