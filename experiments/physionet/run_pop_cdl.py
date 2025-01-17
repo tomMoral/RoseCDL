@@ -1,10 +1,8 @@
 # %%
 import numpy as np
-from pathlib import Path
-import torch
 
 from utils_apnea import plot_temporal_atoms
-from wincdl.datasets import PhysionetDataset, create_physionet_dataloader
+from wincdl.datasets import create_physionet_dataloader
 from wincdl.wincdl import WinCDL
 # %%
 

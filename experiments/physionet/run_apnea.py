@@ -3,15 +3,13 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import pickle
-from joblib import Parallel, delayed
 from tqdm import tqdm
 import argparse
 
-from alphacsc.learn_d_z import compute_X_and_objective
 from alphacsc.init_dict import init_dictionary
 from dripp.cdl.utils_plot import plot_z_boxplot
 
-from utils_apnea import load_ecg, get_subject_info, run_cdl
+from utils_apnea import load_ecg, run_cdl
 # %%
 # download apnea-ecg from physionet
 # wfdb.io.dl_database(db_dir='apnea-ecg', dl_dir='./apnea-ecg')

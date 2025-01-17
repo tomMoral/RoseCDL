@@ -1,6 +1,4 @@
 import numpy as np
-import pandas as pd
-from pathlib import Path
 import argparse
 
 from utils_apnea import plot_temporal_atoms

@@ -37,7 +37,7 @@ df_cost = pd.read_csv(f'recovery_df_{group_id}_{fit_on}.csv')
 # try load population recovery DataFrame
 try:
     df_pop_cost = pd.read_csv(f'recovery_pop_df_{group_id}.csv')
-except:
+except FileNotFoundError:
     df_pop_cost = None
 
 
@@ -87,7 +87,7 @@ if df_pop_cost is not None:
     plt.scatter(xticklabels, yy_pop, marker='v', label='pop')
 
 ax.legend()
-plt.xticks(rotation=45) 
+plt.xticks(rotation=45)
 plt.xlabel('Subject ID')
 plt.ylabel('Lasso cost')
 
