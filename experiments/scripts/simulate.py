@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
 
-from alphacsc.utils import check_random_state, construct_X_multi
 from alphacsc.utils.dictionary import tukey_window
+from alphacsc.utils.convolution import construct_X_multi
+from alphacsc.utils.validation import check_random_state
 
 
 def simulate_data(n_trials=1, n_channels=1, n_times=1_000,
