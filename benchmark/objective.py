@@ -36,7 +36,7 @@ class Objective(BaseObjective):
 
     install_cmd = 'conda'
     requirements = [
-        'pip:alphacsc', 'pip:git+https://github.com/tommoral/WinCDL'
+        'pip:alphacsc', 'pip:git+https://github.com/tommoral/WinCDL#egg=wincdl'
     ]
 
     parameters = {
