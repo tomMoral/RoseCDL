@@ -294,6 +294,7 @@ def run_one(
         cdl.fit(X)
     elif cdl_package == "alphacsc":
         cdl = BatchCDL(**cdl_params, D_init=D_init)
+        cdl.raise_on_increase = False
         cdl.callback = alphacsc_callback_fn
         cdl.fit(X)
     else:
@@ -426,7 +427,7 @@ if __name__ == "__main__":
     sporco_params = {}
 
     # cdl_package_list = ["wincdl", "alphacsc", "sporco"]
-    cdl_package_list = ["wincdl"]
+    cdl_package_list = ["alphacsc"]
     outlier_detection_method_list = [
         {"name": "none", "alpha": -1},
         # {"name": "quantile", "alpha": 0.05},
@@ -480,9 +481,22 @@ if __name__ == "__main__":
 
     # Plot recovery score
     fig, ax = plt.subplots(1, 1, figsize=(12, 10))
-    curves = df_results.groupby(["name", "epoch"])["recovery_score"].mean()
-    for name in df_results.name.unique():
-        curves.loc[name].plot(label=name, ax=ax)
+    curves = (
+        df_results.groupby(["name", "epoch"])["recovery_score"]
+        .quantile([0.2, 0.5, 0.8])
+        .unstack()
+    )
+    for i, name in enumerate(df_results.name.unique()):
+        ax.fill_between(
+            curves.loc[name].index,
+            curves.loc[name, 0.2],
+            curves.loc[name, 0.8],
+            alpha=0.3,
+            color=f"C{i}",
+            label=None,
+        )
+        curves.loc[name, 0.5].plot(label=name, c=f"C{i}")
+    ax.legend()
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Recovery score")
     ax.legend()
