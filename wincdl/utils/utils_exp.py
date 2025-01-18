@@ -2,13 +2,18 @@ import json
 import warnings
 from pathlib import Path
 
-import torch
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 from scipy import signal
-import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
+from sklearn.metrics import (
+    f1_score,
+    jaccard_score,
+    precision_score,
+    recall_score,
+)
 
 
 def multi_channel_2d_correlate(dk, pat):
@@ -24,7 +29,10 @@ def multi_channel_2d_correlate(dk, pat):
         np.ndarray : The correlation.
     """
     return np.sum(
-        [signal.correlate(dk_c, pat_c, mode="full") for dk_c, pat_c in zip(dk, pat)],
+        [
+            signal.correlate(dk_c, pat_c, mode="full")
+            for dk_c, pat_c in zip(dk, pat)
+        ],
         axis=0,
     )
 
@@ -156,22 +164,16 @@ def check_and_initialize(
     return df_results
 
 
-def get_method_name(outliers_kwargs):
-    if outliers_kwargs is None:
+def get_method_name(method_spec: dict[str or float]) -> str:
+    """Convert method specification to string format."""
+    if method_spec["name"] == "none":
         return "no detection"
 
-    method = outliers_kwargs["method"]
-    if "alpha" in outliers_kwargs:
-        alpha = outliers_kwargs["alpha"]
-        method += f" (alpha={alpha})"
-
-    return method
+    return f"{method_spec['name']} (alpha={method_spec['alpha']:.02f})"
 
 
 def get_outliers_metric(
-    true_outliers_mask,
-    wincdl,
-    X,
+    true_outliers_mask, wincdl, X, dice_score_epsilon: float = 1e-7
 ):
     """
 
@@ -185,7 +187,9 @@ def get_outliers_metric(
     X = torch.tensor(X, dtype=wincdl.dtype, device=wincdl.device)
     X_hat, z_hat = wincdl.csc(X)
 
-    outliers_mask = wincdl.loss_fn.get_outliers_mask(X_hat, z_hat, X, opening=False)
+    outliers_mask = wincdl.loss_fn.get_outliers_mask(
+        X_hat, z_hat, X, opening=False
+    )
     outliers_mask = outliers_mask.detach().cpu().numpy()
 
     # Ensure masks have the same shape
@@ -200,13 +204,17 @@ def get_outliers_metric(
         outliers_mask = outliers_mask.astype(np.int32)
 
     accuracy = np.mean(outliers_mask == true_outliers_mask)
-    precision = precision_score(true_outliers_mask.flatten(), outliers_mask.flatten())
+    precision = precision_score(
+        true_outliers_mask.flatten(), outliers_mask.flatten()
+    )
     recall = recall_score(true_outliers_mask.flatten(), outliers_mask.flatten())
     f1 = f1_score(true_outliers_mask.flatten(), outliers_mask.flatten())
     # Compute dice score
-    dice = 2 * (precision * recall) / (precision + recall)
+    dice = 2 * (precision * recall) / (precision + recall + dice_score_epsilon)
     # Compute Jacard score using sklearn
-    jaccard = jaccard_score(true_outliers_mask.flatten(), outliers_mask.flatten())
+    jaccard = jaccard_score(
+        true_outliers_mask.flatten(), outliers_mask.flatten()
+    )
 
     score_dict = dict(
         accuracy=accuracy,
@@ -221,7 +229,9 @@ def get_outliers_metric(
     return score_dict
 
 
-def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True):
+def plot_dicts(
+    *dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
+):
     """
     Plot one or more dictionaries, with the option of overlaying a ground truth dictionary.
 
@@ -268,7 +278,9 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
         labels = [None] * len(dicts)
 
     if len(labels) != len(dicts):
-        raise ValueError("Number of labels should match the number of dictionaries.")
+        raise ValueError(
+            "Number of labels should match the number of dictionaries."
+        )
 
     fig, axs = plt.subplots(
         n_atoms, n_channels, figsize=(10, 2 * n_atoms), sharex=True, sharey=True
@@ -287,7 +299,10 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
                 else:
                     label = None
                 axs[i, j].plot(
-                    D_true[i, j, :], color="black", linestyle="--", label="D_true"
+                    D_true[i, j, :],
+                    color="black",
+                    linestyle="--",
+                    label="D_true",
                 )
             for d, label in zip(dicts, labels):
                 if i == 0 and j == (n_channels - 1):
@@ -300,7 +315,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
             axs[i, j].set_title(f"Atom {i+1}, Channel {j+1}")
             if i == n_atoms - 1:
                 axs[i, j].set_xlabel("Time")
-            if j == n_channels - 1:
+            if j == n_channels - 1 and labels[0] is not None:
                 axs[i, j].legend()
 
     plt.xlim(0, n_times_atom - 1)
@@ -374,7 +389,9 @@ def sort_atoms(D, D_ref=None, return_permutation=False):
     corr_matrix = np.zeros((n_atoms_ref, n_atoms))
     for i in range(n_atoms_ref):
         for j in range(n_atoms):
-            corr_matrix[i, j] = np.corrcoef(D_ref[i].flatten(), D[j].flatten())[0, 1]
+            corr_matrix[i, j] = np.corrcoef(D_ref[i].flatten(), D[j].flatten())[
+                0, 1
+            ]
 
     # Find the best match for each atom in D
     best_match = []

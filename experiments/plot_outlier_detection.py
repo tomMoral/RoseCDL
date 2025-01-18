@@ -25,7 +25,7 @@ def get_method_name(outliers_kwargs):
     return method
 
 
-EXP_DIR = Path("outliers_detection")
+EXP_DIR = Path.home() / "data/wincdl"
 
 add_reg = True
 per_patch = True
@@ -36,9 +36,8 @@ D_INIT = "random"  # "random" or "chunk"
 
 n_runs = 20
 
-exp_name = f"add_reg={add_reg}_per_patch={per_patch}_q_lmbd={q_lmbd}_reg={REG}_D_init={D_INIT}_normalized_error_metric_no_opening_window"
+exp_name = "outlier_detection_reg_0.8"
 exp_dir = EXP_DIR / exp_name
-exp_dir.mkdir(exist_ok=True, parents=True)
 
 df_scores = pd.read_csv(exp_dir / "df_results.csv")
 df_scores = df_scores.rename(
@@ -65,8 +64,6 @@ list_methods = list_methods = [
     {"method": "iqr_unilateral", "alpha": 1.5},
     {"method": "zscore", "alpha": 1},
     {"method": "zscore", "alpha": 2},
-    # {"method": "zscore", "alpha": 3},
-    # {"method": "mad", "alpha": 1},
     {"method": "mad", "alpha": 3.5},
 ]
 

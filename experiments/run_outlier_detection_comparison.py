@@ -5,38 +5,159 @@ plot_outliers_detection.py to generate the plots.
 
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
+from alphacsc import BatchCDL
+from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
-from joblib import Parallel, delayed
-from joblib import Memory
-
+from wincdl.loss import LassoLoss, OutlierLoss
 from wincdl.utils.utils_exp import (
     evaluate_D_hat,
-    get_method_name,
     get_outliers_metric,
     plot_dicts,
 )
 from wincdl.utils.utils_signal import generate_experiment
 from wincdl.wincdl import WinCDL
 
-
 mem = Memory(location="__cache__", verbose=0)
 
+def get_support_mean(data, outlier_mask):
+    """Get the mean of the data without the outliers."""
+    axis = tuple(range(2, data.ndim))
+    support_mean = (data * (~outlier_mask)).sum(axis=axis, keepdims=True)
+    support_mean /= np.maximum((~outlier_mask).sum(axis=axis, keepdims=True), 1)
+    return support_mean
 
-EXP_DIR = Path("results")
-EXP_DIR.mkdir(exist_ok=True, parents=True)
+
+def remove_outliers_before_cdl(
+    data: np.array,
+    activation_vector_shape: tuple,
+    method: str, alpha: float,
+    moving_average: int, opening_window: bool, union_channels: bool,
+    fill_by_channel=True
+) -> np.array:
+    """Remove outliers before CDL.
+
+    Args:
+        data: array of shape (n_trials, n_channels, n_times)
+        activation_vector_shape: shape of the activation vector
+        method: name of the outlier detection method
+        alpha: parameter of the method
+        moving_average: size of the moving average window
+        opening_window: whether to open the window
+        union_channels: whether to use the union of the channels
+        fill_by_channel: whether to replace outlier by the mean of the signal without outliers
+                         by channels or globally
+    """
+    outlier_loss = OutlierLoss(
+        LassoLoss(lmbd=0, reduction='mean'),
+        method=method,
+        alpha=alpha,
+        moving_average=moving_average,
+        opening_window=opening_window,
+        union_channels=union_channels,
+    )
+
+    outlier_mask = outlier_loss.get_outliers_mask(
+        X_hat=torch.from_numpy(np.zeros_like(data)),
+        z_hat=torch.zeros(activation_vector_shape),
+        X=torch.from_numpy(data),
+    ).cpu().numpy()
+    outlier_mask = np.broadcast_to(outlier_mask, data.shape)
+    if fill_by_channel:
+        support_mean = get_support_mean(data, outlier_mask)
+        # Flatten to allow data assignment
+        data_clean, outlier_mask = data.ravel().copy(), outlier_mask.ravel()
+        support_mean = np.broadcast_to(support_mean, data.shape).ravel()
+        data_clean[outlier_mask] = support_mean[outlier_mask]
+        return data.reshape(data.shape)
+    else:
+        data_clean = data.copy()
+        data_clean[outlier_mask] = data[~outlier_mask].mean()
+        return data_clean
+
+
+def generate_run_config_list(
+    cdl_packages, outlier_detection_methods, outlier_detection_timings,
+    cdl_configs, n_runs=1, seed=None,
+):
+    """Generate the list of configurations for the experiment.
+
+    Args:
+        cdl_packages (list): List of CDL packages to use.
+        outlier_detection_methods (list): List of outlier detection methods.
+        outlier_detection_timings (list): List of outlier detection timings.
+        cdl_configs (dict): Dictionary of CDL configurations.
+        n_runs (int): Number of runs to generate.
+        seed (int): Master seed for the experiment.
+    """
+    # Generate a list of seeds for reproducibility
+    rng = np.random.default_rng(seed)
+    list_seeds = rng.integers(0, 2**32 - 1, size=n_runs)
+
+    run_config_list = []
+    for package in cdl_packages:
+        for timing in outlier_detection_timings:
+            if package != "wincdl" and timing == "during":
+                # Only wincdl can run the outlier detection during the CDL
+                continue
+            for method in outlier_detection_methods:
+                if bool(timing == "never") != bool(method["method"] == "none"):
+                    # XOR condition either timing is "never" and method is "none"
+                    # or timing is not "never" and method is not "none"
+                    continue
+                run_config_list.extend({
+                    "cdl_package": package,
+                    "cdl_params": cdl_configs[package],
+                    "outlier_detection_method": method,
+                    "outlier_detection_timing": timing,
+                    "seed": s,
+                    "i": i
+                } for i, s in enumerate(list_seeds))
+    return run_config_list
 
 
 @mem.cache
-def run_one(method, outliers_kwargs, wincdl_params, simulation_params, i, seed, exp_dir):
+def run_one(
+    cdl_package: str,
+    cdl_params: dict[str, str or float],
+    outlier_detection_method: dict[str, str or float],
+    outlier_detection_timing: str,
+    seed: int,
+    i: int,
+    outliers_kwargs: dict[str, str or float],
+    simulation_params: dict[str, str or float],
+    exp_dir: str,
+):
+    """Run the experiment for a given CDL package and outlier detection method.
+
+    Args:
+        cdl_package (str): CDL package name: "wincdl", "alphacsc" or "sporco".
+        outlier_detection_method (str): Outlier detection method.
+            A dictionary is expected with two keys:
+                - "name": name of the method. Can be one of "quantile", "iqr",
+                    "zscore", "mad" or "none".
+                - "alpha" (float): Parameter of the method.
+        outlier_detection_timing (str): When to run the outlier detection
+            relatively to the CDL: "before", "during" or "never".
+        outliers_kwargs (dict): Additional parameters for outlier detection.
+        cdl_params (dict): Parameters for the CDL algorithm.
+        simulation_params (dict): Parameters for data simulation.
+        seed (int): Random seed.
+        i (int): Counting index of the run.
+        exp_dir (str): Name of the directory to store the results
+
+    """
+    if cdl_package == "sporco":
+        return []
 
     # Generate the data
     simulation_params["rng"] = seed
-    X, _, D_true, D_init, info_contam = generate_experiment(
+    X, z, D_true, D_init, info_contam = generate_experiment(
         simulation_params,
         return_info_contam=True,
     )
@@ -46,45 +167,82 @@ def run_one(method, outliers_kwargs, wincdl_params, simulation_params, i, seed, 
         fig = plot_dicts(D_true)
         fig.savefig(exp_dir / "dict_true.pdf")
 
-    # retrieve the method
-    method_name = get_method_name(method)
-    if method is None:
-        method = {}
-        this_outliers_kwargs = None
+    # Process the outlier method's parameters and compute the summary name
+    if outlier_detection_timing == "never":
+        summary_name, outliers_kwargs = "no detection", None
+        outlier_detection_method = {}
     else:
-        this_outliers_kwargs = dict(
-            **outliers_kwargs, **method
+        summary_name = "{method} (alpha={alpha:.02f})".format(**outlier_detection_method)
+        outliers_kwargs = {**outliers_kwargs, **outlier_detection_method}
+
+    summary_name = f"[{cdl_package}] {summary_name}"
+    if outlier_detection_timing != "never":
+        summary_name += f" ({outlier_detection_timing})"
+
+    # Perform outlier detection on the data before CDL
+    if outlier_detection_timing == "before":
+        X = remove_outliers_before_cdl(
+            data=X,
+            activation_vector_shape=z.shape,
+            **outliers_kwargs,
         )
+        outliers_kwargs = None
 
     # Setup the callback
     results = []
-    def callback_fn(model, epoch, loss):
-        if hasattr(model.loss_fn, "method"):
-            metrics = get_outliers_metric(
-                info_contam["outliers_mask"].max(axis=1), model, X
-            )
-        else:
-            metrics = {}
-        recovery_score = evaluate_D_hat(D_true, model.D_hat_)
 
+    def callback_fn(model, *args):
+        if len(args) == 1:
+            pobj = args[0]
+            # alphacsc adds the loss twice in pobj per epoch, after each update of z and D
+            # Divide by two the epoch number
+            loss, epoch = -1 if len(pobj) == 0 else pobj[-1], len(pobj) // 2
+        else:
+            epoch, loss = args
+
+        metrics = {}
+        if outlier_detection_timing == "during":
+            metrics = get_outliers_metric(
+                info_contam["outliers_mask"].max(axis=1, keepdims=True), model, X
+            )
+
+        D_hat = model.D_hat_ if cdl_package == "wincdl" else model.D_hat
+        recovery_score = evaluate_D_hat(D_true, D_hat)
         results.append({
-            "name": method_name,
-            **method, **info_contam, **metrics,
+            "name": summary_name,
+            **outlier_detection_method,
+            **info_contam,
+            **metrics,
             "recovery_score": recovery_score,
-            "seed": seed, "epoch": epoch, "loss": loss
+            "seed": seed,
+            "epoch": epoch,
+            "loss": loss,
         })
 
     # Run the experiment
-    wincdl = WinCDL(
-        **wincdl_params, D_init=D_init, outliers_kwargs=this_outliers_kwargs,
-        callbacks=[callback_fn]
-    )
-    wincdl.fit(X)
+    if cdl_package == "wincdl":
+        cdl = WinCDL(
+            **cdl_params,
+            D_init=D_init,
+            outliers_kwargs=outliers_kwargs,
+            callbacks=[callback_fn],
+        )
+        cdl.fit(X)
+    elif cdl_package == "alphacsc":
+        cdl_params = {
+            'n_atom': D_init.shape[0], 'n_times_atom': D_init.shape[1], **cdl_params
+        }
+        cdl = BatchCDL(**cdl_params, D_init=D_init)
+        cdl.raise_on_increase = False
+        cdl.callback = callback_fn
+        cdl.fit(X)
+    else:
+        raise ValueError(f"Unknown CDL package {cdl_package}")
 
-    # Plot true dictionary
     if i == 0:
-        fig = plot_dicts(wincdl.D_hat_)
-        fig.savefig(exp_dir / f"D_hat_{method_name}.pdf")
+        # Plot result dictionary
+        fig = plot_dicts(cdl.D_hat_)
+        fig.savefig(exp_dir / f"D_hat_{summary_name.replace(' ', '_')}.pdf")
 
     return results
 
@@ -92,17 +250,37 @@ def run_one(method, outliers_kwargs, wincdl_params, simulation_params, i, seed, 
 if __name__ == "__main__":
 
     import argparse
+
     parser = argparse.ArgumentParser(
-        description='Run a comparison of the different methods for dictionary recovery'
+        description="Run a comparison of the different methods for dictionary recovery"
     )
-    parser.add_argument('--n-jobs', '-j', type=int, default=1,
-                        help='Number of parallel jobs')
-    parser.add_argument('--seed', '-s', type=int, default=None,
-                        help='Master seed for reproducible job')
-    parser.add_argument('--n-runs', '-n', type=int, default=20,
-                        help='Number of repetitions for the experiment')
-    parser.add_argument('--reg', type=float, default=0.8,
-                        help='Regularization parameter')
+    parser.add_argument(
+        "--n-jobs", "-j", type=int, default=1, help="Number of parallel jobs"
+    )
+    parser.add_argument(
+        "--seed",
+        "-s",
+        type=int,
+        default=None,
+        help="Master seed for reproducible job",
+    )
+    parser.add_argument(
+        "--n-runs",
+        "-n",
+        type=int,
+        default=20,
+        help="Number of repetitions for the experiment",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        default="results",
+        help="Output directory to store the results",
+    )
+    parser.add_argument(
+        "--reg", type=float, default=0.8, help="Regularization parameter"
+    )
     args = parser.parse_args()
 
     DEVICE = "cuda" if cuda.is_available() else "cpu"
@@ -112,13 +290,11 @@ if __name__ == "__main__":
     if seed is None:
         seed = np.random.randint(0, 2**32 - 1)
     print(f"Seed: {seed}")
-    rng = np.random.default_rng(seed)
 
     n_runs = args.n_runs
     reg = args.reg
 
-
-    exp_dir = EXP_DIR / f"outlier_detection_reg_{reg}"
+    exp_dir = Path(args.output) / f"outlier_detection_reg_{reg}"
     exp_dir.mkdir(exist_ok=True, parents=True)
 
     # Base contamination parameters
@@ -135,10 +311,10 @@ if __name__ == "__main__":
         "n_channels": 2,
         "n_times": 5000,
         "n_atoms": 2,
-        "n_atoms_extra": 2,  # extra atoms in the learned dictionary
         "n_times_atom": 64,
-        "window": True,
+        "n_atoms_extra": 2,  # extra atoms in the learned dictionary
         "D_init": "random",
+        "window": True,
         "contamination_params": contamination_params,
         "init_d": "shapes",
         "init_d_kwargs": {"shapes": ["sin", "gaussian"]},
@@ -150,59 +326,93 @@ if __name__ == "__main__":
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
-    # Define base detection parameters
-    outliers_kwargs = dict(
-        moving_average=None,
-        union_channels=False,
-        opening_window=True,
-    )
-    wincdl_params = {
-        "n_components": 4,
-        "kernel_size": 64,
-        "n_channels": 2,
-        "lmbd": reg,
-        "scale_lmbd": True,
-        "epochs": 30,
-        "max_batch": 10,
-        "mini_batch_size": 5,
-        "sample_window": 960,
-        "optimizer": "linesearch",
-        "n_iterations": 50,
-        "window": True,
-        "device": DEVICE,
+    # Define base CDL parameters
+    # cdl_packages = ["wincdl", "alphacsc", "sporco"]
+    cdl_packages = ["wincdl", "alphacsc"]
+    cdl_configs = {
+        "wincdl": {
+            "lmbd": reg,
+            "scale_lmbd": True,
+            "epochs": 30,
+            "max_batch": 10,
+            "mini_batch_size": 10,
+            "sample_window": 960,
+            "optimizer": "linesearch",
+            "n_iterations": 50,
+            "window": True,
+            "device": DEVICE,
+        },
+        'alphacsc': {
+            "reg": reg,
+            "lmbd_max": "scaled",
+            "n_iter": 30,
+            "solver_z": "lgcd",
+            "rank1": False,
+            "window": True,
+            "verbose": 0,
+        },
+        'sporco': {}
     }
 
-    # Define list of methods to test
-    alpha_true = 0.1
-    list_methods = [
-        None,
-        {"method": "quantile", "alpha": alpha_true * 2},
-        {"method": "quantile", "alpha": alpha_true},
-        {"method": "quantile", "alpha": alpha_true / 2},
+    # Define outlier detection methods
+    outlier_detection_methods = [
+        {"method": "none", "alpha": -1},
+        # {"method": "quantile", "alpha": 0.1},
+        {"method": "quantile", "alpha": 0.2},
         {"method": "iqr", "alpha": 1.5},
-        {"method": "zscore", "alpha": 1},
-        {"method": "zscore", "alpha": 2},
-        # {"method": "zscore", "alpha": 3},
-        # {"method": "mad", "alpha": 1},
+        # {"method": "zscore", "alpha": 1.5},
         {"method": "mad", "alpha": 3.5},
     ]
+    outlier_detection_timings = ["before", "during", "never"]
+    outliers_kwargs = dict(
+        moving_average=None,
+        union_channels=True,
+        opening_window=True,
+    )
 
-    list_seeds = rng.integers(0, 2**32 - 1, n_runs)
+    run_configs = generate_run_config_list(
+        cdl_packages=cdl_packages,
+        outlier_detection_methods=outlier_detection_methods,
+        outlier_detection_timings=outlier_detection_timings,
+        cdl_configs=cdl_configs, n_runs=n_runs, seed=seed
+    )
+
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
         delayed(run_one)(
-            this_method, outliers_kwargs, wincdl_params, simulation_params, i, seed, exp_dir
+            **run_config,
+            outliers_kwargs=outliers_kwargs,
+            simulation_params=simulation_params,
+            exp_dir=exp_dir,
         )
-        for i, seed in enumerate(list_seeds)
-        for this_method in list_methods
+        for run_config in run_configs
     )
-    results = list(r for res in tqdm(results, "Running", total=n_runs*len(list_methods)) for r in res)
+    results = list(
+        r for res in tqdm(results, "Running", total=len(run_configs))
+        for r in res
+    )
 
     # Save results
     df_results = pd.DataFrame(results)
     df_results.to_csv(exp_dir / "df_results.csv", index=False)
 
-    curves = df_results.groupby(["name", "epoch"])["recovery_score"].mean()
-    for name in df_results.name.unique():
-        curves.loc[name].plot(label=name)
-    plt.legend()
-    plt.savefig(exp_dir / "recovery_score.pdf")
+    # Plot recovery score
+    fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+    curves = (
+        df_results.groupby(["name", "epoch"])["recovery_score"]
+        .quantile([0.2, 0.5, 0.8])
+        .unstack()
+    )
+    for i, name in enumerate(df_results.name.unique()):
+        ax.fill_between(
+            curves.loc[name].index,
+            curves.loc[name, 0.2],
+            curves.loc[name, 0.8],
+            alpha=0.3,
+            color=f"C{i}",
+            label=None,
+        )
+        curves.loc[name, 0.5].plot(label=name, c=f"C{i}")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Recovery score")
+    ax.legend()
+    fig.savefig(exp_dir / "recovery_score.pdf")

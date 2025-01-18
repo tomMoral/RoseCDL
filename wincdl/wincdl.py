@@ -1,13 +1,13 @@
-import numpy as np
-import torch
 import warnings
 
+import numpy as np
+import torch
+
+from .datasets import create_dataloader
 from .loss import LassoLoss, OutlierLoss
 from .model import CSC1d, CSC2d
 from .optimizer import SLS
 from .train import train
-
-from .datasets import create_dataloader
 
 
 class WinCDL(torch.nn.Module):
@@ -76,10 +76,11 @@ class WinCDL(torch.nn.Module):
 
     def __init__(
         self,
-        n_components,
-        kernel_size,
-        n_channels,
         lmbd,
+        n_components=None,
+        kernel_size=None,
+        n_channels=None,
+        D_init=None,
         scale_lmbd=True,
         n_iterations=30,
         epochs=100,
@@ -91,7 +92,6 @@ class WinCDL(torch.nn.Module):
         mini_batch_size=10,
         rank="full",
         window=False,
-        D_init=None,
         positive_z=True,
         positive_D=False,  # Add this parameter
         outliers_kwargs=None,
@@ -101,6 +101,13 @@ class WinCDL(torch.nn.Module):
         random_state=2147483647,
     ):
         super().__init__()
+
+        if n_components is None:
+            assert isinstance(D_init, (np.ndarray, torch.Tensor)), (
+                "WinCDL shoudl either be provided n_components, n_channels and kernel_size "
+                "or a D_init tensor."
+            )
+            n_components, n_channels, *kernel_size = D_init.shape
 
         kernel_size = (kernel_size,) if isinstance(kernel_size, int) else kernel_size
         self.dimN = len(kernel_size)
@@ -150,14 +157,16 @@ class WinCDL(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
+        self.to(device=device)
 
         # Optimizer
         if optimizer == "adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr)
         elif optimizer == "linesearch":
             self.optimizer = SLS(self.parameters(), sto=self.stochastic, lr=lr)
+        else:
+            raise ValueError(f"Unknown optimizer {optimizer}")
 
-        self.to(device=device)
 
     @property
     def D_hat_(self):
