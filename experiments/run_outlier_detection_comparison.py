@@ -81,7 +81,6 @@ def remove_outliers_before_cdl(
         return data_clean
 
 
-
 def generate_run_config_list(
     cdl_packages, outlier_detection_methods, outlier_detection_timings,
     cdl_configs, n_runs=1, seed=None,
@@ -327,12 +326,9 @@ if __name__ == "__main__":
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
-    # Define base detection parameters
-    outliers_kwargs = dict(
-        moving_average=None,
-        union_channels=True,
-        opening_window=True,
-    )
+    # Define base CDL parameters
+    # cdl_packages = ["wincdl", "alphacsc", "sporco"]
+    cdl_packages = ["wincdl", "alphacsc"]
     cdl_configs = {
         "wincdl": {
             "lmbd": reg,
@@ -358,8 +354,7 @@ if __name__ == "__main__":
         'sporco': {}
     }
 
-    # cdl_packages = ["wincdl", "alphacsc", "sporco"]
-    cdl_packages = ["wincdl", "alphacsc"]
+    # Define outlier detection methods
     outlier_detection_methods = [
         {"method": "none", "alpha": -1},
         # {"method": "quantile", "alpha": 0.1},
@@ -369,6 +364,11 @@ if __name__ == "__main__":
         {"method": "mad", "alpha": 3.5},
     ]
     outlier_detection_timings = ["before", "during", "never"]
+    outliers_kwargs = dict(
+        moving_average=None,
+        union_channels=True,
+        opening_window=True,
+    )
 
     run_configs = generate_run_config_list(
         cdl_packages=cdl_packages,
@@ -412,7 +412,6 @@ if __name__ == "__main__":
             label=None,
         )
         curves.loc[name, 0.5].plot(label=name, c=f"C{i}")
-    ax.legend()
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Recovery score")
     ax.legend()
