@@ -1,13 +1,13 @@
-import numpy as np
-import torch
 import warnings
 
+import numpy as np
+import torch
+
+from .datasets import create_dataloader
 from .loss import LassoLoss, OutlierLoss
 from .model import CSC1d, CSC2d
 from .optimizer import SLS
 from .train import train
-
-from .datasets import create_dataloader
 
 
 class WinCDL(torch.nn.Module):
@@ -80,6 +80,7 @@ class WinCDL(torch.nn.Module):
         n_components=None,
         kernel_size=None,
         n_channels=None,
+        D_init=None,
         scale_lmbd=True,
         n_iterations=30,
         epochs=100,
@@ -91,7 +92,6 @@ class WinCDL(torch.nn.Module):
         sample_window=1000,
         rank="full",
         window=False,
-        D_init=None,
         positive_z=True,
         positive_D=False,  # Add this parameter
         outliers_kwargs=None,
@@ -144,11 +144,11 @@ class WinCDL(torch.nn.Module):
         csc_class = CSC1d if self.dimN == 1 else CSC2d
 
         self.csc = csc_class(
+            lmbd,
             n_iterations,
             n_components,
             kernel_size,
             n_channels,
-            lmbd,
             rank=rank,
             window=window,
             D_init=D_init,
@@ -158,14 +158,16 @@ class WinCDL(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
+        self.to(device=device)
 
         # Optimizer
         if optimizer == "adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr)
         elif optimizer == "linesearch":
             self.optimizer = SLS(self.parameters(), sto=self.stochastic, lr=lr)
+        else:
+            raise ValueError(f"Unknown optimizer {optimizer}")
 
-        self.to(device=device)
 
     @property
     def D_hat_(self):

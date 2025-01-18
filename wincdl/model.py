@@ -10,11 +10,11 @@ from alphacsc.utils.dictionary import get_uv, tukey_window
 class CSC1d(nn.Module):
     def __init__(
         self,
+        lmbd,
         n_iterations,
         n_components,
         kernel_size,
         n_channels,
-        lmbd,
         rank="full",
         window=False,
         D_init=None,
@@ -298,11 +298,11 @@ class CSC1d(nn.Module):
 class CSC2d(CSC1d):
     def __init__(
         self,
+        lmbd,
         n_iterations,
         n_components,
         kernel_size,
         n_channels,
-        lmbd,
         rank="full",
         window=False,
         D_init=None,
