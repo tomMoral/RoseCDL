@@ -315,7 +315,7 @@ def plot_dicts(
             axs[i, j].set_title(f"Atom {i+1}, Channel {j+1}")
             if i == n_atoms - 1:
                 axs[i, j].set_xlabel("Time")
-            if j == n_channels - 1:
+            if j == n_channels - 1 and labels[0] is not None:
                 axs[i, j].legend()
 
     plt.xlim(0, n_times_atom - 1)
