@@ -10,12 +10,12 @@ from alphacsc.utils.dictionary import get_uv, tukey_window
 class CSC1d(nn.Module):
     def __init__(
         self,
+        lmbd,
         n_iterations,
         n_components,
         kernel_size,
         n_channels,
-        lmbd,
-        rank="full",
+        rank1=False,
         window=False,
         D_init=None,
         positive_z=True,
@@ -65,7 +65,7 @@ class CSC1d(nn.Module):
         self.grad_loss = lambda x, z, D: self.conv((self.convt(z, D) - x), D)
 
         # Rank
-        self.rank = rank
+        self.rank1 = rank1
 
         self.init_D(D_init)
 
@@ -88,7 +88,7 @@ class CSC1d(nn.Module):
         else:
             D_hat = torch.tensor(D_init, dtype=self.dtype, device=self.device)
 
-        if self.rank == "uv_constraint":
+        if self.rank1:
             u = D_hat[:, : self.n_channels][:, :, None]
             v = D_hat[:, self.n_channels :][:, None, :]
 
@@ -100,7 +100,7 @@ class CSC1d(nn.Module):
                 torch.tensor(v, dtype=self.dtype, device=self.device)
             )
 
-        elif self.rank == "full":
+        else:
             self._D_hat = nn.Parameter(
                 D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
             )
@@ -114,9 +114,9 @@ class CSC1d(nn.Module):
         self._processed_samples = 0
 
     def get_D(self):
-        if self.rank == "uv_constraint":
+        if self.rank1:
             D = self.u * self.v
-        elif self.rank == "full":
+        else:
             D = self._D_hat
         if self.do_window:
             return D * self.window
@@ -136,7 +136,7 @@ class CSC1d(nn.Module):
         Constrains the dictionary to have normalized atoms
         """
         with torch.no_grad():
-            if self.rank == "uv_constraint":
+            if self.rank1:
                 if self.positive_D:
                     # Work on data as u, v are nn.Parameter
                     self.u.data = F.relu(self.u.data)
@@ -154,7 +154,7 @@ class CSC1d(nn.Module):
                 self.u /= norm_col_u
                 return norm_col_v, norm_col_u
 
-            elif self.rank == "full":
+            else:
                 if self.positive_D:
                     # Work on data as _D_hat is a nn.Parameter
                     self._D_hat.data = F.relu(self._D_hat.data)
@@ -178,7 +178,7 @@ class CSC1d(nn.Module):
             torch.zeros((self.n_components, self.n_channels, *self.kernel_size)),
             n_atoms=1,
             n_times_atom=self.kernel_size[0],
-            rank1=False,
+            rank1=self.rank1,
             window=self.do_window,
             D_init="random",
             random_state=self.random_state,
@@ -298,12 +298,12 @@ class CSC1d(nn.Module):
 class CSC2d(CSC1d):
     def __init__(
         self,
+        lmbd,
         n_iterations,
         n_components,
         kernel_size,
         n_channels,
-        lmbd,
-        rank="full",
+        rank1=False,
         window=False,
         D_init=None,
         positive_z=True,
@@ -321,7 +321,7 @@ class CSC2d(CSC1d):
             device=device,
             dtype=dtype,
             random_state=2147483647,
-            rank="full",
+            rank1=False,
             window=False,
             D_init=D_init,
             positive_z=positive_z,

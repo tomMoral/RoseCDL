@@ -88,9 +88,9 @@ class WinCDL(torch.nn.Module):
         optimizer="linesearch",
         lr=0.1,
         gamma=0.9,
-        sample_window=1000,
         mini_batch_size=10,
-        rank="full",
+        sample_window=1000,
+        rank1=False,
         window=False,
         positive_z=True,
         positive_D=False,  # Add this parameter
@@ -103,9 +103,10 @@ class WinCDL(torch.nn.Module):
         super().__init__()
 
         if n_components is None:
-            assert isinstance(D_init, (np.ndarray, torch.Tensor)), (
-                "WinCDL shoudl either be provided n_components, n_channels and kernel_size "
-                "or a D_init tensor."
+            assert hasattr(D_init, "shape"), (
+                "If D_init is not an array-like argument (has a .shape attribute), "
+                "the shape of the dictionary should be specified with "
+                "(n_components, n_channels, *kernel_size)."
             )
             n_components, n_channels, *kernel_size = D_init.shape
 
@@ -143,12 +144,12 @@ class WinCDL(torch.nn.Module):
         csc_class = CSC1d if self.dimN == 1 else CSC2d
 
         self.csc = csc_class(
+            lmbd,
             n_iterations,
             n_components,
             kernel_size,
             n_channels,
-            lmbd,
-            rank=rank,
+            rank1=rank1,
             window=window,
             D_init=D_init,
             positive_z=positive_z,
