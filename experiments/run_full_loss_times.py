@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     # Simplified simulation parameters
     simulation_params = {
-        "n_trials": 2,
+        "n_trials": 10,
         "n_channels": 2,
         "n_times": 5000,
         "n_atoms": 2,
@@ -217,12 +217,12 @@ if __name__ == "__main__":
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
-    cdl_packages = ["wincdl", "alphacsc", "sporco"]
+    cdl_packages = ["wincdl", "alphacsc"]
     cdl_configs = {
         "wincdl": {
             "lmbd": reg,
             "scale_lmbd": True,
-            "epochs": 4,
+            "epochs": 100,
             "max_batch": 10,
             "mini_batch_size": 10,
             "sample_window": 960,
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         "alphacsc": {
             "reg": reg,
             "lmbd_max": "scaled",
-            "n_iter": 4,
+            "n_iter": 100,
             "solver_z": "lgcd",
             "rank1": False,
             "window": True,
@@ -271,4 +271,6 @@ if __name__ == "__main__":
 
     # Save results
     df = pd.DataFrame(results)
-    df.to_csv(EXP_DIR / "results.csv", index=False)
+    # Add underscores to filename
+    packages_str = '_'.join(cdl_packages)
+    df.to_csv(EXP_DIR / f"results_{packages_str}.csv", index=False)
