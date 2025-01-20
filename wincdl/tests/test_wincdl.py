@@ -10,13 +10,13 @@ from wincdl.wincdl import WinCDL
         ((8, 9), (40, 64)),  # 2D
     ],
 )
-# TODO: Add "uv_constraint" to possible rank values
-@pytest.mark.parametrize("rank", ["full"])
+# TODO: Add True to possible rank1 values
+@pytest.mark.parametrize("rank1", [False])
 @pytest.mark.parametrize("n_channels", [1, 3])
 @pytest.mark.parametrize("n_components", [3, 5])
 @pytest.mark.parametrize("positive_D", [True, False])
 def test_wincdl(
-    n_components, n_channels, kernel_size, support, rank, positive_D
+    n_components, n_channels, kernel_size, support, rank1, positive_D
 ):
     """Test positive dictionary constraint with 1D and 2D data"""
     # Setup test data
@@ -30,7 +30,7 @@ def test_wincdl(
         positive_D=positive_D,
         epochs=1,
         lmbd=0.1,
-        rank=rank,
+        rank1=rank1,
     )
     cdl.fit(X)
 
