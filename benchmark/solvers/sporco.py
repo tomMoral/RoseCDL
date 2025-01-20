@@ -20,7 +20,7 @@ class Solver(BaseSolver):
     name = 'Sporco'
 
     install_cmd = 'conda'
-    requirements = ['pip:sporco']
+    requirements = ['pip:git+https://github.com/bwohlberg/sporco.git']
 
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
