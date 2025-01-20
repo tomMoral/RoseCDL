@@ -45,7 +45,6 @@ class Solver(BaseSolver):
         D_init,
         reg,
         window,
-        rank,
     ):
         # Define the information received by each solver from the objective.
         # The arguments of this function are the results of the
@@ -54,35 +53,37 @@ class Solver(BaseSolver):
         # It is customizable for each benchmark.
 
         self.X, self.reg, self.D_init = X, reg, D_init
-        self.rank, self.window = rank, window
-
+        self.window = window
 
         # Infer dictionary size from D_init
         self.n_atoms = D_init.shape[0]
         self.n_channels = self.X.shape[1]
         self.atom_support = D_init.shape[2:]
 
+        rank1 = D_init.ndim == 2
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model_kwargs = dict(
+            lmbd=self.reg,
+            D_init=self.D_init,
+            window=self.window, rank1=rank1,
+            n_iterations=self.n_iterations,
+            optimizer="linesearch",
+            mini_batch_size=10,
+            sample_window=self.sample_window,
+            max_batch=10,
+            epochs=100,
+            outliers_kwargs=self.outliers_kwargs,
+            device=self.device,
+            random_state=self.random_state
+        )
 
 
     def run(self, cb):
         # This is the function that is called to evaluate the solver.
         # It runs the algorithm for a given a number of iterations `n_iter`.
-
         self.model = WinCDL(
-            lmbd=self.reg,
-            D_init=self.D_init,
-            n_iterations=self.n_iterations,
-            optimizer="linesearch",
-            mini_batch_size=1,
-            sample_window=self.sample_window,
-            max_batch=10,
-            epochs=100,
-            window=self.window,
-            rank=self.rank,
-            outliers_kwargs=self.outliers_kwargs,
-            device=self.device,
-            random_state=self.random_state,
+            **self.model_kwargs,
             callbacks=[lambda *x: not cb()]
         )
         cb()  # Get init value

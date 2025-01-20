@@ -7,6 +7,7 @@ with safe_import_context() as import_ctx:
 
     # import your reusable functions here
     from sporco.dictlrn import cbpdndl
+    from alphacsc.utils.dictionary import get_lambda_max
 
     import numpy as np
 
@@ -31,39 +32,18 @@ class Solver(BaseSolver):
         'type': ["BPDN"],
     }
 
-    def skip(
-        self,
-        X,
-        D_init,
-        reg,
-        rank,
-        window
-    ):
-
-        if rank != "full":
+    def skip(self, X, D_init, reg, window):
+        if D_init.ndim == 2:
             return True, "Sporco only supports full rank dictionary"
         # if window:
         #     return True, "Sporco does not support windowed atoms"
 
         return False, None
 
-    def set_objective(
-        self,
-        X,
-        D_init,
-        reg,
-        rank,
-        window
-    ):
-        # Define the information received by each solver from the objective.
-        # The arguments of this function are the results of the
-        # `Objective.get_objective`. This defines the benchmark's API for
-        # passing the objective to the solver.
-        # It is customizable for each benchmark.
-
+    def set_objective(self, X, D_init, reg, window):
         self.X = X
         self.D_init = D_init
-        self.reg = reg
+        self.reg = reg * get_lambda_max(X, D_init).max()
 
     def run(self, n_iter):
 

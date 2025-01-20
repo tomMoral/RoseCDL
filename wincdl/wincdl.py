@@ -90,7 +90,7 @@ class WinCDL(torch.nn.Module):
         gamma=0.9,
         mini_batch_size=10,
         sample_window=1000,
-        rank="full",
+        rank1=False,
         window=False,
         positive_z=True,
         positive_D=False,  # Add this parameter
@@ -149,7 +149,7 @@ class WinCDL(torch.nn.Module):
             n_components,
             kernel_size,
             n_channels,
-            rank=rank,
+            rank1=rank1,
             window=window,
             D_init=D_init,
             positive_z=positive_z,

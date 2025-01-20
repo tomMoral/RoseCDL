@@ -10,6 +10,12 @@ with safe_import_context() as import_ctx:
     from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
     from alphacsc.online_dictionary_learning import OnlineCDL
 
+    ALGORITHMS = {
+        "online": OnlineCDL,
+        "batch": BatchCDL,
+        "greedy": GreedyCDL,
+    }
+
 
 # The benchmark solvers must be named `Solver` and
 # inherit from `BaseSolver` for `benchopt` to work properly.
@@ -25,99 +31,41 @@ class Solver(BaseSolver):
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
-        'random_state': [42],
-        'solver_z': ["lgcd"],
-        'solver_d': ["fista"],
-        'type': ["online", "batch"],
-        # 'type': ["online", "batch", "greedy"],
+        # 'type': ["online", "batch"],
+        'type': ["online", "batch", "greedy"],
     }
     stopping_criterion = SufficientProgressCriterion(
-        patience=5, strategy='iteration'
+        patience=5, strategy='callback'
     )
 
-    def set_objective(
-        self,
-        X,
-        D_init,
-        reg,
-        rank,
-        window
-    ):
-        # Define the information received by each solver from the objective.
-        # The arguments of this function are the results of the
-        # `Objective.get_objective`. This defines the benchmark's API for
-        # passing the objective to the solver.
-        # It is customizable for each benchmark.
+    def get_next(self, stop_val):
+        return stop_val + 1
 
+    def set_objective(self, X, D_init, reg, window):
         self.X = X
         self.D_init = D_init
-        self.rank = rank
         self.reg = reg
         self.window = window
 
-        # Infer dictionary size from D_init
-        self.n_atoms = D_init.shape[0]
-        self.n_channels = self.X.shape[1]
-        if self.rank == "full":
-            self.kernel_size = D_init.shape[-1]
-        else:
-            self.kernel_size = D_init.shape[-1] - self.n_channels
+        # Rank1 dictionary if it is 2D
+        rank1 = D_init.ndim == 2
 
-    def run(self, n_iter):
-        # This is the function that is called to evaluate the solver.
-        # It runs the algorithm for a given a number of iterations `n_iter`.
-
-        self.n_channels = self.X.shape[1]
-
-        if self.rank == "full":
-            rank1 = False
-            uv_constraint = 'auto'
-        elif self.rank == "uv_constraint":
-            rank1 = True
-            uv_constraint = "separate"
-
-        if self.type == "greedy":
-            n_iter = self.n_atoms + n_iter
-
-        alphacsc_params = dict(
-            n_atoms=self.n_atoms,
-            n_times_atom=self.kernel_size,
-            random_state=self.random_state,
-            rank1=rank1,
-            lmbd_max="fixed",
-            n_iter=n_iter,
-            window=self.window,
-            verbose=0,
-            solver_z=self.solver_z,
-            solver_d=self.solver_d,
-            uv_constraint=uv_constraint
+        self.cdl = ALGORITHMS[self.type](
+            n_atoms=D_init.shape[0], n_times_atom=D_init.shape[2],
+            D_init=D_init, reg=reg, lmbd_max='scaled',
+            solver_z="lgcd", rank1=rank1, window=self.window,
+            verbose=0, n_iter=1000,
         )
+        self.cdl.raise_on_increase = False
 
-        if self.type == "online":
-            cdl = OnlineCDL(
-                **alphacsc_params,
-                D_init=self.D_init,
-                reg=self.reg
-            )
-        if self.type == "batch":
-            cdl = BatchCDL(
-                **alphacsc_params,
-                D_init=self.D_init,
-                reg=self.reg
-            )
-        if self.type == "greedy":
-            cdl = GreedyCDL(
-                **alphacsc_params,
-                D_init=self.D_init,
-                reg=self.reg
-            )
-        cdl.fit(self.X)
-
-        self.D = cdl.D_hat_
+    def run(self, cb):
+        def alphacsc_cb(z_encoder, _):
+            self.D_hat = z_encoder.D_hat
+            cb()
+        self.cdl.callback = alphacsc_cb
+        self.cdl.fit(self.X)
 
     def get_result(self):
-        # Return the result from one optimization run.
-        # The outputs of this function are the arguments of `Objective.compute`
-        # This defines the benchmark's API for solvers' results.
-        # it is customizable for each benchmark.
-        return {"D": self.D}
+        if self.D_hat.shape[0] == 0:
+            return {"D": self.D_init}
+        return {"D": self.D_hat}
