@@ -21,6 +21,10 @@ class Dataset(BaseDataset):
         'random_state': [None],
     }
 
+    test_parameters = {
+        'n_samples, n_times, n_atoms, n_times_atom': [(1, 250, 1, 10)]
+    }
+
     def get_data(self):
         rng = np.random.default_rng(self.random_state)
         X, D, _, outliers = simulate_1d(
