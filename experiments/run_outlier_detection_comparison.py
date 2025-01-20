@@ -8,82 +8,26 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import torch
 from alphacsc import BatchCDL
 from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
 
-from wincdl.loss import LassoLoss, OutlierLoss
-from wincdl.utils.utils_exp import (
-    evaluate_D_hat,
-    get_outliers_metric,
-    plot_dicts,
-)
+from wincdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric, plot_dicts
 from wincdl.utils.utils_signal import generate_experiment
+from wincdl.utils_outlier_comparison import remove_outliers_before_cdl
 from wincdl.wincdl import WinCDL
 
 mem = Memory(location="__cache__", verbose=0)
 
-def get_support_mean(data, outlier_mask):
-    """Get the mean of the data without the outliers."""
-    axis = tuple(range(2, data.ndim))
-    support_mean = (data * (~outlier_mask)).sum(axis=axis, keepdims=True)
-    support_mean /= np.maximum((~outlier_mask).sum(axis=axis, keepdims=True), 1)
-    return support_mean
-
-
-def remove_outliers_before_cdl(
-    data: np.array,
-    activation_vector_shape: tuple,
-    method: str, alpha: float,
-    moving_average: int, opening_window: bool, union_channels: bool,
-    fill_by_channel=True
-) -> np.array:
-    """Remove outliers before CDL.
-
-    Args:
-        data: array of shape (n_trials, n_channels, n_times)
-        activation_vector_shape: shape of the activation vector
-        method: name of the outlier detection method
-        alpha: parameter of the method
-        moving_average: size of the moving average window
-        opening_window: whether to open the window
-        union_channels: whether to use the union of the channels
-        fill_by_channel: whether to replace outlier by the mean of the signal without outliers
-                         by channels or globally
-    """
-    outlier_loss = OutlierLoss(
-        LassoLoss(lmbd=0, reduction='mean'),
-        method=method,
-        alpha=alpha,
-        moving_average=moving_average,
-        opening_window=opening_window,
-        union_channels=union_channels,
-    )
-
-    outlier_mask = outlier_loss.get_outliers_mask(
-        X_hat=torch.from_numpy(np.zeros_like(data)),
-        z_hat=torch.zeros(activation_vector_shape),
-        X=torch.from_numpy(data),
-    ).cpu().numpy()
-    outlier_mask = np.broadcast_to(outlier_mask, data.shape)
-    if fill_by_channel:
-        support_mean = get_support_mean(data, outlier_mask)
-        # Flatten to allow data assignment
-        data_clean, outlier_mask = data.ravel().copy(), outlier_mask.ravel()
-        support_mean = np.broadcast_to(support_mean, data.shape).ravel()
-        data_clean[outlier_mask] = support_mean[outlier_mask]
-        return data.reshape(data.shape)
-    else:
-        data_clean = data.copy()
-        data_clean[outlier_mask] = data[~outlier_mask].mean()
-        return data_clean
-
 
 def generate_run_config_list(
-    cdl_packages, outlier_detection_methods, outlier_detection_timings,
-    cdl_configs, n_runs=1, seed=None,
+    cdl_packages,
+    outlier_detection_methods,
+    outlier_detection_timings,
+    cdl_configs,
+    n_runs=1,
+    seed=None,
 ):
     """Generate the list of configurations for the experiment.
 
@@ -110,14 +54,17 @@ def generate_run_config_list(
                     # XOR condition either timing is "never" and method is "none"
                     # or timing is not "never" and method is not "none"
                     continue
-                run_config_list.extend({
-                    "cdl_package": package,
-                    "cdl_params": cdl_configs[package],
-                    "outlier_detection_method": method,
-                    "outlier_detection_timing": timing,
-                    "seed": s,
-                    "i": i
-                } for i, s in enumerate(list_seeds))
+                run_config_list.extend(
+                    {
+                        "cdl_package": package,
+                        "cdl_params": cdl_configs[package],
+                        "outlier_detection_method": method,
+                        "outlier_detection_timing": timing,
+                        "seed": s,
+                        "i": i,
+                    }
+                    for i, s in enumerate(list_seeds)
+                )
     return run_config_list
 
 
@@ -172,7 +119,9 @@ def run_one(
         summary_name, outliers_kwargs = "no detection", None
         outlier_detection_method = {}
     else:
-        summary_name = "{method} (alpha={alpha:.02f})".format(**outlier_detection_method)
+        summary_name = "{method} (alpha={alpha:.02f})".format(
+            **outlier_detection_method
+        )
         outliers_kwargs = {**outliers_kwargs, **outlier_detection_method}
 
     summary_name = f"[{cdl_package}] {summary_name}"
@@ -208,16 +157,18 @@ def run_one(
 
         D_hat = model.D_hat_ if cdl_package == "wincdl" else model.D_hat
         recovery_score = evaluate_D_hat(D_true, D_hat)
-        results.append({
-            "name": summary_name,
-            **outlier_detection_method,
-            **info_contam,
-            **metrics,
-            "recovery_score": recovery_score,
-            "seed": seed,
-            "epoch": epoch,
-            "loss": loss,
-        })
+        results.append(
+            {
+                "name": summary_name,
+                **outlier_detection_method,
+                **info_contam,
+                **metrics,
+                "recovery_score": recovery_score,
+                "seed": seed,
+                "epoch": epoch,
+                "loss": loss,
+            }
+        )
 
     # Run the experiment
     if cdl_package == "wincdl":
@@ -230,7 +181,9 @@ def run_one(
         cdl.fit(X)
     elif cdl_package == "alphacsc":
         cdl_params = {
-            'n_atom': D_init.shape[0], 'n_times_atom': D_init.shape[1], **cdl_params
+            "n_atom": D_init.shape[0],
+            "n_times_atom": D_init.shape[1],
+            **cdl_params,
         }
         cdl = BatchCDL(**cdl_params, D_init=D_init)
         cdl.raise_on_increase = False
@@ -342,7 +295,7 @@ if __name__ == "__main__":
             "window": True,
             "device": DEVICE,
         },
-        'alphacsc': {
+        "alphacsc": {
             "reg": reg,
             "lmbd_max": "scaled",
             "n_iter": 30,
@@ -351,7 +304,7 @@ if __name__ == "__main__":
             "window": True,
             "verbose": 0,
         },
-        'sporco': {}
+        "sporco": {},
     }
 
     # Define outlier detection methods
@@ -374,7 +327,9 @@ if __name__ == "__main__":
         cdl_packages=cdl_packages,
         outlier_detection_methods=outlier_detection_methods,
         outlier_detection_timings=outlier_detection_timings,
-        cdl_configs=cdl_configs, n_runs=n_runs, seed=seed
+        cdl_configs=cdl_configs,
+        n_runs=n_runs,
+        seed=seed,
     )
 
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
@@ -387,8 +342,7 @@ if __name__ == "__main__":
         for run_config in run_configs
     )
     results = list(
-        r for res in tqdm(results, "Running", total=len(run_configs))
-        for r in res
+        r for res in tqdm(results, "Running", total=len(run_configs)) for r in res
     )
 
     # Save results
