@@ -83,6 +83,19 @@ def run_one(
                 reg=cdl_configs["wincdl"]["lmbd"],
             )
 
+        elif cdl_package == "sporco":
+            D = model.getdict().transpose(2, 1, 0)
+
+            z_hat = model.getcoef().transpose(2, 1, 0)
+            X_hat = construct_X_multi(z_hat, D=D)
+            cost = compute_objective(
+                X,
+                X_hat=X_hat,
+                z_hat=z_hat,
+                D=D,
+                reg=cdl_configs["sporco"]["lmbda"],
+            )
+
         results.append(
             {
                 "seed": seed,
@@ -104,8 +117,8 @@ def run_one(
         cdl.fit(X)
     elif cdl_package == "alphacsc":
         cdl_params = {
-            "n_atoms": D_init.shape[0], #simulation_params["n_atoms"]+2,  
-            "n_times_atom": D_init.shape[1], # simulation_params["n_times_atom"],  
+            "n_atoms": D_init.shape[0],
+            "n_times_atom": D_init.shape[2],
             **cdl_params,
         }
         cdl = BatchCDL(**cdl_params, D_init=D_init)
@@ -113,13 +126,27 @@ def run_one(
         cdl.callback = callback_fn
         cdl.fit(X)
     elif cdl_package == "sporco":
-        # opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
+        opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
 
-        # opt = cbpdndl.ConvBPDNDictLearn.Options({
-        #     'Verbose': False, 'MaxMainIter': n_iter + 1, 'CBPDN': opt_cbpdn
-        # }, dmethod="cns")
+        opt = cbpdndl.ConvBPDNDictLearn.Options({
+            'Verbose': False, 
+            'MaxMainIter': cdl_params["n_iter"] + 1,
+            'CBPDN': opt_cbpdn
+        }, dmethod="cns")
 
-        results = []
+        sporco_params = dict(
+            D0=D_init.transpose(2, 1, 0).copy(),
+            S=X.transpose(2, 1, 0).copy(),
+            lmbda=cdl_params["lmbda"],
+            opt=opt,
+            dmethod="cns",
+            dimN=1,
+        )
+
+        cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
+        cdl.solve()
+    else:
+        raise ValueError(f"Unknown CDL package: {cdl_package}")
 
     return results
 
@@ -172,7 +199,7 @@ if __name__ == "__main__":
 
     # Simplified simulation parameters
     simulation_params = {
-        "n_trials": 10,
+        "n_trials": 2,
         "n_channels": 2,
         "n_times": 5000,
         "n_atoms": 2,
@@ -190,12 +217,12 @@ if __name__ == "__main__":
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
-    cdl_packages = ["wincdl", "alphacsc"]
+    cdl_packages = ["wincdl", "alphacsc", "sporco"]
     cdl_configs = {
         "wincdl": {
             "lmbd": reg,
             "scale_lmbd": True,
-            "epochs": 100,
+            "epochs": 4,
             "max_batch": 10,
             "mini_batch_size": 10,
             "sample_window": 960,
@@ -207,11 +234,15 @@ if __name__ == "__main__":
         "alphacsc": {
             "reg": reg,
             "lmbd_max": "scaled",
-            "n_iter": 100,
+            "n_iter": 4,
             "solver_z": "lgcd",
             "rank1": False,
             "window": True,
             "verbose": 0,
+        },
+        "sporco": {
+            "lmbda": reg,
+            "n_iter": 4,
         },
     }
 
