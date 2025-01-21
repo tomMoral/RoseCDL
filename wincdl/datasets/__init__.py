@@ -36,7 +36,7 @@ def create_dataloader(
     torch.utils.data.DataLoader
         Torch DataLoader
     """
-    generator = get_torch_generator(random_state, device=device)
+    generator = get_torch_generator(random_state)
     if isinstance(data, np.ndarray):
         dataset = SubwindowsDataset(
             data, sample_window=sample_window, overlap=overlap, device=device, dtype=dtype,
