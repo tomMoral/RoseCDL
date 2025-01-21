@@ -35,6 +35,10 @@ def remove_outliers_before_cdl(
         fill_by_channel: whether to replace outlier by the mean of the signal without outliers
                          by channels or globally
     """
+    # Check data type
+    if isinstance(data, torch.Tensor):
+        data = data.cpu().numpy()
+
     outlier_loss = OutlierLoss(
         LassoLoss(lmbd=0, reduction="mean"),
         method=method,

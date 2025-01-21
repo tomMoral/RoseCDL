@@ -348,7 +348,7 @@ def remove_outliers(
     return torch.masked_select(data, ~outliers_mask), outliers_mask
 
 
-def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=None):
+def add_outliers_2d(X, contamination=0.1, patch_size=None, strength=0.8, seed=None):
     """
     Add outliers to 2D data.
 
@@ -374,6 +374,10 @@ def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=Non
     if not torch.is_tensor(X):
         X = torch.tensor(X)
 
+    # If seed is not torch.int, convert to torch.int
+    if seed is not None and not isinstance(seed, int):
+        seed = int(seed)
+
     # Set up generator for reproducible randomness
     generator = None
     if seed is not None:
@@ -387,7 +391,7 @@ def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=Non
     running_contamination = 0
     ratio_contam = 0
 
-    while ratio_contam < contmination:
+    while ratio_contam < contamination:
         if patch_size is None:
             patch_size = (
                 torch.randint(
