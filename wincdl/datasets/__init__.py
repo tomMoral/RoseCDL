@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+from ..utils.utils import get_torch_generator
 from .subwindow_dataset import SubwindowsDataset
 
 
@@ -8,7 +9,8 @@ def create_dataloader(
     data,
     mini_batch_size=10,
     sample_window=None,
-    random_state=2147483647,
+    overlap=False,
+    random_state=None,
     device=None,
     dtype=None,
     **kwargs_dataset,
@@ -34,11 +36,10 @@ def create_dataloader(
     torch.utils.data.DataLoader
         Torch DataLoader
     """
-    generator = torch.Generator()
-    generator.manual_seed(random_state)
+    generator = get_torch_generator(random_state, device=device)
     if isinstance(data, np.ndarray):
         dataset = SubwindowsDataset(
-            data, sample_window=sample_window, device=device, dtype=dtype,
+            data, sample_window=sample_window, overlap=overlap, device=device, dtype=dtype,
         )
     elif data == "physionet":
         from .physionet import PhysionetDataset
@@ -49,14 +50,14 @@ def create_dataloader(
     elif isinstance(data, str):
         from .meg import MEGPopDataset
         dataset = MEGPopDataset(
-                data,
-                window=sample_window,
-                n_samples=kwargs_dataset.get("n_samples", None),
-                device=device,
-                dtype=dtype,
-                seed=(random_state, 1),
-            )
+            data,
+            window=sample_window,
+            n_samples=kwargs_dataset.get("n_samples", None),
+            device=device,
+            dtype=dtype,
+            seed=(random_state, 1),
+        )
 
     return torch.utils.data.DataLoader(
-            dataset, batch_size=mini_batch_size, shuffle=True, generator=generator,
-        )
+        dataset, batch_size=mini_batch_size, shuffle=True, generator=generator,
+    )
