@@ -119,7 +119,7 @@ class OutlierLoss(_ReconstructionLoss):
             Outlier detection method. One of:
             - "quantile": Use quantile-based thresholding
             - "iqr": Use interquartile range
-            - "zscore": Use z-score thresholding  
+            - "zscore": Use z-score thresholding
             - "mad": Use median absolute deviation
         alpha : float, default=0.05
             Outlier detection parameter.
@@ -129,7 +129,7 @@ class OutlierLoss(_ReconstructionLoss):
         moving_average : dict, optional
             Parameters for moving average smoothing:
             - window_size: Size of averaging window
-            - method: Averaging method ("mean" or "max") 
+            - method: Averaging method ("mean" or "max")
             - gaussian: Whether to use Gaussian weighting
         opening_window : bool, default=True
             Whether to apply morphological opening when calculating thresholds
@@ -171,10 +171,16 @@ class OutlierLoss(_ReconstructionLoss):
 
         # Compute error vector, keep it 3D
         err = self.compute_patch_error(X_hat, z_hat, X)
+
+        # Make sure we have the threshold
+        threshold = self._threshold
+        if threshold is None:
+            threshold = get_threshold(err, self.method, self.alpha)
+
         # Remove outliers
         return get_outlier_mask(
             data=err,
-            threshold=self._threshold,
+            threshold=threshold,
             moving_average=self.moving_average,
             opening_window=kernel_size if opening else None,
             union_channels=self.union_channels,

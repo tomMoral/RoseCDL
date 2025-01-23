@@ -269,21 +269,15 @@ def apply_opening(outliers_mask, window_size=15):
 
 def get_outlier_mask(
     data,
-    threshold=None,
-    method="quantile",
+    threshold,
     moving_average=None,
     opening_window=None,
     union_channels=True,
-    **kwargs,
 ):
     if moving_average is not None:
         if not isinstance(moving_average, dict):
             moving_average = {}  # Apply with default parameters
         data = apply_moving_average(data, **moving_average)
-
-    if threshold is None:
-        alpha = kwargs.get("alpha", 0.05)
-        threshold = get_threshold(data, method=method, alpha=alpha)
 
     check_threshold(threshold)
 
@@ -419,5 +413,7 @@ def add_outliers_2d(X, contamination=0.1, patch_size=None, strength=0.8, seed=No
         # Update the contamination ratio
         running_contamination += torch.prod(torch.tensor(patch_size))
         ratio_contam = running_contamination / (height * width)
+
+    X_outliers = torch.clamp(X_outliers, 0, 1)
 
     return X_outliers, outlier_mask
