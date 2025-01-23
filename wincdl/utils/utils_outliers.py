@@ -269,21 +269,15 @@ def apply_opening(outliers_mask, window_size=15):
 
 def get_outlier_mask(
     data,
-    threshold=None,
-    method="quantile",
+    threshold,
     moving_average=None,
     opening_window=None,
     union_channels=True,
-    **kwargs,
 ):
     if moving_average is not None:
         if not isinstance(moving_average, dict):
             moving_average = {}  # Apply with default parameters
         data = apply_moving_average(data, **moving_average)
-
-    if threshold is None:
-        alpha = kwargs.get("alpha", 0.05)
-        threshold = get_threshold(data, method=method, alpha=alpha)
 
     check_threshold(threshold)
 
@@ -348,7 +342,7 @@ def remove_outliers(
     return torch.masked_select(data, ~outliers_mask), outliers_mask
 
 
-def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=None):
+def add_outliers_2d(X, contamination=0.1, patch_size=None, strength=0.8, seed=None):
     """
     Add outliers to 2D data.
 
@@ -374,6 +368,10 @@ def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=Non
     if not torch.is_tensor(X):
         X = torch.tensor(X)
 
+    # If seed is not torch.int, convert to torch.int
+    if seed is not None and not isinstance(seed, int):
+        seed = int(seed)
+
     # Set up generator for reproducible randomness
     generator = None
     if seed is not None:
@@ -387,7 +385,7 @@ def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=Non
     running_contamination = 0
     ratio_contam = 0
 
-    while ratio_contam < contmination:
+    while ratio_contam < contamination:
         if patch_size is None:
             patch_size = (
                 torch.randint(
@@ -415,5 +413,7 @@ def add_outliers_2d(X, contmination=0.1, patch_size=None, strength=0.8, seed=Non
         # Update the contamination ratio
         running_contamination += torch.prod(torch.tensor(patch_size))
         ratio_contam = running_contamination / (height * width)
+
+    X_outliers = torch.clamp(X_outliers, 0, 1)
 
     return X_outliers, outlier_mask

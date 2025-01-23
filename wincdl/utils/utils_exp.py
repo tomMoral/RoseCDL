@@ -183,6 +183,8 @@ def get_outliers_metric(
     if isinstance(true_outliers_mask, torch.Tensor):
         true_outliers_mask = true_outliers_mask.detach().cpu().numpy()
         true_outliers_mask = true_outliers_mask.astype(np.int32)
+    
+    assert isinstance(true_outliers_mask, np.ndarray)
 
     X = torch.tensor(X, dtype=wincdl.dtype, device=wincdl.device)
     X_hat, z_hat = wincdl.csc(X)

@@ -21,6 +21,7 @@ def remove_outliers_before_cdl(
     opening_window: bool,
     union_channels: bool,
     fill_by_channel=True,
+    return_outliers_mask=False
 ) -> np.array:
     """Remove outliers before CDL.
 
@@ -35,8 +36,12 @@ def remove_outliers_before_cdl(
         fill_by_channel: whether to replace outlier by the mean of the signal without outliers
                          by channels or globally
     """
+    # Check data type
+    if isinstance(data, torch.Tensor):
+        data = data.cpu().numpy()
+
     outlier_loss = OutlierLoss(
-        LassoLoss(lmbd=0, reduction="mean"),
+        LassoLoss(lmbd=0, reduction="sum"),
         method=method,
         alpha=alpha,
         moving_average=moving_average,
@@ -60,8 +65,9 @@ def remove_outliers_before_cdl(
         data_clean, outlier_mask = data.ravel().copy(), outlier_mask.ravel()
         support_mean = np.broadcast_to(support_mean, data.shape).ravel()
         data_clean[outlier_mask] = support_mean[outlier_mask]
-        return data.reshape(data.shape)
+        data_clean = data_clean.reshape(data.shape)
     else:
         data_clean = data.copy()
         data_clean[outlier_mask] = data[~outlier_mask].mean()
-        return data_clean
+    
+    return data_clean if not return_outliers_mask else (data_clean, outlier_mask)
