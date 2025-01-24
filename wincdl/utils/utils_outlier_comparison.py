@@ -17,9 +17,9 @@ def remove_outliers_before_cdl(
     activation_vector_shape: tuple,
     method: str,
     alpha: float,
-    moving_average: int,
-    opening_window: bool,
-    union_channels: bool,
+    moving_average=False,
+    opening_window=True,
+    union_channels=True,
     fill_by_channel=True,
 ) -> np.array:
     """Remove outliers before CDL.
@@ -36,7 +36,7 @@ def remove_outliers_before_cdl(
                          by channels or globally
     """
     outlier_loss = OutlierLoss(
-        LassoLoss(lmbd=0, reduction="mean"),
+        LassoLoss(lmbd=0, reduction="sum"),
         method=method,
         alpha=alpha,
         moving_average=moving_average,
@@ -60,7 +60,7 @@ def remove_outliers_before_cdl(
         data_clean, outlier_mask = data.ravel().copy(), outlier_mask.ravel()
         support_mean = np.broadcast_to(support_mean, data.shape).ravel()
         data_clean[outlier_mask] = support_mean[outlier_mask]
-        return data.reshape(data.shape)
+        return data_clean.reshape(data.shape)
     else:
         data_clean = data.copy()
         data_clean[outlier_mask] = data[~outlier_mask].mean()

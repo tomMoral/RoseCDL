@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
     # import your reusable functions here
     from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
     from alphacsc.online_dictionary_learning import OnlineCDL
+    from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
     ALGORITHMS = {
         "online": OnlineCDL,
@@ -32,20 +33,33 @@ class Solver(BaseSolver):
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
         # 'type': ["online", "batch"],
-        'type': ["online", "batch", "greedy"],
+        'type': ["batch"],
+        'outliers_kwargs': [
+            None,
+            {"method": "quantile", "alpha": 0.2},
+            {"method": "iqr", "alpha": 1.5},
+            {"method": "mad", "alpha": 3.5},
+            {"method": "zscore", "alpha": 1.5},
+        ],
     }
     stopping_criterion = SufficientProgressCriterion(
-        patience=5, strategy='callback'
+        patience=10, strategy='callback'
     )
 
     def get_next(self, stop_val):
         return stop_val + 1
 
-    def set_objective(self, X, D_init, reg, window):
+    def set_objective(self, X, D_init, reg, window, has_outliers):
         self.X = X
         self.D_init = D_init
         self.reg = reg
         self.window = window
+        self.has_outliers = has_outliers
+
+        self.z_shape = tuple(
+            xs - ds + 1 for xs, ds in zip(X.shape[2:], D_init.shape[2:])
+        )
+        self.z_shape = (X.shape[0], D_init.shape[0], *self.z_shape)
 
         # Rank1 dictionary if it is 2D
         rank1 = D_init.ndim == 2
@@ -54,16 +68,22 @@ class Solver(BaseSolver):
             n_atoms=D_init.shape[0], n_times_atom=D_init.shape[2],
             D_init=D_init, reg=reg, lmbd_max='scaled',
             solver_z="lgcd", rank1=rank1, window=self.window,
-            verbose=0, n_iter=1000,
+            verbose=0, n_iter=1000, n_jobs=-1
         )
         self.cdl.raise_on_increase = False
 
     def run(self, cb):
+        X = self.X
+        if self.outliers_kwargs is not None:
+            X = remove_outliers_before_cdl(
+                self.X, self.z_shape, **self.outliers_kwargs
+            )
+
         def alphacsc_cb(z_encoder, _):
             self.D_hat = z_encoder.D_hat
             cb()
         self.cdl.callback = alphacsc_cb
-        self.cdl.fit(self.X)
+        self.cdl.fit(X)
 
     def get_result(self):
         if self.D_hat.shape[0] == 0:

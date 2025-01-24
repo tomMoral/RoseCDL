@@ -108,7 +108,7 @@ def run_one(
 
         D_hat = model.D_hat_ if cdl_package in ["wincdl", "deepcdl"] else model.D_hat
         recovery_score = evaluate_D_hat(D_true, D_hat)
-        z0 = z_hat = update_z_multi(X, D_hat, lmbd, z0=z0)[0]
+        z0 = z_hat = update_z_multi(X, D_hat.astype(np.float64), lmbd, z0=z0, solver="lgcd")[0]
         loss_true = compute_X_and_objective_multi(X, z_hat, D_hat, lmbd)
         results.append(
             {
@@ -225,9 +225,9 @@ if __name__ == "__main__":
             "lmbd": reg,
             "scale_lmbd": False,
             "epochs": 30,
-            "max_batch": 10,
+            "max_batch": None,
             "mini_batch_size": 10,
-            "sample_window": 960,
+            "sample_window": 1000,
             "optimizer": "linesearch",
             "n_iterations": 50,
             "window": True,
@@ -266,24 +266,16 @@ if __name__ == "__main__":
     df_results = pd.DataFrame(results)
     df_results.to_csv(exp_dir / "df_results.csv", index=False)
 
-    # Plot recovery score
-    fig, ax = plt.subplots(1, 1, figsize=(12, 10))
-    curves = (
-        df_results.groupby(["name", "epoch"])["recovery_score"]
-        .quantile([0.2, 0.5, 0.8])
-        .unstack()
-    )
-    for i, name in enumerate(df_results.name.unique()):
-        ax.fill_between(
-            curves.loc[name].index,
-            curves.loc[name, 0.2],
-            curves.loc[name, 0.8],
-            alpha=0.3,
-            color=f"C{i}",
-            label=None,
-        )
-        curves.loc[name, 0.5].plot(label=name, c=f"C{i}")
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Recovery score")
-    ax.legend()
-    fig.savefig(exp_dir / "recovery_score.pdf")
+    # Plot loss for the different methods
+    curves = df_results.groupby(["name", "epoch"])[["time", "loss_true"]].median()
+    _, ax = plt.subplots()
+    for name in df_results.name.unique():
+        c = curves.loc[name]
+        c['time'] = c['time'].cumsum()
+        c['loss_true'] = c['loss_true'] - df_results['loss_true'].min() + 1e1
+        c.plot(x="time", y='loss_true', label=name, ax=ax)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig(exp_dir / "loss_true.png")
+    plt.show()

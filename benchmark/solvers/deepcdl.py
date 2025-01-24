@@ -16,28 +16,24 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
 
     # Name to select the solver in the CLI and to display the results.
-    name = 'WinCDL'
-
-    install_cmd = 'conda'
-    requirements = ['pip:torch', 'pip:tqdm']
+    name = 'DeepCDL'
 
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
-        'n_iterations': [25],
-        'mini_batch_size': [1],
-        'sample_window': [1000],
-        'random_state': [42],
-        'outliers_kwargs': [dict(method="quantile", alpha=0.05)],
+        # sample_window is defined as a multiple of the atom_support
+        'sample_window': [5, 10, 20, 50],
+        'n_iterations': [50],
+        'random_state': [None],
     }
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=5, strategy='callback'
+        patience=15, strategy='callback'
     )
 
     def get_next(self, stop_val):
-        return stop_val + 1
+        return stop_val + 3
 
     def set_objective(
         self,
@@ -45,6 +41,7 @@ class Solver(BaseSolver):
         D_init,
         reg,
         window,
+        has_outliers,
     ):
         # Define the information received by each solver from the objective.
         # The arguments of this function are the results of the
@@ -54,30 +51,35 @@ class Solver(BaseSolver):
 
         self.X, self.reg, self.D_init = X, reg, D_init
         self.window = window
+        self.has_outliers = has_outliers
 
         # Infer dictionary size from D_init
         self.n_atoms = D_init.shape[0]
         self.n_channels = self.X.shape[1]
         self.atom_support = D_init.shape[2:]
 
+        sample_window = tuple(self.sample_window * s for s in self.atom_support)
+
         rank1 = D_init.ndim == 2
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_kwargs = dict(
             lmbd=self.reg,
+            scale_lmbd=True,
             D_init=self.D_init,
-            window=self.window, rank1=rank1,
-            n_iterations=self.n_iterations,
-            optimizer="linesearch",
+            window=self.window,
+            rank1=rank1,
+            outliers_kwargs=None,
+            epochs=10000,
+            max_batch=None,
             mini_batch_size=10,
-            sample_window=self.sample_window,
-            max_batch=10,
-            epochs=100,
-            outliers_kwargs=self.outliers_kwargs,
+            sample_window=sample_window,
+            deepcdl=True,
+            optimizer="linesearch",
+            n_iterations=self.n_iterations,
+            random_state=self.random_state,
             device=self.device,
-            random_state=self.random_state
         )
-
 
     def run(self, cb):
         # This is the function that is called to evaluate the solver.
