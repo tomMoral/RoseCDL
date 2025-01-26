@@ -1,0 +1,11 @@
+solver:
+    - alphacsc
+    - sporco
+    - wincdl
+
+dataset:
+    - simulated:
+        n_samples: 10
+        n_times: 10000
+        n_atoms: 2
+        n_times_atom: 50
