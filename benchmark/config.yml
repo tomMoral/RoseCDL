@@ -1,0 +1,17 @@
+solver:
+    - alphacsc:
+        type: batch
+    - sporco
+    - wincdl
+
+dataset:
+    - simulated:
+        n_samples: 10
+        n_times: 1000
+        n_atoms: 2
+        n_times_atom: 50
+        random_state: 42
+
+objective:
+    - "Convolutional Dictionary Learning":
+        reg: 0.3
