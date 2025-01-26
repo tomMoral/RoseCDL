@@ -22,21 +22,16 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
 
     # Name to select the solver in the CLI and to display the results.
-    name = 'alphaCSC'
+    name = "alphaCSC"
 
-    install_cmd = 'conda'
-    requirements = ['pip:alphacsc']
+    install_cmd = "conda"
+    requirements = ["pip:alphacsc"]
 
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
-    parameters = {
-        # 'type': ["online", "batch"],
-        'type': ["online", "batch", "greedy"],
-    }
-    stopping_criterion = SufficientProgressCriterion(
-        patience=5, strategy='callback'
-    )
+    parameters = {"type": ["online", "batch", "greedy"], "n_iterations": [25]}
+    stopping_criterion = SufficientProgressCriterion(patience=5, strategy="callback")
 
     def get_next(self, stop_val):
         return stop_val + 1
@@ -51,10 +46,16 @@ class Solver(BaseSolver):
         rank1 = D_init.ndim == 2
 
         self.cdl = ALGORITHMS[self.type](
-            n_atoms=D_init.shape[0], n_times_atom=D_init.shape[2],
-            D_init=D_init, reg=reg, lmbd_max='scaled',
-            solver_z="lgcd", rank1=rank1, window=self.window,
-            verbose=0, n_iter=1000,
+            n_atoms=D_init.shape[0],
+            n_times_atom=D_init.shape[2],
+            D_init=D_init,
+            reg=reg,
+            lmbd_max="scaled",
+            solver_z="lgcd",
+            rank1=rank1,
+            window=self.window,
+            verbose=0,
+            n_iter=self.n_iterations,
         )
         self.cdl.raise_on_increase = False
 
@@ -62,6 +63,7 @@ class Solver(BaseSolver):
         def alphacsc_cb(z_encoder, _):
             self.D_hat = z_encoder.D_hat
             cb()
+
         self.cdl.callback = alphacsc_cb
         self.cdl.fit(self.X)
 
