@@ -17,9 +17,9 @@ def remove_outliers_before_cdl(
     activation_vector_shape: tuple,
     method: str,
     alpha: float,
-    moving_average: int,
-    opening_window: bool,
-    union_channels: bool,
+    moving_average=False,
+    opening_window=True,
+    union_channels=True,
     fill_by_channel=True,
     return_outliers_mask=False
 ) -> np.array:
@@ -69,5 +69,5 @@ def remove_outliers_before_cdl(
     else:
         data_clean = data.copy()
         data_clean[outlier_mask] = data[~outlier_mask].mean()
-    
+
     return data_clean if not return_outliers_mask else (data_clean, outlier_mask)

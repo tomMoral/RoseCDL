@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from wincdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric, plot_dicts
 from wincdl.utils.utils_signal import generate_experiment
-from wincdl.utils_outlier_comparison import remove_outliers_before_cdl
+from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 from wincdl.wincdl import WinCDL
 
 mem = Memory(location="__cache__", verbose=0)
@@ -181,8 +181,8 @@ def run_one(
         cdl.fit(X)
     elif cdl_package == "alphacsc":
         cdl_params = {
-            "n_atom": D_init.shape[0],
-            "n_times_atom": D_init.shape[1],
+            "n_atoms": D_init.shape[0],
+            "n_times_atom": D_init.shape[2],
             **cdl_params,
         }
         cdl = BatchCDL(**cdl_params, D_init=D_init)

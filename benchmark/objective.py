@@ -35,10 +35,10 @@ class Objective(BaseObjective):
     ]
 
     parameters = {
-        'reg': [1e-1, 3e-1, 5e-1, 8e-1],
+        'reg': [1e-1, 3e-1, 8e-1],
     }
 
-    def set_data(self, X, D, D_init=True, outliers=None, window=True):
+    def set_data(self, X, D, D_init=True, window=True, outliers=None):
         # The keyword arguments of this function are the keys of the dictionary
         # returned by `Dataset.get_data`. This defines the benchmark's
         # API to pass data. This is customizable for each benchmark.
@@ -54,28 +54,31 @@ class Objective(BaseObjective):
     def evaluate_result(self, D):
         z_hat, _, _ = update_z_multi(
             self.X, D.astype(float), reg=self.scaled_reg, z0=self.z0_,
-            solver="lgcd", solver_kwargs={'tol': 1e-3}, n_jobs=4
+            solver="lgcd", solver_kwargs={'tol': 1e-3}, n_jobs=-1
         )
         X_hat = construct_X_multi(z_hat, D=D)
         cost = compute_objective(
             self.X, X_hat=X_hat, z_hat=z_hat, D=D, reg=self.scaled_reg
         )
+        value = cost
         # Warm start for next computation
         self.z0_ = z_hat
 
         # Evaluate recovery of the dictionary
         if self.D is not None:
             recovery_score = evaluate_D_hat(self.D, D)
+            value = -recovery_score
 
-        if self.outliers is not None:
+        if self.outliers not in (True, None):
             # TODO: Add outlier detection
             pass
 
         # This method can return many metrics in a dictionary. One of these
         # metrics needs to be `value` for convergence detection purposes.
         return dict(
-            value=cost,
-            recovery=recovery_score
+            loss=cost,
+            recovery=recovery_score,
+            value=value
         )
 
     def get_one_result(self):
@@ -88,5 +91,6 @@ class Objective(BaseObjective):
             X=self.X,
             D_init=self.D_init,
             reg=self.reg,
-            window=self.window
+            window=self.window,
+            has_outliers=self.outliers is not None
         )
