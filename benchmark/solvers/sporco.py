@@ -32,7 +32,7 @@ class Solver(BaseSolver):
         'type': ["BPDN"],
     }
 
-    def skip(self, X, D_init, reg, window):
+    def skip(self, X, D_init, reg, window, has_outliers):
         if D_init.ndim == 2:
             return True, "Sporco only supports full rank dictionary"
         # if window:
@@ -40,10 +40,11 @@ class Solver(BaseSolver):
 
         return False, None
 
-    def set_objective(self, X, D_init, reg, window):
+    def set_objective(self, X, D_init, reg, window, has_outliers):
         self.X = X
         self.D_init = D_init
         self.reg = reg * get_lambda_max(X, D_init).max()
+        self.has_outliers = has_outliers
 
     def run(self, n_iter):
 
@@ -66,7 +67,7 @@ class Solver(BaseSolver):
             lmbda=self.reg,
             opt=opt,
             dmethod="cns",
-            dimN=1
+            dimN=len(self.D_init.shape[2:])
         )
 
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)

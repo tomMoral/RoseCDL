@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
 
+from .utils import get_torch_generator
+
 
 def check_threshold(threshold):
     # Ensure that the threshold is either float or None
@@ -373,10 +375,7 @@ def add_outliers_2d(X, contamination=0.1, patch_size=None, strength=0.8, seed=No
         seed = int(seed)
 
     # Set up generator for reproducible randomness
-    generator = None
-    if seed is not None:
-        generator = torch.Generator(device=X.device)
-        generator.manual_seed(seed)
+    generator = get_torch_generator(seed)
 
     n_trials, n_channels, height, width = X.shape
 

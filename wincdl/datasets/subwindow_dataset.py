@@ -19,12 +19,15 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         each dimension. If tuple, the number of elements should match the data
         dimensionality. If None, no subwindows will be extracted and the dataset
         will return each trial as is.
+    overlap: bool, optional
+        If True, the subwindows are drawn uniformly from the data. If False, the
+        data is split into fixed non-overlapping subwindows.
     device, dtype: str, optional
         Device and data type for the data. If None, the data will be converted to
         torch.tensor with default values.
     """
 
-    def __init__(self, data, sample_window=None, device=None, dtype=None):
+    def __init__(self, data, sample_window=None, overlap=True, device=None, dtype=None):
         super().__init__()
         assert data.ndim in [3, 4], (
             "Data should be of shape (n_trials, n_channels, *support) with "
@@ -32,29 +35,42 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         )
         self.data = data
         self.dimN = 1 if data.ndim == 3 else 2
+        self.overlap = overlap
+
+        self.n_trials = len(data)
 
         self.device = device
         self.dtype = dtype
 
-        if sample_window:
-            if isinstance(sample_window, int):
-                sample_window = tuple(sample_window for _ in range(self.dimN))
-            assert len(sample_window) == self.dimN, (
-                "sample_window should either be a int or a tuple matching the data "
-                f"dimensionality. Got {sample_window=} for {self.dimN}D data."
-            )
-            self.sample_window = tuple(
-                min(w, ds) for w, ds in zip(sample_window, data.shape[2:])
-            )
-            self._n_windows = tuple(
+        # Validate sample_window
+        if sample_window is None:
+            self.sample_window = data.shape[2:]
+            self.data = torch.tensor(data, device=self.device, dtype=self.dtype)
+        elif isinstance(sample_window, int):
+            sample_window = tuple(sample_window for _ in range(self.dimN))
+        assert len(sample_window) == self.dimN, (
+            "sample_window should either be a int or a tuple matching the data "
+            f"dimensionality. Got {sample_window=} for {self.dimN}D data."
+        )
+
+        # make sure the sample window is smaller than the data
+        self.sample_window = tuple(
+            min(w, ds) for w, ds in zip(sample_window, data.shape[2:])
+        )
+        # compute the number of windows. Even when overlap is True, only consider
+        # the same number of windows per epoch as if overlap was False.
+        self.n_windows = tuple(
+            n // sw for n, sw in zip(data.shape[2:], self.sample_window)
+        )
+        if overlap:
+            self._shape_windows = tuple(
                 ds - sw + 1 for ds, sw in zip(data.shape[2:], self.sample_window)
             )
         else:
-            self.data = torch.tensor(data, device=self.device, dtype=self.dtype)
-            self.sample_window = data.shape[2:]
-            self._n_windows = tuple(1 for _ in range(self.dimN))
+            self._shape_windows = self.n_windows
 
-        self._n_windows = (len(data), *self._n_windows)
+        self._shape_windows = (self.n_trials, *self._shape_windows)
+        self.n_windows = int(np.prod((self.n_trials, *self.n_windows)))
 
     def __getitem__(self, idx):
         # Adding support for negative indexing
@@ -62,8 +78,11 @@ class SubwindowsDataset(torch.utils.data.Dataset):
             idx += len(self)
 
         # Using unravel_index to get the sample index and the window indices
-        idx_samp, *idx_windows = np.unravel_index(idx, self._n_windows)
-        slice_window = [slice(i, i + sw) for i, sw in zip(idx_windows, self.sample_window)]
+        idx_samp, *idx_windows = np.unravel_index(idx, self._shape_windows)
+        slice_window = [
+            slice(i, i + sw) if self.overlap else slice(i * sw, i * sw + sw)
+            for i, sw in zip(idx_windows, self.sample_window)
+        ]
 
         return torch.tensor(
             self.data[(idx_samp, slice(None), *slice_window)],
@@ -71,4 +90,4 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         )
 
     def __len__(self):
-        return np.prod(self._n_windows)
+        return np.prod(self._shape_windows)

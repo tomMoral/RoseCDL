@@ -1,5 +1,29 @@
 import numpy as np
+import torch
 from alphacsc.utils.dictionary import _patch_reconstruction_error, get_D_shape, get_uv
+
+
+def get_torch_generator(seed=None, device=None):
+    """Return a torch.Generator object with the specified seed.
+
+    Parameters
+    ----------
+    seed : int, optional
+        Seed for the generator. If None, a random seed is used.
+    device : str, optional
+        Device to use for the generator.
+
+    Returns
+    -------
+    torch.Generator
+        Generator object for torch.
+    """
+    generator = torch.Generator(device=device)
+    if seed is None:
+        seed = np.random.randint(0, 2 ** 32)
+    generator.manual_seed(seed)
+    return generator
+
 
 
 def get_z_nnz(z_hat):

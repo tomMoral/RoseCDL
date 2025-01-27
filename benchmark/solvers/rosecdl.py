@@ -16,27 +16,36 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
 
     # Name to select the solver in the CLI and to display the results.
-    name = "WinCDL"
-
-    install_cmd = "conda"
-    requirements = ["pip:torch", "pip:tqdm"]
+    name = 'RoseCDL'
 
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
-        "epochs": [100],
-        "n_csc_iterations": [25],
+        # sample_window is defined as a multiple of the atom_support
         "mini_batch_size": [1],
-        "sample_window": [1000],
-        "random_state": [42],
-        "outliers_kwargs": [dict(method="quantile", alpha=0.05)],
+        'sample_window': [10, 20, 50],
+        'n_csc_iterations': [50],
+        'outliers_kwargs': [
+            None,
+            {"method": "quantile", "alpha": 0.2},
+            {"method": "iqr", "alpha": 1.5},
+            {"method": "mad", "alpha": 3.5},
+            {"method": "zscore", "alpha": 1.5},
+        ],
+        'random_state': [None],
     }
 
-    stopping_criterion = SufficientProgressCriterion(patience=5, strategy="callback")
+    stopping_criterion = SufficientProgressCriterion(patience=15, strategy='callback')
 
     def get_next(self, stop_val):
-        return stop_val + 1
+        return stop_val + 3
+
+    def skip(self, X, D_init, reg, window, has_outliers):
+        if not has_outliers and self.outliers_kwargs is not None:
+            return True, "Don't run with outlier detection on data without outliers."
+
+        return False, None
 
     def set_objective(
         self,
@@ -44,38 +53,55 @@ class Solver(BaseSolver):
         D_init,
         reg,
         window,
+        has_outliers,
     ):
-        # Define the information received by each solver from the objective.
-        # The arguments of this function are the results of the
-        # `Objective.get_objective`. This defines the benchmark's API for
-        # passing the objective to the solver.
-        # It is customizable for each benchmark.
+        """Store the dataset information to use in `run`.
 
-        self.X, self.reg, self.D_init = X, reg, D_init
+        Parameters
+        ----------
+        X : ndarray, (n_trials, n_channels, *support)
+            The signals to encode with CDL.
+        D_init : ndarray, (n_atoms, n_channels, *atom_support)
+            The initial dictionary, specified for the problem.
+        reg : float
+            The regularization parameter for the problem. This parameter will be
+            scaled by its maximum value for the data, so it should be in the range
+            [0, 1]. **Note**: we use this convention so this can be adapted for
+            methods which use annomaly detection.
+        window : bool
+            Whether to use a windowed dictionary or not.
+        has_outliers : bool
+            Whether the data has outliers or not.
+        """
+
+        self.X, self.D_init, self.reg = X, D_init, reg
         self.window = window
+        self.has_outliers = has_outliers
 
         # Infer dictionary size from D_init
         self.n_atoms = D_init.shape[0]
         self.n_channels = self.X.shape[1]
         self.atom_support = D_init.shape[2:]
 
+        sample_window = tuple(self.sample_window * s for s in self.atom_support)
         rank1 = D_init.ndim == 2
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_kwargs = dict(
             lmbd=self.reg,
+            scale_lmbd=True,
             D_init=self.D_init,
             window=self.window,
             rank1=rank1,
-            n_iterations=self.n_csc_iterations,
-            optimizer="linesearch",
-            mini_batch_size=10,
-            sample_window=self.sample_window,
-            max_batch=10,
-            epochs=self.epochs,
             outliers_kwargs=self.outliers_kwargs,
-            device=self.device,
+            epochs=10000,
+            max_batch=None,
+            mini_batch_size=10,
+            sample_window=sample_window,
+            optimizer="linesearch",
+            n_iterations=self.n_csc_iterations,
             random_state=self.random_state,
+            device=self.device,
         )
 
     def run(self, cb):
