@@ -63,7 +63,7 @@ class Objective(BaseObjective):
             X,
             D.astype(float),
             reg=self.scaled_reg,
-            z0=self.z0_,
+            z0=self.z0_dict_[mode],
             solver="lgcd",
             solver_kwargs={"tol": 1e-3},
             n_jobs=4,
