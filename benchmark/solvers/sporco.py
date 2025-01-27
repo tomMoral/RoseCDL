@@ -26,10 +26,8 @@ class Solver(BaseSolver):
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
-        'random_state': [42],
-        # 'xmethod': ["adam"],
-        # 'dmethod': ["pgm"],
         'type': ["BPDN"],
+        'random_state': [None],
     }
 
     def skip(self, X, D_init, reg, window, has_outliers):
