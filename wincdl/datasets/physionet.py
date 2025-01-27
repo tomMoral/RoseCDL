@@ -2,10 +2,9 @@ from pathlib import Path
 
 import torch
 import numpy as np
-import pandas as pd
 
 try:
-    from wfdb.io.record import rdrecord
+    import wfdb
 except ImportError:
     raise ImportError(
         "The physionet dataset requires wfdb to be installed. Please run "
@@ -35,47 +34,60 @@ class PhysionetDataset(torch.utils.data.Dataset):
         self,
         db_dir="./apnea-ecg",
         group_id=None,
-        window=10_000,
-        dtype=torch.float,
+        sample_window=10_000,
+        download=False,
         device="cuda:1",
-        seed=42,
+        dtype=torch.float,
     ):
         super().__init__()
         self.db_dir = Path(db_dir)
         self.group_id = group_id
-        self.window = window
+        self.sample_window = sample_window
         self.dtype = dtype
         self.device = device
-        self.seed = seed
+
+        if not self.db_dir.exists():
+            if not download:
+                raise FileNotFoundError("The Physionet data was not found")
+            print("Downloading data...", end='', flush=True)
+            wfdb.dl_database("apnea-ecg", dl_dir=str(self.db_dir))
+            print("ok")
+
         # get subjects
-        subject_id_list = pd.read_csv(self.db_dir / "participants.tsv", sep="\t")[
-            "Record"
-        ].values
+        subject_id_list = sorted(list(set(
+            f.with_suffix('').name for f in self.db_dir.glob("*")
+        )))
+        subject_id_list = [f for f in subject_id_list if 'r' not in f]
+
         if group_id is not None:
             self.subjects = [id for id in subject_id_list if id[0] == group_id]
         else:
             self.subjects = subject_id_list
         self.n_subjects = len(self.subjects)
         # get signals' lengths
-        rng = np.random.default_rng(self.seed)
-        rng.shuffle(self.subjects)
-        self.shapes_time = np.array(
-            [
-                rdrecord(record_name=str(self.db_dir / subject_id)).sig_len
-                - self.window
-                for subject_id in self.subjects
-            ]
-        ).cumsum()
+        self._shape_window = np.array([
+            wfdb.rdrecord(record_name=str(self.db_dir / subject_id)).sig_len
+            for subject_id in self.subjects
+        ])
+        self.shapes_time = np.cumsum(
+            np.maximum(1, self._shape_window - self.sample_window)
+        )
+        self.n_windows = int(sum(
+            np.maximum(1, T // self.sample_window) for T in self._shape_window
+        ))
 
     def __len__(self):
         return self.shapes_time[-1]
 
     def __getitem__(self, idx):
         subject_idx = np.searchsorted(self.shapes_time, idx, side="right")
-        ecg_record = rdrecord(record_name=str(self.db_dir / self.subjects[subject_idx]))
         time_idx = 0 if subject_idx == 0 else idx - self.shapes_time[subject_idx - 1]
-        X = ecg_record.p_signal
+        ecg_record = wfdb.rdrecord(
+            record_name=str(self.db_dir / self.subjects[subject_idx]),
+            sampfrom=time_idx,
+            sampto=time_idx+self.sample_window,
+        )
+        X = ecg_record.p_signal.T
         X /= X.std()
-        X = X[time_idx : time_idx + self.window, :].T
 
         return torch.tensor(X, dtype=self.dtype, device=self.device)
