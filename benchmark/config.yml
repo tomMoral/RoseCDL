@@ -1,8 +1,11 @@
 solver:
     - alphacsc:
         type: batch
-    # - sporco
-    - wincdl
+        epochs: 1000
+    - sporco
+    - wincdl:
+        epochs: 1000
+        n_csc_iterations: 25
 
 dataset:
     - simulated:
@@ -12,7 +15,3 @@ dataset:
         n_times_atom: 50
         random_state: 42
         contamination: 0
-
-objective:
-    - "Convolutional Dictionary Learning":
-        reg: 0.3

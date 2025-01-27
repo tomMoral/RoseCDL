@@ -30,7 +30,7 @@ class Solver(BaseSolver):
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
-    parameters = {"type": ["online", "batch", "greedy"], "n_iterations": [25]}
+    parameters = {"type": ["online", "batch", "greedy"], "epochs": [100]}
     stopping_criterion = SufficientProgressCriterion(patience=5, strategy="callback")
 
     def get_next(self, stop_val):
@@ -55,7 +55,7 @@ class Solver(BaseSolver):
             rank1=rank1,
             window=self.window,
             verbose=0,
-            n_iter=self.n_iterations,
+            n_iter=self.epochs,
         )
         self.cdl.raise_on_increase = False
 

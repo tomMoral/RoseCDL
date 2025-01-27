@@ -16,25 +16,24 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
 
     # Name to select the solver in the CLI and to display the results.
-    name = 'WinCDL'
+    name = "WinCDL"
 
-    install_cmd = 'conda'
-    requirements = ['pip:torch', 'pip:tqdm']
+    install_cmd = "conda"
+    requirements = ["pip:torch", "pip:tqdm"]
 
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
-        'n_iterations': [25],
-        'mini_batch_size': [1],
-        'sample_window': [1000],
-        'random_state': [42],
-        'outliers_kwargs': [dict(method="quantile", alpha=0.05)],
+        "epochs": [100],
+        "n_csc_iterations": [25],
+        "mini_batch_size": [1],
+        "sample_window": [1000],
+        "random_state": [42],
+        "outliers_kwargs": [dict(method="quantile", alpha=0.05)],
     }
 
-    stopping_criterion = SufficientProgressCriterion(
-        patience=5, strategy='callback'
-    )
+    stopping_criterion = SufficientProgressCriterion(patience=5, strategy="callback")
 
     def get_next(self, stop_val):
         return stop_val + 1
@@ -66,26 +65,23 @@ class Solver(BaseSolver):
         self.model_kwargs = dict(
             lmbd=self.reg,
             D_init=self.D_init,
-            window=self.window, rank1=rank1,
-            n_iterations=self.n_iterations,
+            window=self.window,
+            rank1=rank1,
+            n_iterations=self.n_csc_iterations,
             optimizer="linesearch",
             mini_batch_size=10,
             sample_window=self.sample_window,
             max_batch=10,
-            epochs=100,
+            epochs=self.epochs,
             outliers_kwargs=self.outliers_kwargs,
             device=self.device,
-            random_state=self.random_state
+            random_state=self.random_state,
         )
-
 
     def run(self, cb):
         # This is the function that is called to evaluate the solver.
         # It runs the algorithm for a given a number of iterations `n_iter`.
-        self.model = WinCDL(
-            **self.model_kwargs,
-            callbacks=[lambda *x: not cb()]
-        )
+        self.model = WinCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
         self.model.fit(self.X)
 
