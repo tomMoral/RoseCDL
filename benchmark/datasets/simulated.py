@@ -16,7 +16,7 @@ class Dataset(BaseDataset):
         # shape of the searched dictionary
         "n_atoms, n_times_atom": [(5, 64)],
         "random_state": [None],
-        "contamination": [0.1],
+        "contamination": [False],
     }
     parameter_template = "T={n_times},outliers={contamination}"
 
@@ -31,7 +31,7 @@ class Dataset(BaseDataset):
             "sparsity": 3 * size,
             "init_z": "constant",
             "init_z_kwargs": {"value": 50},
-        } if self.has_outliers else None
+        } if self.contamination else None
 
         simulation_params = {
             'n_trials': self.n_samples,
