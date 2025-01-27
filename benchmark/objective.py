@@ -1,12 +1,12 @@
 from pathlib import Path
 
-import numpy as np
 from benchopt import BaseObjective, safe_import_context
 
 # Protect the import with `safe_import_context()`. This allows:
 # - skipping import to speed up autocompletion in CLI.
 # - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
+    import numpy as np
     from alphacsc.loss_and_gradient import compute_objective
     from alphacsc.update_z_multi import update_z_multi
     from alphacsc.utils.convolution import construct_X_multi
@@ -70,12 +70,12 @@ class Objective(BaseObjective):
 
         return (
             compute_objective(X, X_hat=X_hat, z_hat=z_hat, D=D, reg=self.scaled_reg),
-            z_hat
+            z_hat,
         )
 
     def evaluate_result(self, D):
-        loss, z_train = self._compute_objective(D, self.X, self.z0_dict_['train'])
-        loss_val, z_val = self._compute_objective(D, self.X_val, self.z0_dict_['val'])
+        loss, z_train = self._compute_objective(D, self.X, self.z0_dict_["train"])
+        loss_val, z_val = self._compute_objective(D, self.X_val, self.z0_dict_["val"])
 
         # Update warmstart
         self.z0_dict_.update(train=z_train, val=z_val)
@@ -107,5 +107,5 @@ class Objective(BaseObjective):
             D_init=self.D_init,
             reg=self.reg,
             window=self.window,
-            has_outliers=self.outliers is not None
+            has_outliers=self.outliers is not None,
         )
