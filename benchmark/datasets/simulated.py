@@ -29,8 +29,8 @@ class Dataset(BaseDataset):
     def get_data(self):
         rng = np.random.default_rng(self.random_state)
         X, D, _, outliers = simulate_1d(
-            n_atoms=10,
-            n_times_atom=50,
+            n_atoms=self.n_atoms,
+            n_times_atom=self.n_times_atom,
             n_trials=self.n_samples,
             n_times=self.n_times,
             p_acti=0.7,
