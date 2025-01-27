@@ -9,7 +9,7 @@ def create_dataloader(
     data,
     mini_batch_size=10,
     sample_window=None,
-    overlap=False,
+    overlap=True,
     random_state=None,
     device=None,
     dtype=None,
@@ -44,20 +44,27 @@ def create_dataloader(
     elif data == "physionet":
         from .physionet import PhysionetDataset
         dataset = PhysionetDataset(
-            **kwargs_dataset, window=sample_window,
-            dtype=dtype, device=device, seed=(random_state, 1),
-        ),
+            **kwargs_dataset, sample_window=sample_window, dtype=dtype, device=device
+        )
     elif isinstance(data, str):
         from .meg import MEGPopDataset
         dataset = MEGPopDataset(
             data,
-            window=sample_window,
+            sample_window=sample_window,
             n_samples=kwargs_dataset.get("n_samples", None),
             device=device,
             dtype=dtype,
-            seed=(random_state, 1),
         )
 
+    sampler = torch.utils.data.RandomSampler(
+        dataset,
+        num_samples=dataset.n_windows,
+        generator=generator,
+        # If the dataset length is too high, it takes very long time to sample
+        # without replacement with this sampler, but there is a low chance to
+        # get issue with replacement
+        replacement=len(dataset) > 1e6
+    )
     return torch.utils.data.DataLoader(
-        dataset, batch_size=mini_batch_size, shuffle=True, generator=generator,
+        dataset, batch_size=mini_batch_size, sampler=sampler
     )

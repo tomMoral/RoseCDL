@@ -37,6 +37,8 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         self.dimN = 1 if data.ndim == 3 else 2
         self.overlap = overlap
 
+        self.n_trials = len(data)
+
         self.device = device
         self.dtype = dtype
 
@@ -67,7 +69,8 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         else:
             self._shape_windows = self.n_windows
 
-        self._shape_windows = (len(data), *self._shape_windows)
+        self._shape_windows = (self.n_trials, *self._shape_windows)
+        self.n_windows = int(np.prod((self.n_trials, *self.n_windows)))
 
     def __getitem__(self, idx):
         # Adding support for negative indexing
@@ -87,4 +90,4 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         )
 
     def __len__(self):
-        return np.prod(self.n_windows)
+        return np.prod(self._shape_windows)

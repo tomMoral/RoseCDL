@@ -67,7 +67,7 @@ class Solver(BaseSolver):
             lmbda=self.reg,
             opt=opt,
             dmethod="cns",
-            dimN=1
+            dimN=len(self.D_init.shape[2:])
         )
 
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)

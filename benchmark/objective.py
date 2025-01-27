@@ -69,7 +69,7 @@ class Objective(BaseObjective):
             recovery_score = evaluate_D_hat(self.D, D)
             value = -recovery_score
 
-        if (self.outliers is not None) and (self.outliers is not True):
+        if self.outliers not in (True, None):
             # TODO: Add outlier detection
             pass
 
