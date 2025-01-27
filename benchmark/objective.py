@@ -76,8 +76,8 @@ class Objective(BaseObjective):
         return compute_objective(X, X_hat=X_hat, z_hat=z_hat, D=D, reg=self.scaled_reg)
 
     def evaluate_result(self, D):
-        loss = self._compute_objective(D, self.X)
-        val_loss = self._compute_objective(D, self.X_val)
+        loss = self._compute_objective(D, mode="train")
+        val_loss = self._compute_objective(D, mode="val")
 
         # Evaluate recovery of the dictionary
         if self.D is not None:
