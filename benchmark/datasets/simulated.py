@@ -14,7 +14,7 @@ class Dataset(BaseDataset):
             (10, 5000),
         ],
         # shape of the searched dictionary
-        "n_atoms, n_times_atom": [(15, 64)],
+        "n_atoms, n_times_atom": [(5, 64)],
         "random_state": [None],
         "contamination": [0.1],
     }

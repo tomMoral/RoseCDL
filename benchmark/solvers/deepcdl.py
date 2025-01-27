@@ -57,6 +57,7 @@ class Solver(BaseSolver):
         self.n_channels = self.X.shape[1]
         self.atom_support = D_init.shape[2:]
 
+        # Scale sample window with the size of the atom
         sample_window = tuple(self.sample_window * s for s in self.atom_support)
 
         rank1 = D_init.ndim == 2
@@ -71,7 +72,7 @@ class Solver(BaseSolver):
             outliers_kwargs=None,
             epochs=10000,
             max_batch=None,
-            mini_batch_size=10,
+            mini_batch_size=self.mini_batch_size,
             sample_window=sample_window,
             deepcdl=True,
             optimizer="linesearch",
