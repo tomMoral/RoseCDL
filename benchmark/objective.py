@@ -88,7 +88,7 @@ class Objective(BaseObjective):
             recovery_score = evaluate_D_hat(self.D, D)
             res.update(recovery_score=recovery_score, value=-recovery_score)
 
-        if self.outliers not in (True, None):
+        if isinstance(self.outliers, np.ndarray):
             # TODO: Add outlier detection
             pass
 
