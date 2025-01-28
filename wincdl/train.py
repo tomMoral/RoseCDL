@@ -102,7 +102,9 @@ def train(
         )
 
         for callback in callbacks:
-            callback(model, epoch, train_loss)
+            if callback(model, epoch, train_loss):
+                pbar.close()
+                return
 
         pbar.set_description(
             f"Epoch {epoch+1}"

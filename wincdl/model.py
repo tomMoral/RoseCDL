@@ -1,25 +1,29 @@
+from contextlib import nullcontext
+
 import numpy as np
 import torch
 import torch.fft as fft
 import torch.nn as nn
 import torch.nn.functional as F
-from alphacsc.init_dict import init_dictionary
 from alphacsc.utils.dictionary import get_uv, tukey_window
+
+from .utils.utils import get_torch_generator
 
 
 class CSC1d(nn.Module):
     def __init__(
         self,
-        n_iterations,
-        n_components,
-        kernel_size,
-        n_channels,
         lmbd,
-        rank="full",
-        window=False,
+        n_components=None,
+        kernel_size=None,
+        n_channels=None,
         D_init=None,
-        positive_z=True,
+        rank1=False,
+        window=False,
         positive_D=False,
+        positive_z=True,
+        n_iterations=30,
+        deepcdl=False,
         random_state=None,
         device=None,
         dtype=None,
@@ -31,25 +35,24 @@ class CSC1d(nn.Module):
         self.kernel_size = kernel_size
         self.do_window = window
 
+        self.deepcdl = deepcdl
+        self.n_iterations = n_iterations
+
         self.lmbd = lmbd
         self.positive_z = positive_z
         self.positive_D = positive_D
 
-        self.n_iterations = n_iterations
-
         self.dtype = dtype
         self.device = device
-        self.random_state = random_state
 
-        self.generator = torch.Generator(device)
-        self.generator.manual_seed(random_state)
-
+        # Control random number generation
+        self.generator = get_torch_generator(random_state, device=device)
 
         # Tukey window
         if window:
             self.window = torch.tensor(
                 tukey_window(*self.kernel_size), dtype=dtype, device=device
-            )[None, None, :]
+            )[None, None]
         else:
             self.window = None
 
@@ -65,7 +68,7 @@ class CSC1d(nn.Module):
         self.grad_loss = lambda x, z, D: self.conv((self.convt(z, D) - x), D)
 
         # Rank
-        self.rank = rank
+        self.rank1 = rank1
 
         self.init_D(D_init)
 
@@ -88,7 +91,7 @@ class CSC1d(nn.Module):
         else:
             D_hat = torch.tensor(D_init, dtype=self.dtype, device=self.device)
 
-        if self.rank == "uv_constraint":
+        if self.rank1:
             u = D_hat[:, : self.n_channels][:, :, None]
             v = D_hat[:, self.n_channels :][:, None, :]
 
@@ -100,7 +103,7 @@ class CSC1d(nn.Module):
                 torch.tensor(v, dtype=self.dtype, device=self.device)
             )
 
-        elif self.rank == "full":
+        else:
             self._D_hat = nn.Parameter(
                 D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
             )
@@ -114,9 +117,9 @@ class CSC1d(nn.Module):
         self._processed_samples = 0
 
     def get_D(self):
-        if self.rank == "uv_constraint":
+        if self.rank1:
             D = self.u * self.v
-        elif self.rank == "full":
+        else:
             D = self._D_hat
         if self.do_window:
             return D * self.window
@@ -136,7 +139,7 @@ class CSC1d(nn.Module):
         Constrains the dictionary to have normalized atoms
         """
         with torch.no_grad():
-            if self.rank == "uv_constraint":
+            if self.rank1:
                 if self.positive_D:
                     # Work on data as u, v are nn.Parameter
                     self.u.data = F.relu(self.u.data)
@@ -154,7 +157,7 @@ class CSC1d(nn.Module):
                 self.u /= norm_col_u
                 return norm_col_v, norm_col_u
 
-            elif self.rank == "full":
+            else:
                 if self.positive_D:
                     # Work on data as _D_hat is a nn.Parameter
                     self._D_hat.data = F.relu(self._D_hat.data)
@@ -173,17 +176,13 @@ class CSC1d(nn.Module):
         """Resample an atom if it is not used enough """
 
         # XXX: better resample?
-        D_temp = init_dictionary(
-            # Only using the shape of X to generate the dictionary
-            torch.zeros((self.n_components, self.n_channels, *self.kernel_size)),
-            n_atoms=1,
-            n_times_atom=self.kernel_size[0],
-            rank1=False,
-            window=self.do_window,
-            D_init="random",
-            random_state=self.random_state,
+        D_temp = torch.rand(
+            (1, self.n_channels, *self.kernel_size),
+            generator=self.generator,
+            dtype=self.dtype,
+            device=self.device,
         )
-        self._D_hat[k0] = torch.tensor(D_temp, dtype=self.dtype, device=self.device)
+        self._D_hat[k0] = D_temp
         self.rescale()
 
     def resample_atom(self):
@@ -249,9 +248,9 @@ class CSC1d(nn.Module):
         if D is None:
             D = self.get_D()
 
-        # We don't use unrolling here but alternate minimization
-        # TODO: evaluate this choice
-        with torch.no_grad():
+        # Here, only use unrolling if self.deepcdl, else use alternate minimization
+        ctx = nullcontext() if self.deepcdl else torch.no_grad()
+        with ctx:
             # Initialization equal 0
             z_hat = self.init_z(x)
             L = self.compute_lipschitz()
@@ -298,34 +297,36 @@ class CSC1d(nn.Module):
 class CSC2d(CSC1d):
     def __init__(
         self,
-        n_iterations,
-        n_components,
-        kernel_size,
-        n_channels,
         lmbd,
-        rank="full",
-        window=False,
+        n_components=None,
+        kernel_size=None,
+        n_channels=None,
         D_init=None,
-        positive_z=True,
+        rank1=False,
+        window=True,
         positive_D=False,
+        positive_z=True,
+        n_iterations=30,
+        deepcdl=False,
         random_state=None,
         device=None,
         dtype=None,
     ):
         super().__init__(
-            n_iterations=n_iterations,
+            lmbd=lmbd,
             n_components=n_components,
             kernel_size=kernel_size,
             n_channels=n_channels,
-            lmbd=lmbd,
+            D_init=D_init,
+            rank1=rank1,
+            window=window,
+            positive_D=positive_D,
+            positive_z=positive_z,
+            n_iterations=n_iterations,
+            deepcdl=deepcdl,
+            random_state=random_state,
             device=device,
             dtype=dtype,
-            random_state=2147483647,
-            rank="full",
-            window=False,
-            D_init=D_init,
-            positive_z=positive_z,
-            positive_D=positive_D,
         )
 
         # Convolution
@@ -361,16 +362,3 @@ class CSC2d(CSC1d):
             if lipschitz == 0:
                 lipschitz = 1
             return lipschitz
-
-    def _resample_atom(self, k0):
-        """Resample an atom if it is not used enough """
-
-        # XXX: better resample?
-        D_temp = torch.rand(
-            (1, self.n_channels, *self.kernel_size),
-            generator=self.generator,
-            dtype=self.dtype,
-            device=self.device,
-        )
-        self._D_hat[k0] = D_temp
-        self.rescale()

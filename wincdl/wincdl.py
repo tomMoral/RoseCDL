@@ -81,31 +81,33 @@ class WinCDL(torch.nn.Module):
         kernel_size=None,
         n_channels=None,
         D_init=None,
-        scale_lmbd=True,
+        rank1=False,
+        window=False,
+        positive_D=False,
+        positive_z=True,
         n_iterations=30,
+        deepcdl=False,
+        scale_lmbd=True,
         epochs=100,
         max_batch=10,
+        mini_batch_size=10,
+        sample_window=1000,
         optimizer="linesearch",
         lr=0.1,
         gamma=0.9,
-        sample_window=1000,
-        mini_batch_size=10,
-        rank="full",
-        window=False,
-        positive_z=True,
-        positive_D=False,  # Add this parameter
         outliers_kwargs=None,
         callbacks=(),
         device=None,
         dtype=torch.float,
-        random_state=2147483647,
+        random_state=None,
     ):
         super().__init__()
 
         if n_components is None:
-            assert isinstance(D_init, (np.ndarray, torch.Tensor)), (
-                "WinCDL shoudl either be provided n_components, n_channels and kernel_size "
-                "or a D_init tensor."
+            assert hasattr(D_init, "shape"), (
+                "If D_init is not an array-like argument (has a .shape attribute), "
+                "the shape of the dictionary should be specified with "
+                "(n_components, n_channels, *kernel_size)."
             )
             n_components, n_channels, *kernel_size = D_init.shape
 
@@ -118,11 +120,13 @@ class WinCDL(torch.nn.Module):
         self.epochs = epochs
         self.max_batch = max_batch
         self.mini_batch_size = mini_batch_size
-        self.stochastic = sample_window is not None
         self.sample_window = sample_window
         self.optimizer_name = optimizer
         self.gamma = gamma
         self.callbacks = callbacks
+
+        self.stochastic = sample_window is not None
+        self.deepcdl = deepcdl
 
         self.random_state = random_state
         self.dtype = dtype
@@ -143,17 +147,18 @@ class WinCDL(torch.nn.Module):
         csc_class = CSC1d if self.dimN == 1 else CSC2d
 
         self.csc = csc_class(
-            n_iterations,
-            n_components,
-            kernel_size,
-            n_channels,
-            lmbd,
-            rank=rank,
-            window=window,
+            lmbd=lmbd,
+            n_components=n_components,
+            kernel_size=kernel_size,
+            n_channels=n_channels,
             D_init=D_init,
-            positive_z=positive_z,
+            rank1=rank1,
+            window=window,
             positive_D=positive_D,
-            random_state=self.random_state,
+            positive_z=positive_z,
+            n_iterations=n_iterations,
+            deepcdl=deepcdl,
+            random_state=random_state,
             device=device,
             dtype=dtype,
         )
@@ -216,6 +221,7 @@ class WinCDL(torch.nn.Module):
                 X,
                 sample_window=self.sample_window,
                 mini_batch_size=self.mini_batch_size,
+                overlap=not self.deepcdl,
                 random_state=self.random_state,
                 device=self.device,
                 dtype=self.dtype,
@@ -225,6 +231,7 @@ class WinCDL(torch.nn.Module):
             lambda_max = self.loss_fn.get_lambda_max(train_dataloader, self.csc.get_D())
             self.loss_fn.lmbd = self.lmbd * lambda_max
             self.csc.lmbd = self.lmbd * lambda_max
+            print(f"Scaling lambda to {self.lmbd * lambda_max}")
 
         print("Set up optimizer and scheduler...", end=" ")
         # LR scheduler

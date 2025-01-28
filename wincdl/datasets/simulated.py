@@ -100,6 +100,7 @@ def simulate_1d(
     X = construct_X(z, ds)
 
     # Add contamination if requested
+    outliers = None
     if p_contaminate > 0:
         n_times_atom_contaminate = 3 * n_times_atom
         atom_noise = np.random.uniform(
@@ -117,6 +118,7 @@ def simulate_1d(
         )
 
         X_contaminate = construct_X(z_contaminate, atom_noise)
+        outliers = X_contaminate != 0
         X += X_contaminate
 
     # Add noise
@@ -126,7 +128,7 @@ def simulate_1d(
     assert z.shape == (n_atoms, n_trials, n_times - n_times_atom + 1)
     assert ds.shape == (n_atoms, n_times_atom)
 
-    return X, ds, z
+    return X, ds, z, outliers
 
 
 def cycler(n_atoms, n_times_atom, shapes):

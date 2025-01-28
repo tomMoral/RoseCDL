@@ -138,7 +138,7 @@ def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
         mini_batch_window=1_000,
         mini_batch_size=1,  # batch_size for the dataloader
         device=DEVICE,
-        rank="uv_constraint",
+        rank1=True,
         window=True,
         D_init=D_init,
         positive_z=True,
