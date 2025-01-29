@@ -1,5 +1,46 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wincdl"
+version = "0.1.0"
 
 
+requires-python = ">=3.8"
+authors = [
+  {name = "Jad Yehya", email = "jad.yehya@inria.fr"},
+  {name = "Mansour Benbakoura", email = "mansour.benbakoura@inria.fr"},
+  {name = "Cédric Allain", email = "cedric.allain@inria.fr"},
+  {name = "Benoît Malézieux", email = "benoit.malezieux@inria.fr"},
+  {name = "Thomas Moreau", email = "thomas.moreau@inria.fr"},
+]
+description = "RObust and ScalablE Convolution Dictionary Learning"
+readme = "README.md"
+
+dependencies = [
+    "alphacsc",
+    "imageio",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pytest",
+    "scipy",
+    "sklearn",
+    "sporco",
+    "torch",
+    "tqdm",
+    "wfdb",
+]
+
+[project.optional-dependencies]
+experiments = [
+    "benchopt",
+    "dripp",
+    "joblib",
+    "mne",
+    "seaborn",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
