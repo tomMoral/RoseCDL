@@ -1,11 +1,12 @@
 [build-system]
+
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
+
 name = "wincdl"
 version = "0.1.0"
-
 
 requires-python = ">=3.8"
 authors = [
@@ -25,6 +26,7 @@ dependencies = [
     "numpy",
     "pandas",
     "pytest",
+    "ruff",
     "scipy",
     "sklearn",
     "sporco",
@@ -34,6 +36,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+
 experiments = [
     "benchopt",
     "dripp",
@@ -43,7 +46,7 @@ experiments = [
 ]
 
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
+
 exclude = [
     ".direnv",
     ".eggs",
@@ -58,5 +61,24 @@ exclude = [
     "dist",
     "__cache__",
 ]
+
 line-length = 88
 indent-width = 4
+
+[tool.ruff.format]
+
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+
+select = ["ALL"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
