@@ -76,9 +76,9 @@ def simulate_1d(
         n_atoms, n_times_atom = ds.shape
 
     # Validate number of atoms
-    assert (
-        n_atoms <= ds.shape[0]
-    ), f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
+    assert n_atoms <= ds.shape[0], (
+        f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
+    )
     n_times_atom == ds.shape[1]
 
     # Randomly select subset of atoms if needed

@@ -15,9 +15,7 @@ from wincdl.wincdl import WinCDL
 @pytest.mark.parametrize("n_channels", [1, 3])
 @pytest.mark.parametrize("n_components", [3, 5])
 @pytest.mark.parametrize("positive_D", [True, False])
-def test_wincdl(
-    n_components, n_channels, kernel_size, support, rank1, positive_D
-):
+def test_wincdl(n_components, n_channels, kernel_size, support, rank1, positive_D):
     """Test positive dictionary constraint with 1D and 2D data"""
     # Setup test data
     X = np.random.rand(10, n_channels, *support)

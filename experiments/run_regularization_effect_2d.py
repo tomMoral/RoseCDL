@@ -3,12 +3,12 @@ for letter data. It saves results to a CSV file for further analysis.
 """
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
+from joblib import Memory, Parallel, delayed
 from tqdm import tqdm
-from joblib import Parallel, delayed
-from joblib import Memory
 
 from wincdl.datasets import create_dataloader
 from wincdl.utils.utils_exp import evaluate_D_hat
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     }
 
     # Experiment parameters
-    reg_values = [0.01, 0.1 , 0.2, 0.3, 0.4, 0.5, 0.6]
+    reg_values = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     exp_dir = EXP_DIR / "reg_effect"
     exp_dir.mkdir(exist_ok=True, parents=True)
 

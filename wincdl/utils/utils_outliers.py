@@ -205,9 +205,9 @@ def apply_moving_average(data, window_size=15, method="average"):
         else:  # method == "max"
             result = F.max_pool2d(data, window_size, stride=1, padding=window_size // 2)
 
-    assert (
-        result.shape == original_shape
-    ), f"Shape mismatch: got {result.shape}, expected {original_shape}"
+    assert result.shape == original_shape, (
+        f"Shape mismatch: got {result.shape}, expected {original_shape}"
+    )
 
     return result
 
@@ -262,9 +262,9 @@ def apply_opening(outliers_mask, window_size=15):
     # Threshold to get binary mask
     result = (convolved > 0).bool()
 
-    assert (
-        result.shape == original_shape
-    ), f"Shape mismatch: got {result.shape}, expected {original_shape}"
+    assert result.shape == original_shape, (
+        f"Shape mismatch: got {result.shape}, expected {original_shape}"
+    )
 
     return result
 
@@ -300,9 +300,9 @@ def get_outlier_mask(
         # Expanding the mask to match data's shape
         outliers_mask = outliers_mask.expand_as(data)
 
-    assert (
-        outliers_mask.shape == data.shape
-    ), f"outliers_mask.shape: {outliers_mask.shape}, data.shape: {data.shape}"
+    assert outliers_mask.shape == data.shape, (
+        f"outliers_mask.shape: {outliers_mask.shape}, data.shape: {data.shape}"
+    )
 
     return outliers_mask
 

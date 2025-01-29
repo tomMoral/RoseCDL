@@ -1,16 +1,8 @@
-
 import torch
 from tqdm import tqdm
 
 
-def train_loop(
-    dataloader,
-    model,
-    loss_fn,
-    optimizer,
-    max_batch=None,
-    scheduler=None
-):
+def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=None):
     avg_loss = 0
     count = 0
     for batch, X in enumerate(dataloader):
@@ -43,7 +35,7 @@ def train_loop(
         if max_batch is not None and batch >= max_batch:
             break
 
-    return (avg_loss / count)
+    return avg_loss / count
 
 
 def train(
@@ -107,7 +99,7 @@ def train(
                 return
 
         pbar.set_description(
-            f"Epoch {epoch+1}"
+            f"Epoch {epoch + 1}"
             f" - Average train loss: {train_loss:.15f}"
             f" - Step size: {optimizer.param_groups[0]['lr']}"
         )

@@ -1,4 +1,5 @@
 """This file contains the code to run WinCDL on 2D image data."""
+
 from pathlib import Path
 
 import numpy as np
@@ -20,11 +21,15 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run WinCDL on 2D image data")
     parser.add_argument(
-        "data_path", type=str, help="Path to NPZ file containing the data. This data can be generated "
-        "using the `experiments/letters/generate_letters.py` script."
+        "data_path",
+        type=str,
+        help="Path to NPZ file containing the data. This data can be generated "
+        "using the `experiments/letters/generate_letters.py` script.",
     )
     parser.add_argument("--seed", "-s", type=int, default=None, help="Random seed")
-    parser.add_argument("--reg", type=float, default=0.8, help="Regularization parameter")
+    parser.add_argument(
+        "--reg", type=float, default=0.8, help="Regularization parameter"
+    )
     args = parser.parse_args()
 
     seed = args.seed if args.seed is not None else np.random.randint(0, 2**32 - 1)
@@ -82,7 +87,7 @@ if __name__ == "__main__":
     wincdl.fit(X)
 
     results = pd.DataFrame(results)
-    results['time'] = results['time'].cumsum()
+    results["time"] = results["time"].cumsum()
     print(results)
 
     # Plot learning curve and recovery score
@@ -98,4 +103,3 @@ if __name__ == "__main__":
         ax[i].axis("off")
 
     plt.savefig(exp_dir / "atoms_learned_wincdl.png")
-

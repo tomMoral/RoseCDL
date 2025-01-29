@@ -6,11 +6,11 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 # - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
     import torch
+
     from wincdl.wincdl import WinCDL
 
 
 class Solver(BaseSolver):
-
     name = "RoseCDL"
 
     parameters = {
@@ -108,4 +108,5 @@ class Solver(BaseSolver):
         # The outputs of this function are the arguments of `Objective.compute`
         # This defines the benchmark's API for solvers' results.
         # it is customizable for each benchmark.
+        return {"D": self.model.D_hat_}
         return {"D": self.model.D_hat_}

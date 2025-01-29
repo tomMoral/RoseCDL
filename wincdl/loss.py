@@ -21,9 +21,7 @@ def get_kernel_size(X, z):
         The kernel's size corresponding for each dimension to
         full_support - valid_support + 1.
     """
-    return tuple(
-        full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:])
-    )
+    return tuple(full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:]))
 
 
 def reduce_loss(loss, reduction):
@@ -44,8 +42,8 @@ def reduce_loss(loss, reduction):
         raise ValueError(f"reduction={reduction} is not valid.")
     return loss
 
-class _ReconstructionLoss(_Loss):
 
+class _ReconstructionLoss(_Loss):
     def get_lambda_max(self, dataloader, D):
         """Compute the maximum value of the regularization parameter.
 
@@ -105,9 +103,14 @@ class _ReconstructionLoss(_Loss):
 
 class OutlierLoss(_ReconstructionLoss):
     def __init__(
-        self, loss_fn, method="quantile", alpha=0.05, reduction=None,
-        moving_average=None, opening_window=True, union_channels=True,
-
+        self,
+        loss_fn,
+        method="quantile",
+        alpha=0.05,
+        reduction=None,
+        moving_average=None,
+        opening_window=True,
+        union_channels=True,
     ):
         """Trimmed loss with outliers detection.
 
@@ -144,7 +147,7 @@ class OutlierLoss(_ReconstructionLoss):
 
         self.loss_fn = loss_fn
         self.reduction = self.loss_fn.reduction if reduction is None else reduction
-        self.loss_fn.reduction = 'none'
+        self.loss_fn.reduction = "none"
 
         self.method = method
         self.alpha = alpha
@@ -161,8 +164,7 @@ class OutlierLoss(_ReconstructionLoss):
                 outliers_mask = self.get_outliers_mask(X_hat, z_hat, X)
 
         return reduce_loss(
-            self.loss_fn(X_hat, z_hat, X)[~outliers_mask],
-            self.reduction
+            self.loss_fn(X_hat, z_hat, X)[~outliers_mask], self.reduction
         )
 
     def get_outliers_mask(self, X_hat, z_hat, X, opening=None):
@@ -214,7 +216,7 @@ class OutlierLoss(_ReconstructionLoss):
         avg_pool = F.avg_pool1d if X.ndim == 3 else F.avg_pool2d
 
         # Extend on right to get patches aligned with coefficient z
-        pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks-1))
+        pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks - 1))
         diff = F.pad(diff, pad_size, "constant", 0)
         diff = avg_pool(diff, kernel_size, stride=1)
 
@@ -239,7 +241,7 @@ class OutlierLoss(_ReconstructionLoss):
 
 
 class LassoLoss(_ReconstructionLoss):
-    def __init__(self, lmbd, reduction='mean', data_fit=torch.nn.MSELoss()):
+    def __init__(self, lmbd, reduction="mean", data_fit=torch.nn.MSELoss()):
         super().__init__(reduction=reduction)
         self.data_fit = data_fit
         self.lmbd = lmbd
@@ -254,7 +256,7 @@ class LassoLoss(_ReconstructionLoss):
 
         # Compute the L1 norm and pad it to be able to add it to each patch
         if self.lmbd > 0:
-            pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks-1))
+            pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks - 1))
             z_hat = F.pad(z_hat.abs().sum(dim=1, keepdim=True), pad_size, "constant", 0)
             loss += self.lmbd * z_hat
 

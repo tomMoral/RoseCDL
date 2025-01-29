@@ -14,9 +14,8 @@ with safe_import_context() as import_ctx:
 # The benchmark solvers must be named `Solver` and
 # inherit from `BaseSolver` for `benchopt` to work properly.
 class Solver(BaseSolver):
-
     # Name to select the solver in the CLI and to display the results.
-    name = 'DeepCDL'
+    name = "DeepCDL"
 
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
@@ -24,12 +23,12 @@ class Solver(BaseSolver):
     parameters = {
         # sample_window is defined as a multiple of the atom_support
         "mini_batch_size": [1],
-        'sample_window': [10, 20, 50],
-        'n_csc_iterations': [50],
-        'random_state': [None],
+        "sample_window": [10, 20, 50],
+        "n_csc_iterations": [50],
+        "random_state": [None],
     }
 
-    stopping_criterion = SufficientProgressCriterion(patience=15, strategy='callback')
+    stopping_criterion = SufficientProgressCriterion(patience=15, strategy="callback")
 
     def get_next(self, stop_val):
         return stop_val + 3

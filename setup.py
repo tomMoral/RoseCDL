@@ -14,19 +14,17 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        'numpy',
-        'scipy',
-        'pandas',
-        'matplotlib',
-        'scikit-learn',
-        'torch',
-        'tqdm',
-        'joblib',
-        'alphacsc',
+        "numpy",
+        "scipy",
+        "pandas",
+        "matplotlib",
+        "scikit-learn",
+        "torch",
+        "tqdm",
+        "joblib",
+        "alphacsc",
     ],
     # python_requires='>=3.8',
-    python_requires='>=3.7',
-    extras_require={
-        'test': ["pytest"]
-    }
+    python_requires=">=3.7",
+    extras_require={"test": ["pytest"]},
 )

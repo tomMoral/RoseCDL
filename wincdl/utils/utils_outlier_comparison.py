@@ -21,7 +21,7 @@ def remove_outliers_before_cdl(
     opening_window=True,
     union_channels=True,
     fill_by_channel=True,
-    return_outliers_mask=False
+    return_outliers_mask=False,
 ) -> np.array:
     """Remove outliers before CDL.
 

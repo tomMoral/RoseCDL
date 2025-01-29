@@ -3,22 +3,21 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 
 with safe_import_context() as import_ctx:
     import numpy as np
-
-    from sporco.dictlrn import cbpdndl
     from alphacsc.utils.dictionary import get_lambda_max
+    from sporco.dictlrn import cbpdndl
+
     from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
 
 class Solver(BaseSolver):
-
     # Name to select the solver in the CLI and to display the results.
-    name = 'Sporco'
+    name = "Sporco"
 
-    install_cmd = 'conda'
-    requirements = ['pip:git+https://github.com/bwohlberg/sporco.git']
+    install_cmd = "conda"
+    requirements = ["pip:git+https://github.com/bwohlberg/sporco.git"]
 
     parameters = {
-        'outliers_kwargs': [
+        "outliers_kwargs": [
             None,
             {"method": "quantile", "alpha": 0.2},
             {"method": "iqr", "alpha": 1.5},
@@ -52,7 +51,6 @@ class Solver(BaseSolver):
         self.z_shape = (X.shape[0], D_init.shape[0], *self.z_shape)
 
     def run(self, n_iter):
-
         self.n_channels = self.X.shape[1]
 
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
@@ -62,15 +60,14 @@ class Solver(BaseSolver):
         opt_cbpdn["AuxVarObj"] = False
         # opt_cbpdn["FastSolve"] = True
 
-        opt = cbpdndl.ConvBPDNDictLearn.Options({
-            'Verbose': False, 'MaxMainIter': n_iter + 1, 'CBPDN': opt_cbpdn
-        }, dmethod="cns")
+        opt = cbpdndl.ConvBPDNDictLearn.Options(
+            {"Verbose": False, "MaxMainIter": n_iter + 1, "CBPDN": opt_cbpdn},
+            dmethod="cns",
+        )
 
         X = self.X
         if self.outliers_kwargs is not None:
-            X = remove_outliers_before_cdl(
-                self.X, self.z_shape, **self.outliers_kwargs
-            )
+            X = remove_outliers_before_cdl(self.X, self.z_shape, **self.outliers_kwargs)
         reg = self.reg * get_lambda_max(X, self.D_init).max()
 
         sporco_params = dict(
@@ -79,7 +76,7 @@ class Solver(BaseSolver):
             lmbda=reg,
             opt=opt,
             dmethod="cns",
-            dimN=len(self.D_init.shape[2:])
+            dimN=len(self.D_init.shape[2:]),
         )
 
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
