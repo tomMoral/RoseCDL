@@ -28,7 +28,7 @@ dependencies = [
     "pytest",
     "ruff",
     "scipy",
-    "sklearn",
+    "scikit-learn",
     "sporco",
     "torch",
     "tqdm",
