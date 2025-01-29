@@ -23,14 +23,13 @@ class Solver(BaseSolver):
     # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
         # sample_window is defined as a multiple of the atom_support
-        'sample_window': [5, 10, 20, 50],
-        'n_iterations': [50],
+        "mini_batch_size": [1],
+        'sample_window': [10, 20, 50],
+        'n_csc_iterations': [50],
         'random_state': [None],
     }
 
-    stopping_criterion = SufficientProgressCriterion(
-        patience=15, strategy='callback'
-    )
+    stopping_criterion = SufficientProgressCriterion(patience=15, strategy='callback')
 
     def get_next(self, stop_val):
         return stop_val + 3
@@ -58,6 +57,7 @@ class Solver(BaseSolver):
         self.n_channels = self.X.shape[1]
         self.atom_support = D_init.shape[2:]
 
+        # Scale sample window with the size of the atom
         sample_window = tuple(self.sample_window * s for s in self.atom_support)
 
         rank1 = D_init.ndim == 2
@@ -72,11 +72,11 @@ class Solver(BaseSolver):
             outliers_kwargs=None,
             epochs=10000,
             max_batch=None,
-            mini_batch_size=10,
+            mini_batch_size=self.mini_batch_size,
             sample_window=sample_window,
             deepcdl=True,
             optimizer="linesearch",
-            n_iterations=self.n_iterations,
+            n_iterations=self.n_csc_iterations,
             random_state=self.random_state,
             device=self.device,
         )
@@ -84,10 +84,7 @@ class Solver(BaseSolver):
     def run(self, cb):
         # This is the function that is called to evaluate the solver.
         # It runs the algorithm for a given a number of iterations `n_iter`.
-        self.model = WinCDL(
-            **self.model_kwargs,
-            callbacks=[lambda *x: not cb()]
-        )
+        self.model = WinCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
         self.model.fit(self.X)
 

@@ -1,19 +1,14 @@
 from benchopt import BaseSolver, safe_import_context
+from benchopt.stopping_criterion import SufficientProgressCriterion
 
-# Protect the import with `safe_import_context()`. This allows:
-# - skipping import to speed up autocompletion in CLI.
-# - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
-
-    # import your reusable functions here
-    from sporco.dictlrn import cbpdndl
-    from alphacsc.utils.dictionary import get_lambda_max
-
     import numpy as np
 
+    from sporco.dictlrn import cbpdndl
+    from alphacsc.utils.dictionary import get_lambda_max
+    from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
-# The benchmark solvers must be named `Solver` and
-# inherit from `BaseSolver` for `benchopt` to work properly.
+
 class Solver(BaseSolver):
 
     # Name to select the solver in the CLI and to display the results.
@@ -22,29 +17,39 @@ class Solver(BaseSolver):
     install_cmd = 'conda'
     requirements = ['pip:git+https://github.com/bwohlberg/sporco.git']
 
-    # List of parameters for the solver. The benchmark will consider
-    # the cross product for each key in the dictionary.
-    # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
-        'random_state': [42],
-        # 'xmethod': ["adam"],
-        # 'dmethod': ["pgm"],
-        'type': ["BPDN"],
+        'outliers_kwargs': [
+            None,
+            {"method": "quantile", "alpha": 0.2},
+            {"method": "iqr", "alpha": 1.5},
+            {"method": "mad", "alpha": 3.5},
+            {"method": "zscore", "alpha": 1.5},
+        ],
     }
+
+    stopping_criterion = SufficientProgressCriterion(patience=10)
+
+    def get_next(self, stop_val):
+        return stop_val + 1
 
     def skip(self, X, D_init, reg, window, has_outliers):
         if D_init.ndim == 2:
             return True, "Sporco only supports full rank dictionary"
-        # if window:
-        #     return True, "Sporco does not support windowed atoms"
+        if not has_outliers and self.outliers_kwargs is not None:
+            return True, "Don't run with outlier detection on data without outliers."
 
         return False, None
 
     def set_objective(self, X, D_init, reg, window, has_outliers):
         self.X = X
         self.D_init = D_init
-        self.reg = reg * get_lambda_max(X, D_init).max()
+        self.reg = reg
         self.has_outliers = has_outliers
+
+        self.z_shape = tuple(
+            xs - ds + 1 for xs, ds in zip(X.shape[2:], D_init.shape[2:])
+        )
+        self.z_shape = (X.shape[0], D_init.shape[0], *self.z_shape)
 
     def run(self, n_iter):
 
@@ -61,10 +66,17 @@ class Solver(BaseSolver):
             'Verbose': False, 'MaxMainIter': n_iter + 1, 'CBPDN': opt_cbpdn
         }, dmethod="cns")
 
+        X = self.X
+        if self.outliers_kwargs is not None:
+            X = remove_outliers_before_cdl(
+                self.X, self.z_shape, **self.outliers_kwargs
+            )
+        reg = self.reg * get_lambda_max(X, self.D_init).max()
+
         sporco_params = dict(
             D0=self.D_init.transpose(2, 1, 0).copy(),
-            S=self.X.transpose(2, 1, 0).copy(),
-            lmbda=self.reg,
+            S=X.transpose(2, 1, 0).copy(),
+            lmbda=reg,
             opt=opt,
             dmethod="cns",
             dimN=len(self.D_init.shape[2:])
@@ -77,8 +89,4 @@ class Solver(BaseSolver):
         self.D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
 
     def get_result(self):
-        # Return the result from one optimization run.
-        # The outputs of this function are the arguments of `Objective.compute`
-        # This defines the benchmark's API for solvers' results.
-        # it is customizable for each benchmark.
         return {"D": self.D}

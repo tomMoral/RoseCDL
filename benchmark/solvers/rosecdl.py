@@ -6,38 +6,29 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 # - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
     import torch
-
-    # import your reusable functions here
     from wincdl.wincdl import WinCDL
 
 
-# The benchmark solvers must be named `Solver` and
-# inherit from `BaseSolver` for `benchopt` to work properly.
 class Solver(BaseSolver):
 
-    # Name to select the solver in the CLI and to display the results.
-    name = 'RoseCDL'
+    name = "RoseCDL"
 
-    # List of parameters for the solver. The benchmark will consider
-    # the cross product for each key in the dictionary.
-    # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
         # sample_window is defined as a multiple of the atom_support
-        'sample_window': [5, 10, 20, 50],
-        'n_iterations': [50],
-        'outliers_kwargs': [
+        "mini_batch_size": [1],
+        "sample_window": [10, 20, 50],
+        "n_csc_iterations": [50],
+        "random_state": [None],
+        "outliers_kwargs": [
             None,
             {"method": "quantile", "alpha": 0.2},
             {"method": "iqr", "alpha": 1.5},
             {"method": "mad", "alpha": 3.5},
             {"method": "zscore", "alpha": 1.5},
         ],
-        'random_state': [None],
     }
 
-    stopping_criterion = SufficientProgressCriterion(
-        patience=15, strategy='callback'
-    )
+    stopping_criterion = SufficientProgressCriterion(patience=15, strategy="callback")
 
     def get_next(self, stop_val):
         return stop_val + 3
@@ -97,10 +88,10 @@ class Solver(BaseSolver):
             outliers_kwargs=self.outliers_kwargs,
             epochs=10000,
             max_batch=None,
-            mini_batch_size=10,
+            mini_batch_size=self.mini_batch_size,
             sample_window=sample_window,
             optimizer="linesearch",
-            n_iterations=self.n_iterations,
+            n_iterations=self.n_csc_iterations,
             random_state=self.random_state,
             device=self.device,
         )
@@ -108,10 +99,7 @@ class Solver(BaseSolver):
     def run(self, cb):
         # This is the function that is called to evaluate the solver.
         # It runs the algorithm for a given a number of iterations `n_iter`.
-        self.model = WinCDL(
-            **self.model_kwargs,
-            callbacks=[lambda *x: not cb()]
-        )
+        self.model = WinCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
         self.model.fit(self.X)
 
