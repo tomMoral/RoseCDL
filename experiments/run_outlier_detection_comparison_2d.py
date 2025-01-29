@@ -19,7 +19,7 @@ from wincdl.wincdl import WinCDL
 from wincdl.utils.utils_outliers import add_outliers_2d
 
 mem = Memory(location="__cache__", verbose=0)
-EXP_DIR = Path("results")
+EXP_DIR = Path("results") / "outlier_detection_2d"
 EXP_DIR.mkdir(exist_ok=True, parents=True)
 
 @mem.cache
