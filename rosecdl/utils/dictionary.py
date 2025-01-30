@@ -9,7 +9,7 @@ def _patch_reconstruction_error(X, z, D):
     _, n_channels, _ = X.shape
     *_, n_times_atom = get_D_shape(D, n_channels)
 
-    from .convolution import construct_X_multi
+    from rosecdl.convolution import construct_X_multi
 
     X_hat = construct_X_multi(z, D, n_channels=n_channels)
 

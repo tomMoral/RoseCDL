@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss
 
-from .utils.utils_outliers import get_outlier_mask, get_threshold
+from rosecdl.utils.utils_outliers import get_outlier_mask, get_threshold
 
 
 def get_kernel_size(X, z):

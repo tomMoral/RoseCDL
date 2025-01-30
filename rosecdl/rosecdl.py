@@ -3,15 +3,15 @@ import warnings
 import numpy as np
 import torch
 
-from .datasets import create_dataloader
-from .loss import LassoLoss, OutlierLoss
-from .model import CSC1d, CSC2d
-from .optimizer import SLS
-from .train import train
+from rosecdl.datasets import create_dataloader
+from rosecdl.loss import LassoLoss, OutlierLoss
+from rosecdl.model import CSC1d, CSC2d
+from rosecdl.optimizer import SLS
+from rosecdl.train import train
 
 
 class RoseCDL(torch.nn.Module):
-    """
+    """RoseCDL class.
 
     Parameters
     ----------

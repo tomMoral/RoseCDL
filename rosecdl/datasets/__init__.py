@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from ..utils.utils import get_torch_generator
-from .subwindow_dataset import SubwindowsDataset
+from rosecdl.subwindow_dataset import SubwindowsDataset
+from rosecdl.utils.utils import get_torch_generator
 
 
 def create_dataloader(
@@ -46,13 +46,13 @@ def create_dataloader(
             dtype=dtype,
         )
     elif data == "physionet":
-        from .physionet import PhysionetDataset
+        from rosecdl.physionet import PhysionetDataset
 
         dataset = PhysionetDataset(
             **kwargs_dataset, sample_window=sample_window, dtype=dtype, device=device
         )
     elif isinstance(data, str):
-        from .meg import MEGPopDataset
+        from rosecdl.meg import MEGPopDataset
 
         dataset = MEGPopDataset(
             data,
