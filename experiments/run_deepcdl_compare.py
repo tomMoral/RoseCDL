@@ -2,6 +2,7 @@
 using the WinCDL algorithm. It saves the results in a csv file that will be used by
 plot_outliers_detection.py to generate the plots.
 """
+
 import time
 from pathlib import Path
 
@@ -108,7 +109,9 @@ def run_one(
 
         D_hat = model.D_hat_ if cdl_package in ["wincdl", "deepcdl"] else model.D_hat
         recovery_score = evaluate_D_hat(D_true, D_hat)
-        z0 = z_hat = update_z_multi(X, D_hat.astype(np.float64), lmbd, z0=z0, solver="lgcd")[0]
+        z0 = z_hat = update_z_multi(
+            X, D_hat.astype(np.float64), lmbd, z0=z0, solver="lgcd"
+        )[0]
         loss_true = compute_X_and_objective_multi(X, z_hat, D_hat, lmbd)
         results.append(
             {
@@ -148,7 +151,6 @@ def run_one(
 
 
 if __name__ == "__main__":
-
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -271,11 +273,11 @@ if __name__ == "__main__":
     _, ax = plt.subplots()
     for name in df_results.name.unique():
         c = curves.loc[name]
-        c['time'] = c['time'].cumsum()
-        c['loss_true'] = c['loss_true'] - df_results['loss_true'].min() + 1e1
-        c.plot(x="time", y='loss_true', label=name, ax=ax)
-    plt.xscale('log')
-    plt.yscale('log')
+        c["time"] = c["time"].cumsum()
+        c["loss_true"] = c["loss_true"] - df_results["loss_true"].min() + 1e1
+        c.plot(x="time", y="loss_true", label=name, ax=ax)
+    plt.xscale("log")
+    plt.yscale("log")
     plt.legend()
     plt.savefig(exp_dir / "loss_true.png")
     plt.show()

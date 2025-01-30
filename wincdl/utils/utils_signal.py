@@ -143,14 +143,13 @@ def generate_z(
         z = np.abs(z)
 
     # Ensure that the output array has the correct shape
-    assert (
-        z.shape
-        == (
-            n_trials,
-            n_atoms,
-            n_times_valid,
-        )
-    ), f"Output shape {z.shape} does not match expected shape {(n_trials, n_atoms, n_times_valid)}."
+    assert z.shape == (
+        n_trials,
+        n_atoms,
+        n_times_valid,
+    ), (
+        f"Output shape {z.shape} does not match expected shape {(n_trials, n_atoms, n_times_valid)}."
+    )
 
     return z
 
@@ -371,14 +370,13 @@ def generate_atoms(
     D = prox_d(D)
 
     # Ensure that the output array has the correct shape
-    assert (
-        D.shape
-        == (
-            n_atoms,
-            n_channels,
-            n_times_atom,
-        )
-    ), f"Output shape {D.shape} does not match expected shape {(n_atoms, n_channels, n_times_atom)}."
+    assert D.shape == (
+        n_atoms,
+        n_channels,
+        n_times_atom,
+    ), (
+        f"Output shape {D.shape} does not match expected shape {(n_atoms, n_channels, n_times_atom)}."
+    )
 
     return D
 
@@ -459,7 +457,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
                     label = None
                 axs[i, j].plot(d[i, j, :], label=label, alpha=0.7)
 
-            axs[i, j].set_title(f"Atom {i+1}, Channel {j+1}")
+            axs[i, j].set_title(f"Atom {i + 1}, Channel {j + 1}")
             if i == n_atoms - 1:
                 axs[i, j].set_xlabel("Time")
             if j == n_channels - 1:
@@ -563,7 +561,7 @@ def create_gif_from_dict_lists(
             *current_dicts,
             D_true=D_true,
             labels=labels,
-            sup_title=f"Iteration {i+1}/{n_iter}",
+            sup_title=f"Iteration {i + 1}/{n_iter}",
             sort_dicts=False,
         )
 
@@ -649,10 +647,20 @@ def generate_signal(
     Examples
     --------
     >>> from benchmark_utils.generate_signal import generate_signal
-    >>> X = generate_signal(n_trials=2, n_channels=3, n_times=100, n_atoms=2, n_times_atom=10,
-    ...                     init_d='uniform', init_d_kwargs={'low': 0, 'high': 1}, sparsity=0.5,
-    ...                     init_z='uniform', init_z_kwargs={'low': 0, 'high': 1},
-    ...                     window=False, rng=0)
+    >>> X = generate_signal(
+    ...     n_trials=2,
+    ...     n_channels=3,
+    ...     n_times=100,
+    ...     n_atoms=2,
+    ...     n_times_atom=10,
+    ...     init_d="uniform",
+    ...     init_d_kwargs={"low": 0, "high": 1},
+    ...     sparsity=0.5,
+    ...     init_z="uniform",
+    ...     init_z_kwargs={"low": 0, "high": 1},
+    ...     window=False,
+    ...     rng=0,
+    ... )
     >>> X.shape
     (2, 3, 100)
     """
@@ -686,14 +694,13 @@ def generate_signal(
     # Construct X
     X = construct_X_multi(z, D=D, n_channels=n_channels)
 
-    assert (
-        X.shape
-        == (
-            n_trials,
-            n_channels,
-            n_times,
-        )
-    ), f"Output shape {X.shape} does not match expected shape {(n_trials, n_channels, n_times)}."
+    assert X.shape == (
+        n_trials,
+        n_channels,
+        n_times,
+    ), (
+        f"Output shape {X.shape} does not match expected shape {(n_trials, n_channels, n_times)}."
+    )
 
     return X, z, D
 
@@ -1055,7 +1062,7 @@ def plot_signal(*list_X, X_true=None, labels=None, label_true="Original"):
             for X, label in zip(list_X, labels):
                 axs[i, j].plot(X[i, j, :], alpha=alpha, label=label)
 
-            axs[i, j].set_title(f"Trial {i+1}, Channel {j+1}")
+            axs[i, j].set_title(f"Trial {i + 1}, Channel {j + 1}")
             if j == 0:
                 axs[i, j].set_ylabel("Amplitude")
             if j == n_channels - 1 and label is not None:

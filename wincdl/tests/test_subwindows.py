@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from wincdl.datasets.subwindow_dataset import SubwindowsDataset
 
+
 class TestSubwindowsDataset:
     @pytest.mark.parametrize("n_trials", [1, 2])
     @pytest.mark.parametrize("sample_window", [None, 5])
@@ -28,7 +29,8 @@ class TestSubwindowsDataset:
 
         n_windows = np.prod(
             tuple(s - sw + 1 for s, sw in zip(support, sample_window))
-            if sample_window is not None else 1
+            if sample_window is not None
+            else 1
         )
         expected_len = n_trials if sample_window is None else n_trials * n_windows
         assert len(dataset) == expected_len

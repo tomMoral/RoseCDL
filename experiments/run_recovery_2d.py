@@ -191,9 +191,7 @@ def run_one(
 
         metrics = {}
         if outlier_detection_timing == "during":
-            metrics = get_outliers_metric(
-                info_contam["outliers_mask"], model, X
-            )
+            metrics = get_outliers_metric(info_contam["outliers_mask"], model, X)
             # metrics = get_outliers_metric(
             #     info_contam["outliers_mask"].max(axis=1, keepdims=True), model, X
             # )

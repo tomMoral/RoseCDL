@@ -63,6 +63,8 @@ X_dataset = SubwindowsDataset(
 loader = DataLoader(X_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 losses = []
+
+
 def callback(model, epoch, loss):
     losses.append(loss)
 

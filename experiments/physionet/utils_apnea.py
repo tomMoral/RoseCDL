@@ -13,8 +13,9 @@ from wfdb.io.record import rdrecord
 from wfdb.io.annotation import rdann
 
 
-def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
-             apply_window=True, verbose=True):
+def load_ecg(
+    subject_id="a01", T=60, data_path=Path("apnea-ecg"), apply_window=True, verbose=True
+):
     """
 
     Parameters
@@ -61,7 +62,7 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
         print(f"Sampling frequency of the record: {fs} Hz")
     n_times = int(T * fs)
     n_splits = ecg_record.sig_len // n_times
-    X = ecg_record.p_signal[:n_splits*n_times, :].T
+    X = ecg_record.p_signal[: n_splits * n_times, :].T
     X = X.reshape(ecg_record.n_sig, n_splits, n_times).swapaxes(0, 1)
 
     # Apply a window to the signal to reduce the border artifacts
@@ -71,8 +72,8 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
     # Add labels
     ann = rdann(
         record_name=record_name,
-        extension='apn',
-        return_label_elements=['symbol'],
+        extension="apn",
+        return_label_elements=["symbol"],
         summarize_labels=True,
     )
     labels = np.array(ann.symbol)
@@ -82,8 +83,10 @@ def load_ecg(subject_id="a01", T=60, data_path=Path('apnea-ecg'),
         return X[:n_trials], labels[:n_trials]
     else:
         import warnings
-        warnings.warn('The returned labels do not match the data as T != 60 '
-                      f'(got T = {T}).')
+
+        warnings.warn(
+            f"The returned labels do not match the data as T != 60 (got T = {T})."
+        )
         return X, labels
 
 
@@ -100,43 +103,44 @@ def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_sec
         index of the first section to start from
     """
 
-    data_path=Path('apnea-ecg')
+    data_path = Path("apnea-ecg")
     record_name = str(data_path / subject_id)
     ecg_record = rdrecord(record_name=record_name)
     ann = rdann(
         record_name=record_name,
-        extension='apn',
-        return_label_elements=['symbol'],
+        extension="apn",
+        return_label_elements=["symbol"],
         summarize_labels=True,
     )
 
-    for idx_min in (np.array(range(n_sections)) + first_section)*5:
+    for idx_min in (np.array(range(n_sections)) + first_section) * 5:
         wfdb.plot.plot_wfdb(
-            ecg_record, ann, title=f'ECG-Apnea Record {subject_id}',
-            return_fig=True, figsize=(50,4)
+            ecg_record,
+            ann,
+            title=f"ECG-Apnea Record {subject_id}",
+            return_fig=True,
+            figsize=(50, 4),
         )
 
-        plt.xlim(idx_min*60, (idx_min + n_min_per_plot)*60)
+        plt.xlim(idx_min * 60, (idx_min + n_min_per_plot) * 60)
         plt.show()
 
 
 def get_subject_info(subject_id):
-    participants = pd.read_csv(Path("apnea-ecg/participants.tsv"), sep='\t')
-    subject_info = participants[participants['Record'] == subject_id]\
-        .iloc[0]\
-        .to_dict()
+    participants = pd.read_csv(Path("apnea-ecg/participants.tsv"), sep="\t")
+    subject_info = participants[participants["Record"] == subject_id].iloc[0].to_dict()
 
     return subject_info
 
 
 def plot_loss_history(pobj, times=None, save_fig=False):
-    xx_type = 'time'
-    xlabel = 'Time (s.)'
+    xx_type = "time"
+    xlabel = "Time (s.)"
 
     if times is None:
-        xx = np.arange(0, len(pobj)/2, step=0.5)
-        xx_type = 'iteration'
-        xlabel = 'Iterations'
+        xx = np.arange(0, len(pobj) / 2, step=0.5)
+        xx_type = "iteration"
+        xlabel = "Iterations"
     elif np.any(np.diff(times) < 0):
         xx = np.cumsum(times)
     else:
@@ -145,12 +149,12 @@ def plot_loss_history(pobj, times=None, save_fig=False):
     plt.plot(xx, pobj)
     plt.xlabel(xlabel)
     plt.xlim(0, None)
-    plt.yscale('log')
-    plt.ylabel('Loss')
+    plt.yscale("log")
+    plt.ylabel("Loss")
     plt.title(f"Loss history as function of {xx_type}")
 
     if save_fig:
-        plt.savefig(save_fig / 'loss_history.pdf')
+        plt.savefig(save_fig / "loss_history.pdf")
     plt.show()
     plt.close()
 
@@ -184,18 +188,17 @@ def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
         axes = np.atleast_2d(axes)
 
     for ii, v_k in enumerate(d_hat):
-
         # Select the axes to display the current atom
         i_row, i_col = ii // n_columns, ii % n_columns
         ax = axes[i_row, i_col]
 
         # Plot the temporal pattern of the atom
-        ax.set_title('Atom % d' % ii, pad=0)
+        ax.set_title("Atom % d" % ii, pad=0)
 
         ax.plot(t, v_k)
         ax.set_xlim(min(t), max(t))
         if i_col == 0:
-            ax.set_ylabel('Temporal')
+            ax.set_ylabel("Temporal")
 
     fig.tight_layout()
     if save_fig:
@@ -226,14 +229,14 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
     n_rows = len(dict_d_hat)
     figsize = (4 * n_columns, 3 * n_rows)
     fig, axes = plt.subplots(
-        n_rows, n_columns, figsize=figsize, sharex=True, sharey=True)
+        n_rows, n_columns, figsize=figsize, sharex=True, sharey=True
+    )
 
     if n_rows == 1:
         axes = np.atleast_2d(axes)
 
     for ii, (subject_id, d_hat) in enumerate(dict_d_hat.items()):
         for kk, v_k in enumerate(d_hat):
-
             # Select the axes to display the current atom
             ax = axes[ii, kk]
 
@@ -242,13 +245,13 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
             ax.set_xlim(min(t), max(t))
 
             if ii == 0:
-                ax.set_title('Atom % d' % kk, pad=0)
+                ax.set_title("Atom % d" % kk, pad=0)
 
             if ii == (n_rows - 1):
-                ax.set_xlabel('Time (s.)')
+                ax.set_xlabel("Time (s.)")
 
             if kk == 0:
-                ax.set_ylabel(f'{subject_id} Temporal')
+                ax.set_ylabel(f"{subject_id} Temporal")
 
     fig.tight_layout()
     if save_fig:
@@ -257,8 +260,15 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
     plt.close()
 
 
-def run_cdl(X, cdl_params, labels=None, fit_on='N',
-            plot_loss=True, plot_atoms=True, save_fig=False):
+def run_cdl(
+    X,
+    cdl_params,
+    labels=None,
+    fit_on="N",
+    plot_loss=True,
+    plot_atoms=True,
+    save_fig=False,
+):
     """
 
     Parameters
@@ -298,8 +308,13 @@ def get_subject_z_and_cost(subject_id, d_hat, label=None):
     else:
         X_ = X.squeeze().copy()
     X_ /= X_.std()
-    z_hat = update_z(X_, d_hat, reg=0.1, solver='l-bfgs',
-                     solver_kwargs={'tol': 1e-4, 'max_iter': 10_000})
+    z_hat = update_z(
+        X_,
+        d_hat,
+        reg=0.1,
+        solver="l-bfgs",
+        solver_kwargs={"tol": 1e-4, "max_iter": 10_000},
+    )
     cost = compute_X_and_objective(X_, z_hat, d_hat, reg=0.1)
 
     return z_hat, cost

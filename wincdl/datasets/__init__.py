@@ -39,15 +39,21 @@ def create_dataloader(
     generator = get_torch_generator(random_state)
     if isinstance(data, np.ndarray):
         dataset = SubwindowsDataset(
-            data, sample_window=sample_window, overlap=overlap, device=device, dtype=dtype,
+            data,
+            sample_window=sample_window,
+            overlap=overlap,
+            device=device,
+            dtype=dtype,
         )
     elif data == "physionet":
         from .physionet import PhysionetDataset
+
         dataset = PhysionetDataset(
             **kwargs_dataset, sample_window=sample_window, dtype=dtype, device=device
         )
     elif isinstance(data, str):
         from .meg import MEGPopDataset
+
         dataset = MEGPopDataset(
             data,
             sample_window=sample_window,
@@ -63,7 +69,7 @@ def create_dataloader(
         # If the dataset length is too high, it takes very long time to sample
         # without replacement with this sampler, but there is a low chance to
         # get issue with replacement
-        replacement=len(dataset) > 1e6
+        replacement=len(dataset) > 1e6,
     )
     return torch.utils.data.DataLoader(
         dataset, batch_size=mini_batch_size, sampler=sampler

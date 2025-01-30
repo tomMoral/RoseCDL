@@ -4,7 +4,6 @@ import torch
 import numpy as np
 
 
-
 class MEGPopDataset(torch.utils.data.Dataset):
     """
     Dataset for stochastic CDL on MEG subjects

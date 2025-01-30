@@ -20,10 +20,14 @@ DEVICE = "cuda:1"
 def get_var_patch(X, n_times_atom, clip_value=None):
     patch = np.ones(shape=n_times_atom)
 
-    var_patch = np.sum([np.convolve(patch, diff_i, mode='valid')
-                        for diff_i in X**2], axis=0) / n_times_atom
-    var_patch -= (np.sum([np.convolve(patch, diff_i, mode='valid')
-                          for diff_i in X], axis=0) / n_times_atom)**2
+    var_patch = (
+        np.sum([np.convolve(patch, diff_i, mode="valid") for diff_i in X**2], axis=0)
+        / n_times_atom
+    )
+    var_patch -= (
+        np.sum([np.convolve(patch, diff_i, mode="valid") for diff_i in X], axis=0)
+        / n_times_atom
+    ) ** 2
 
     if clip_value is not None:
         return var_patch.clip(clip_value)
@@ -47,8 +51,9 @@ def get_subject_X(subject_path, n_times_atom=150, normalized=True, q=None):
     return X
 
 
-def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, q=0.95,
-                      reg=0.3, method=np.median):
+def get_lambda_global(
+    list_subjects_path, n_atoms, n_times_atom, q=0.95, reg=0.3, method=np.median
+):
     """For a list of subject, compute their lambda, and return a global value
     (median, mean, etc.)
 
@@ -74,7 +79,6 @@ def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, q=0.95,
     """
 
     def proc(subject_path):
-
         # get a unique value for lambda
         # X = get_subject_X(subject_path, n_times_atom, q=q)
         X = np.load(subject_path)
@@ -91,14 +95,22 @@ def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, q=0.95,
 
         # get initial dictionary with alphacsc
         D_init = init_dictionary(
-            X[None, :], n_atoms, n_times_atom, uv_constraint='separate',
-            rank1=True, window=True, D_init='chunk', random_state=None)
+            X[None, :],
+            n_atoms,
+            n_times_atom,
+            uv_constraint="separate",
+            rank1=True,
+            window=True,
+            D_init="chunk",
+            random_state=None,
+        )
         lmbd = get_lambda_max(X[None, :], D_init).max()
         return lmbd
 
     n_jobs = min(len(list_subjects_path), 40)
     list_lmbd = Parallel(n_jobs=n_jobs)(
-        delayed(proc)(subject_path) for subject_path in list_subjects_path)
+        delayed(proc)(subject_path) for subject_path in list_subjects_path
+    )
 
     lambda_global = reg * method(list_lmbd)
 
@@ -106,8 +118,7 @@ def get_lambda_global(list_subjects_path, n_atoms, n_times_atom, q=0.95,
 
 
 def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
-    """Get subject's self dictionary using Windowing-CDL
-    """
+    """Get subject's self dictionary using Windowing-CDL"""
 
     X = np.load(subject_path)
     X /= X.std()
@@ -119,8 +130,15 @@ def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
 
     # get initial dictionary with alphacsc
     D_init = init_dictionary(
-        X[None, :], n_atoms, n_times_atom, uv_constraint='separate',
-        rank1=True, window=True, D_init='chunk', random_state=None)
+        X[None, :],
+        n_atoms,
+        n_times_atom,
+        uv_constraint="separate",
+        rank1=True,
+        window=True,
+        D_init="chunk",
+        random_state=None,
+    )
     # lmbd = lmbd * get_lambda_max(X[None, :], D_init).max()
 
     CDL = WinCDL(
@@ -143,7 +161,7 @@ def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
         D_init=D_init,
         positive_z=True,
         list_D=False,
-        dimN=1
+        dimN=1,
     )
 
     CDL.fit(X)
@@ -180,7 +198,7 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
             number of non-null activations for each atom
     """
 
-    subject_id = subject_path.name.split('.')[0]
+    subject_id = subject_path.name.split(".")[0]
 
     X = np.load(subject_path)
     X /= X.std()
@@ -190,15 +208,17 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
     # for L0 update for z, pass reg to 0
     z_hat, _, _ = update_z_multi(
         X[None, :],
-        uv_hat_.astype(np.float64), reg=reg,
+        uv_hat_.astype(np.float64),
+        reg=reg,
         # XXX changed to 200_000
-        solver='lgcd', solver_kwargs={'tol': 1e-4, 'max_iter': 1_000_000},
-        n_jobs=1
+        solver="lgcd",
+        solver_kwargs={"tol": 1e-4, "max_iter": 1_000_000},
+        n_jobs=1,
     )
     # compute associated cost
     cost = compute_X_and_objective_multi(
-        X[None, :], z_hat, D_hat=uv_hat_, reg=reg,
-        uv_constraint='separate')
+        X[None, :], z_hat, D_hat=uv_hat_, reg=reg, uv_constraint="separate"
+    )
 
     # normaliza with T
     cost /= X.shape[-1]
@@ -229,14 +249,14 @@ def get_camcan_info(subject_id, return_raw=False):
 
     bp = BIDSPath(
         root=BIDS_root,
-        subject=subject_id.split('-')[1],
+        subject=subject_id.split("-")[1],
         task="smt",
         datatype="meg",
         extension=".fif",
         session="smt",
     )
     raw = read_raw_bids(bp)
-    raw.pick_types(meg='grad', eeg=False, eog=False, stim=False)
+    raw.pick_types(meg="grad", eeg=False, eog=False, stim=False)
     info = raw.info
 
     if return_raw:

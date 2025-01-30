@@ -172,13 +172,11 @@ class WinCDL(torch.nn.Module):
         else:
             raise ValueError(f"Unknown optimizer {optimizer}")
 
-
     @property
     def D_hat_(self):
         return self.csc.D_hat_.copy()
 
     def check_X(self, X):
-
         if self.dimN == 1:
             # X should be of shape (batch, n_channels, support)
             expected_dim = 3

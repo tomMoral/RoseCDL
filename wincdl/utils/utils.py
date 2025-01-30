@@ -20,10 +20,9 @@ def get_torch_generator(seed=None, device=None):
     """
     generator = torch.Generator(device=device)
     if seed is None:
-        seed = np.random.randint(0, 2 ** 32)
+        seed = np.random.randint(0, 2**32)
     generator.manual_seed(seed)
     return generator
-
 
 
 def get_z_nnz(z_hat):

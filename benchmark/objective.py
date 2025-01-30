@@ -21,7 +21,6 @@ WINCDL_DIR = Path(__file__).parent.parent
 # The benchmark objective must be named `Objective` and
 # inherit from `BaseObjective` for `benchopt` to work properly.
 class Objective(BaseObjective):
-
     # Name to select the objective in the CLI and to display the results.
     name = "Convolutional Dictionary Learning"
 

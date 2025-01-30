@@ -1,6 +1,7 @@
 """This file contains the code to run the experiments for the outliers detection task
 using the WinCDL algorithm on 2D image data.
 """
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -21,6 +22,7 @@ from wincdl.utils.utils_outliers import add_outliers_2d
 mem = Memory(location="__cache__", verbose=0)
 EXP_DIR = Path("results") / "outlier_detection_2d"
 EXP_DIR.mkdir(exist_ok=True, parents=True)
+
 
 @mem.cache
 def run_one(method, outliers_kwargs, wincdl_params, X, D_true, i, seed, exp_dir):
@@ -47,24 +49,37 @@ def run_one(method, outliers_kwargs, wincdl_params, X, D_true, i, seed, exp_dir)
 
     # Setup the callback
     results = []
+
     def callback_fn(model, epoch, loss):
         if hasattr(model.loss_fn, "method"):
             metrics = get_outliers_metric(
-                outliers_mask, model, X_corrupted  # Use corrupted data and true mask
+                outliers_mask,
+                model,
+                X_corrupted,  # Use corrupted data and true mask
             )
         else:
             metrics = {}
         recovery_score = evaluate_D_hat(D_true[:, None], model.D_hat_)
 
-        results.append({
-            "name": method_name,
-            **method, **metrics,
-            "recovery_score": recovery_score,
-            "seed": seed, "epoch": epoch, "loss": loss
-        })
+        results.append(
+            {
+                "name": method_name,
+                **method,
+                **metrics,
+                "recovery_score": recovery_score,
+                "seed": seed,
+                "epoch": epoch,
+                "loss": loss,
+            }
+        )
 
     # Run the experiment with corrupted data
-    wincdl = WinCDL(**wincdl_params, outliers_kwargs=this_outliers_kwargs, callbacks=[callback_fn], random_state=seed)
+    wincdl = WinCDL(
+        **wincdl_params,
+        outliers_kwargs=this_outliers_kwargs,
+        callbacks=[callback_fn],
+        random_state=seed,
+    )
     wincdl.fit(X_corrupted)
 
     # Plot learned dictionary if first run
@@ -77,19 +92,22 @@ def run_one(method, outliers_kwargs, wincdl_params, X, D_true, i, seed, exp_dir)
 
     return results
 
+
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(
-        description='Run outlier detection comparison on 2D image data'
+        description="Run outlier detection comparison on 2D image data"
     )
     parser.add_argument(
-        "data_path", type=str, 
-        help="Path to NPZ file containing the data (X and d arrays)"
+        "data_path",
+        type=str,
+        help="Path to NPZ file containing the data (X and d arrays)",
     )
-    parser.add_argument('--n-jobs', '-j', type=int, default=1)
-    parser.add_argument('--seed', '-s', type=int, default=None)
-    parser.add_argument('--n-runs', '-n', type=int, default=20)
-    parser.add_argument('--reg', type=float, default=0.8)
+    parser.add_argument("--n-jobs", "-j", type=int, default=1)
+    parser.add_argument("--seed", "-s", type=int, default=None)
+    parser.add_argument("--n-runs", "-n", type=int, default=20)
+    parser.add_argument("--reg", type=float, default=0.8)
     args = parser.parse_args()
 
     DEVICE = "cuda" if cuda.is_available() else "cpu"
@@ -151,7 +169,11 @@ if __name__ == "__main__":
         for i, seed in enumerate(list_seeds)
         for this_method in list_methods
     )
-    results = list(r for res in tqdm(results, "Running", total=args.n_runs*len(list_methods)) for r in res)
+    results = list(
+        r
+        for res in tqdm(results, "Running", total=args.n_runs * len(list_methods))
+        for r in res
+    )
 
     # Save results
     df_results = pd.DataFrame(results)

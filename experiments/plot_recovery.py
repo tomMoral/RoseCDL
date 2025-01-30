@@ -50,7 +50,9 @@ if __name__ == "__main__":
             method_filter = (
                 (df_results["method"] == method)
                 & (df_results["alpha"] == float(alpha))
-                & df_results["name"].str.contains(f"({timing})", case=False, regex=False)
+                & df_results["name"].str.contains(
+                    f"({timing})", case=False, regex=False
+                )
             )
             method_filters.append(method_filter)
 

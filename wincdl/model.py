@@ -62,7 +62,8 @@ class CSC1d(nn.Module):
 
         # FISTA operators
         self.prox = (
-            lambda x, lmbd: F.relu(x - lmbd) if self.positive_z
+            lambda x, lmbd: F.relu(x - lmbd)
+            if self.positive_z
             else lambda x, lmbd: x - F.clip(x, -lmbd, lmbd)
         )
         self.grad_loss = lambda x, z, D: self.conv((self.convt(z, D) - x), D)
@@ -79,7 +80,6 @@ class CSC1d(nn.Module):
         self.to(device=device, dtype=dtype)
 
     def init_D(self, D_init):
-
         # Initialisation
         if D_init is None or (isinstance(D_init, str) and D_init == "random"):
             D_hat = torch.randn(
@@ -95,13 +95,9 @@ class CSC1d(nn.Module):
             u = D_hat[:, : self.n_channels][:, :, None]
             v = D_hat[:, self.n_channels :][:, None, :]
 
-            self.u = nn.Parameter(
-                torch.tensor(u, dtype=self.dtype, device=self.device)
-            )
+            self.u = nn.Parameter(torch.tensor(u, dtype=self.dtype, device=self.device))
 
-            self.v = nn.Parameter(
-                torch.tensor(v, dtype=self.dtype, device=self.device)
-            )
+            self.v = nn.Parameter(torch.tensor(v, dtype=self.dtype, device=self.device))
 
         else:
             self._D_hat = nn.Parameter(
@@ -146,7 +142,9 @@ class CSC1d(nn.Module):
                     self.v.data = F.relu(self.v.data)
 
                 if self.do_window:
-                    norm_col_v = torch.linalg.vector_norm(self.window * self.v, dim=2, keepdim=True)
+                    norm_col_v = torch.linalg.vector_norm(
+                        self.window * self.v, dim=2, keepdim=True
+                    )
                 else:
                     norm_col_v = torch.linalg.vector_norm(self.v, dim=2, keepdim=True)
                 norm_col_v[torch.nonzero((norm_col_v == 0), as_tuple=False)] = 1
@@ -167,13 +165,15 @@ class CSC1d(nn.Module):
                         self.window * self._D_hat, dim=(1, 2), keepdim=True
                     )
                 else:
-                    norm_atoms = torch.linalg.vector_norm(self._D_hat, dim=(1, 2), keepdim=True)
+                    norm_atoms = torch.linalg.vector_norm(
+                        self._D_hat, dim=(1, 2), keepdim=True
+                    )
                 norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
                 self._D_hat /= norm_atoms
                 return norm_atoms
 
     def _resample_atom(self, k0):
-        """Resample an atom if it is not used enough """
+        """Resample an atom if it is not used enough"""
 
         # XXX: better resample?
         D_temp = torch.rand(
@@ -194,8 +194,10 @@ class CSC1d(nn.Module):
             if len(null_atom_indices) > 0:
                 # resample a random atom
                 idx = torch.randint(
-                    len(null_atom_indices), (1,), generator=self.generator,
-                    device=self.device
+                    len(null_atom_indices),
+                    (1,),
+                    generator=self.generator,
+                    device=self.device,
                 )
                 k0 = null_atom_indices[idx].item()
                 # no resampling of the last 2 resampled atoms
@@ -222,10 +224,13 @@ class CSC1d(nn.Module):
             return lipschitz
 
     def init_z(self, x):
-        support_shape = tuple(fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size))
+        support_shape = tuple(
+            fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size)
+        )
         return torch.zeros(
             (x.shape[0], self.n_components, *support_shape),
-            dtype=torch.float, device=self.device,
+            dtype=torch.float,
+            device=self.device,
         )
 
     def forward(self, x, D=None):
@@ -258,11 +263,12 @@ class CSC1d(nn.Module):
 
             # update usage statistics
             # TODO: maybe move to a dedicated function
-            self._z_usage += torch.sum(z_hat != 0, dim=tuple(range(2, z_hat.ndim))).sum(dim=0)
+            self._z_usage += torch.sum(z_hat != 0, dim=tuple(range(2, z_hat.ndim))).sum(
+                dim=0
+            )
             self._processed_samples += z_hat.shape[0] * np.prod(z_hat.shape[2:])
 
         return self.convt(z_hat, D), z_hat
-
 
     def fista(self, zO, x, D, lmbd, L, n_iter):
         """
@@ -341,7 +347,9 @@ class CSC2d(CSC1d):
             if self.positive_D:
                 # Work on data as _D_hat is a nn.Parameter
                 self._D_hat.data = F.relu(self._D_hat.data)
-            norm_atoms = torch.linalg.vector_norm(self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True)
+            norm_atoms = torch.linalg.vector_norm(
+                self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True
+            )
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
             return norm_atoms

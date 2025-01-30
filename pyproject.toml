@@ -1,8 +1,55 @@
+[build-system]
 
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
+[project]
+
+name = "wincdl"
+version = "0.1.0"
+
+requires-python = ">=3.10"
+authors = [
+  {name = "Jad Yehya", email = "jad.yehya@inria.fr"},
+  {name = "Mansour Benbakoura", email = "mansour.benbakoura@inria.fr"},
+  {name = "Cédric Allain", email = "cedric.allain@inria.fr"},
+  {name = "Benoît Malézieux", email = "benoit.malezieux@inria.fr"},
+  {name = "Thomas Moreau", email = "thomas.moreau@inria.fr"},
+]
+description = "RObust and ScalablE Convolution Dictionary Learning"
+readme = "README.md"
+
+dependencies = [
+    "alphacsc",
+    "imageio",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "torch",
+    "tqdm",
+    "wfdb",
+]
+
+[project.optional-dependencies]
+
+experiments = [
+    "benchopt",
+    "dripp",
+    "joblib",
+    "mne",
+    "seaborn",
+    "sporco",
+]
+
+dev = [
+    "pytest",
+    "ruff",
+]
 
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
+
 exclude = [
     ".direnv",
     ".eggs",
@@ -17,5 +64,29 @@ exclude = [
     "dist",
     "__cache__",
 ]
+
 line-length = 88
 indent-width = 4
+
+[tool.ruff.format]
+
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+
+select = ["ALL"]
+ignore = [
+    "D100",
+    "D203",
+    "D213",
+    "RUF012",
+]
+fixable = ["ALL"]
+unfixable = []
+
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

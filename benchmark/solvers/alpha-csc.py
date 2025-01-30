@@ -5,7 +5,6 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 # - skipping import to speed up autocompletion in CLI.
 # - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
-
     from alphacsc.online_dictionary_learning import OnlineCDL
     from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
     from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
@@ -18,7 +17,6 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-
     # Name to select the solver in the CLI and to display the results.
     name = "alphaCSC"
 
@@ -26,8 +24,8 @@ class Solver(BaseSolver):
     requirements = ["pip:alphacsc"]
 
     parameters = {
-        'type': ["batch", "online"],
-        'outliers_kwargs': [
+        "type": ["batch", "online"],
+        "outliers_kwargs": [
             None,
             {"method": "quantile", "alpha": 0.2},
             {"method": "iqr", "alpha": 1.5},
@@ -35,9 +33,7 @@ class Solver(BaseSolver):
             {"method": "zscore", "alpha": 1.5},
         ],
     }
-    stopping_criterion = SufficientProgressCriterion(
-        patience=10, strategy='callback'
-    )
+    stopping_criterion = SufficientProgressCriterion(patience=10, strategy="callback")
 
     def get_next(self, stop_val):
         return stop_val + 1
@@ -74,16 +70,14 @@ class Solver(BaseSolver):
             window=self.window,
             verbose=0,
             n_iter=10000,
-            n_jobs=-1
+            n_jobs=-1,
         )
         self.cdl.raise_on_increase = False
 
     def run(self, cb):
         X = self.X
         if self.outliers_kwargs is not None:
-            X = remove_outliers_before_cdl(
-                self.X, self.z_shape, **self.outliers_kwargs
-            )
+            X = remove_outliers_before_cdl(self.X, self.z_shape, **self.outliers_kwargs)
 
         def alphacsc_cb(z_encoder, _):
             self.D_hat = z_encoder.D_hat
