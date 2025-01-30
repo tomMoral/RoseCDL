@@ -45,4 +45,3 @@ def test_rosecdl(n_components, n_channels, kernel_size, support, rank1, positive
         assert np.all(
             cdl.D_hat_ >= 0
         ), f"{len(support)}D dictionary contains negative values, while using positive_D=True"
-        ), f"{len(support)}D dictionary contains negative values, while using positive_D=True"
