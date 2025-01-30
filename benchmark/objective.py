@@ -11,11 +11,10 @@ with safe_import_context() as import_ctx:
     from alphacsc.update_z_multi import update_z_multi
     from alphacsc.utils.convolution import construct_X_multi
     from alphacsc.utils.dictionary import get_lambda_max
+    from rosecdl.utils.utils_exp import evaluate_D_hat
 
-    from wincdl.utils.utils_exp import evaluate_D_hat
 
-
-WINCDL_DIR = Path(__file__).parent.parent
+ROSECDL_DIR = Path(__file__).parent.parent
 
 
 # The benchmark objective must be named `Objective` and
@@ -32,7 +31,7 @@ class Objective(BaseObjective):
     min_benchopt_version = "1.6"
 
     install_cmd = "conda"
-    requirements = ["pip:alphacsc", f"pip:-e {WINCDL_DIR}"]
+    requirements = ["pip:alphacsc", f"pip:-e {ROSECDL_DIR}"]
 
     parameters = {
         "reg": [1e-1, 3e-1, 8e-1],

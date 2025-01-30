@@ -4,9 +4,8 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 with safe_import_context() as import_ctx:
     import numpy as np
     from alphacsc.utils.dictionary import get_lambda_max
+    from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
     from sporco.dictlrn import cbpdndl
-
-    from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
 
 class Solver(BaseSolver):

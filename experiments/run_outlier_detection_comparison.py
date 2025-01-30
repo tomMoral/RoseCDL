@@ -1,5 +1,5 @@
 """This file contains the code to run the experiments for the outliers detection task
-using the WinCDL algorithm. It saves the results in a csv file that will be used by
+using the RoseCDL algorithm. It saves the results in a csv file that will be used by
 plot_outliers_detection.py to generate the plots.
 """
 
@@ -10,13 +10,12 @@ import numpy as np
 import pandas as pd
 from alphacsc import BatchCDL
 from joblib import Memory, Parallel, delayed
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric, plot_dicts
+from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+from rosecdl.utils.utils_signal import generate_experiment
 from torch import cuda
 from tqdm import tqdm
-
-from wincdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric, plot_dicts
-from wincdl.utils.utils_signal import generate_experiment
-from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
-from wincdl.wincdl import WinCDL
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -46,8 +45,8 @@ def generate_run_config_list(
     run_config_list = []
     for package in cdl_packages:
         for timing in outlier_detection_timings:
-            if package != "wincdl" and timing == "during":
-                # Only wincdl can run the outlier detection during the CDL
+            if package != "rosecdl" and timing == "during":
+                # Only rosecdl can run the outlier detection during the CDL
                 continue
             for method in outlier_detection_methods:
                 if bool(timing == "never") != bool(method["method"] == "none"):
@@ -83,7 +82,7 @@ def run_one(
     """Run the experiment for a given CDL package and outlier detection method.
 
     Args:
-        cdl_package (str): CDL package name: "wincdl", "alphacsc" or "sporco".
+        cdl_package (str): CDL package name: "rosecdl", "alphacsc" or "sporco".
         outlier_detection_method (str): Outlier detection method.
             A dictionary is expected with two keys:
                 - "name": name of the method. Can be one of "quantile", "iqr",
@@ -155,7 +154,7 @@ def run_one(
                 info_contam["outliers_mask"].max(axis=1, keepdims=True), model, X
             )
 
-        D_hat = model.D_hat_ if cdl_package == "wincdl" else model.D_hat
+        D_hat = model.D_hat_ if cdl_package == "rosecdl" else model.D_hat
         recovery_score = evaluate_D_hat(D_true, D_hat)
         results.append(
             {
@@ -171,8 +170,8 @@ def run_one(
         )
 
     # Run the experiment
-    if cdl_package == "wincdl":
-        cdl = WinCDL(
+    if cdl_package == "rosecdl":
+        cdl = RoseCDL(
             **cdl_params,
             D_init=D_init,
             outliers_kwargs=outliers_kwargs,
@@ -279,10 +278,10 @@ if __name__ == "__main__":
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
     # Define base CDL parameters
-    # cdl_packages = ["wincdl", "alphacsc", "sporco"]
-    cdl_packages = ["wincdl", "alphacsc"]
+    # cdl_packages = ["rosecdl", "alphacsc", "sporco"]
+    cdl_packages = ["rosecdl", "alphacsc"]
     cdl_configs = {
-        "wincdl": {
+        "rosecdl": {
             "lmbd": reg,
             "scale_lmbd": True,
             "epochs": 30,

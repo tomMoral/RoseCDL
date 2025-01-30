@@ -7,7 +7,7 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 with safe_import_context() as import_ctx:
     import torch
 
-    from wincdl.wincdl import WinCDL
+    from rosecdl.rosecdl import RoseCDL
 
 
 class Solver(BaseSolver):
@@ -99,7 +99,7 @@ class Solver(BaseSolver):
     def run(self, cb):
         # This is the function that is called to evaluate the solver.
         # It runs the algorithm for a given a number of iterations `n_iter`.
-        self.model = WinCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
+        self.model = RoseCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
         self.model.fit(self.X)
 

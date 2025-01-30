@@ -1,11 +1,10 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from rosecdl.datasets import SubwindowsDataset
+from rosecdl.datasets.simulated import simulate_1d as simulate_data2
+from rosecdl.rosecdl import RoseCDL
 from torch.utils.data import DataLoader, Dataset
-import matplotlib.pyplot as plt
-
-from wincdl.datasets import SubwindowsDataset
-from wincdl.datasets.simulated import simulate_1d as simulate_data2
-from wincdl.wincdl import WinCDL
 
 # ====== PARAMETERS ======
 # Data
@@ -69,7 +68,7 @@ def callback(model, epoch, loss):
     losses.append(loss)
 
 
-model = WinCDL(
+model = RoseCDL(
     n_components=N_COMPONENTS,
     kernel_size=KERNEL_SIZE,
     n_channels=N_CHANNELS,

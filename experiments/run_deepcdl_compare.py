@@ -1,5 +1,5 @@
 """This file contains the code to run the experiments for the outliers detection task
-using the WinCDL algorithm. It saves the results in a csv file that will be used by
+using the RoseCDL algorithm. It saves the results in a csv file that will be used by
 plot_outliers_detection.py to generate the plots.
 """
 
@@ -9,18 +9,16 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from joblib import Memory, Parallel, delayed
-from torch import cuda
-from tqdm import tqdm
-
 from alphacsc import BatchCDL
+from alphacsc.loss_and_gradient import compute_X_and_objective_multi
 from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils.dictionary import get_lambda_max
-from alphacsc.loss_and_gradient import compute_X_and_objective_multi
-
-from wincdl.wincdl import WinCDL
-from wincdl.utils.utils_exp import evaluate_D_hat
-from wincdl.utils.utils_signal import generate_experiment
+from joblib import Memory, Parallel, delayed
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat
+from rosecdl.utils.utils_signal import generate_experiment
+from torch import cuda
+from tqdm import tqdm
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -69,7 +67,7 @@ def run_one(
 
     Args:
         simulation_params (dict): Parameters for data simulation.
-        cdl_package (str): CDL package name: "wincdl", "alphacsc" or "sporco".
+        cdl_package (str): CDL package name: "rosecdl", "alphacsc" or "sporco".
         cdl_params (dict): Parameters for the CDL algorithm.
         seed (int): Random seed.
         i (int): Counting index of the run.
@@ -88,7 +86,7 @@ def run_one(
     if cdl_package == "alphacsc":
         cdl_params["reg"] *= lmbd_max
         lmbd = cdl_params["reg"]
-    elif cdl_package in ["wincdl", "deepcdl"]:
+    elif cdl_package in ["rosecdl", "deepcdl"]:
         cdl_params["lmbd"] *= lmbd_max
         lmbd = cdl_params["lmbd"]
 
@@ -107,7 +105,7 @@ def run_one(
         else:
             epoch, loss = args
 
-        D_hat = model.D_hat_ if cdl_package in ["wincdl", "deepcdl"] else model.D_hat
+        D_hat = model.D_hat_ if cdl_package in ["rosecdl", "deepcdl"] else model.D_hat
         recovery_score = evaluate_D_hat(D_true, D_hat)
         z0 = z_hat = update_z_multi(
             X, D_hat.astype(np.float64), lmbd, z0=z0, solver="lgcd"
@@ -127,8 +125,8 @@ def run_one(
         t_start = time.perf_counter()
 
     # Run the experiment
-    if cdl_package in ["wincdl", "deepcdl"]:
-        cdl = WinCDL(
+    if cdl_package in ["rosecdl", "deepcdl"]:
+        cdl = RoseCDL(
             **cdl_params,
             D_init=D_init,
             callbacks=[callback_fn],
@@ -221,9 +219,9 @@ if __name__ == "__main__":
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
     # Define base CDL parameters
-    cdl_packages = ["alphacsc", "deepcdl", "wincdl"]
+    cdl_packages = ["alphacsc", "deepcdl", "rosecdl"]
     cdl_configs = {
-        "wincdl": {
+        "rosecdl": {
             "lmbd": reg,
             "scale_lmbd": False,
             "epochs": 30,
@@ -246,7 +244,7 @@ if __name__ == "__main__":
         },
         "sporco": {},
     }
-    cdl_configs["deepcdl"] = cdl_configs["wincdl"].copy()
+    cdl_configs["deepcdl"] = cdl_configs["rosecdl"].copy()
     cdl_configs["deepcdl"]["deepcdl"] = True
 
     run_configs = generate_run_config_list(

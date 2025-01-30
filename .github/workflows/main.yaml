@@ -26,13 +26,13 @@ jobs:
       with:
         python-version: '${{ matrix.python-version }}'
         cache: 'pip'
-    - name: Install WinCDL
+    - name: Install RoseCDL
       run: |
         python -m pip install --upgrade pip
         python -m pip install -e .[test]
     - name: Test with pytest
       run: |
-        python -m pytest -v wincdl
+        python -m pytest -v rosecdl
   lint:
     runs-on: ubuntu-latest
     steps:

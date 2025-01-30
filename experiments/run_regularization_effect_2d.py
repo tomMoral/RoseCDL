@@ -8,11 +8,10 @@ import numpy as np
 import pandas as pd
 import torch
 from joblib import Memory, Parallel, delayed
+from rosecdl.datasets import create_dataloader
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat
 from tqdm import tqdm
-
-from wincdl.datasets import create_dataloader
-from wincdl.utils.utils_exp import evaluate_D_hat
-from wincdl.wincdl import WinCDL
 
 mem = Memory(location="__cache__", verbose=0)
 EXP_DIR = Path("results") / "run_regularization_effect_2d"
@@ -51,7 +50,7 @@ def run_one(reg, run_idx, model_params, data_params, seed):
         )
 
     # Setup and train model
-    model = WinCDL(
+    model = RoseCDL(
         callbacks=[callback_fn],
         lmbd=reg,
         **model_params,
