@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, Dataset
+
 from rosecdl.datasets import SubwindowsDataset
 from rosecdl.datasets.simulated import simulate_1d as simulate_data2
 from rosecdl.rosecdl import RoseCDL
-from torch.utils.data import DataLoader, Dataset
 
 # ====== PARAMETERS ======
 # Data
@@ -84,4 +85,5 @@ model.fit(X)
 
 print("SHAPE D : ", model.D_hat_.shape)
 plt.plot(losses)
+plt.show()
 plt.show()
