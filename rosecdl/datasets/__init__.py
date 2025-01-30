@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from rosecdl.subwindow_dataset import SubwindowsDataset
+from rosecdl.datasets.subwindow_dataset import SubwindowsDataset
 from rosecdl.utils.utils import get_torch_generator
 
 
@@ -15,8 +15,7 @@ def create_dataloader(
     dtype=None,
     **kwargs_dataset,
 ):
-    """
-    Create dataset for conv signals
+    """Create dataset for conv signals.
 
     Parameters
     ----------
