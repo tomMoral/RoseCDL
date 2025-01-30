@@ -1,7 +1,6 @@
 import numpy as np
 import torch
-
-from wincdl.loss import LassoLoss, OutlierLoss
+from rosecdl.loss import LassoLoss, OutlierLoss
 
 
 def get_support_mean(data, outlier_mask):

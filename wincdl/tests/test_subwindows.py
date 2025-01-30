@@ -1,7 +1,6 @@
-import pytest
-
 import numpy as np
-from wincdl.datasets.subwindow_dataset import SubwindowsDataset
+import pytest
+from rosecdl.datasets.subwindow_dataset import SubwindowsDataset
 
 
 class TestSubwindowsDataset:

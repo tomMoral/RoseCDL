@@ -10,7 +10,7 @@ from .optimizer import SLS
 from .train import train
 
 
-class WinCDL(torch.nn.Module):
+class RoseCDL(torch.nn.Module):
     """
 
     Parameters
@@ -197,7 +197,7 @@ class WinCDL(torch.nn.Module):
         if X.shape[1] != self.csc.n_channels:
             raise ValueError(
                 f"The number of channel in X do not match the one specified in "
-                f"WinCDL. Got {X.shape[1]=}, while we expected {self.csc.n_channels}"
+                f"RoseCDL. Got {X.shape[1]=}, while we expected {self.csc.n_channels}"
             )
 
         if any(supp < 3 * ks for supp, ks in zip(X.shape[2:], self.csc.kernel_size)):

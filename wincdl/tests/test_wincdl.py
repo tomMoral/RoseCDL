@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from wincdl.wincdl import WinCDL
+from rosecdl.rosecdl import RoseCDL
 
 
 @pytest.mark.parametrize(
@@ -15,13 +15,13 @@ from wincdl.wincdl import WinCDL
 @pytest.mark.parametrize("n_channels", [1, 3])
 @pytest.mark.parametrize("n_components", [3, 5])
 @pytest.mark.parametrize("positive_D", [True, False])
-def test_wincdl(n_components, n_channels, kernel_size, support, rank1, positive_D):
+def test_rosecdl(n_components, n_channels, kernel_size, support, rank1, positive_D):
     """Test positive dictionary constraint with 1D and 2D data"""
     # Setup test data
     X = np.random.rand(10, n_channels, *support)
 
-    # Initialize WinCDL and fit it
-    cdl = WinCDL(
+    # Initialize RoseCDL and fit it
+    cdl = RoseCDL(
         n_components=n_components,
         kernel_size=kernel_size,
         n_channels=n_channels,
@@ -41,6 +41,6 @@ def test_wincdl(n_components, n_channels, kernel_size, support, rank1, positive_
 
     # If positive_D is True, assert that all values in the dictionary are positive
     if positive_D:
-        assert np.all(cdl.D_hat_ >= 0), (
-            f"{len(support)}D dictionary contains negative values, while using positive_D=True"
-        )
+        assert np.all(
+            cdl.D_hat_ >= 0
+        ), f"{len(support)}D dictionary contains negative values, while using positive_D=True"
