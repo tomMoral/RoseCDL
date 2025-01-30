@@ -25,8 +25,7 @@ def generate_z(
     method="uniform",
     **kwargs,
 ):
-    """
-    Generate activation vectors for a given number of trials, atoms, and valid time points with specified sparsity.
+    """Generate activation vectors for a given number of trials, atoms, and valid time points with specified sparsity.
 
     An "activation vector" is a 3D array with shape (n_trials, n_atoms, n_times_valid). For each trial and atom, it specifies
     the activation over a series of time points. The activation can be generated using one of several methods ('uniform', 'random',
@@ -70,7 +69,6 @@ def generate_z(
     This will generate a 3D array with shape (2, 3, 100), with half of the entries being zero and the others being random values
     drawn from a uniform distribution between 0 and 1.
     """
-
     # Input validation
     if not isinstance(n_trials, int) or n_trials < 0:
         raise ValueError("n_trials must be a non-negative integer.")
@@ -147,15 +145,14 @@ def generate_z(
         n_trials,
         n_atoms,
         n_times_valid,
-    ), (
-        f"Output shape {z.shape} does not match expected shape {(n_trials, n_atoms, n_times_valid)}."
-    )
+    ), f"Output shape {z.shape} does not match expected shape {(n_trials, n_atoms, n_times_valid)}."
 
     return z
 
 
 def expand_z(z, n_times_atom):
-    """
+    """2d to 3d array.
+
     Transforms a 3D array z to a 2D array, where 1s in z are expanded across
     n_times_atom for each trial, considering all atoms.
 
@@ -250,8 +247,7 @@ def generate_atoms(
     window=False,
     **kwargs,
 ):
-    """
-    Generate atoms using different waveform shapes or random noise.
+    """Generate atoms using different waveform shapes or random noise.
 
     This function generates atoms by cycling through a set of predefined wave shapes,
     or by using a Gaussian distribution. When cycling through wave shapes, the frequency
@@ -294,7 +290,6 @@ def generate_atoms(
     np.array
         A 3D array of atoms with shape (n_atoms, n_channels, n_times_atom).
     """
-
     # Validate inputs
     if not isinstance(n_atoms, int) or n_atoms < 1:
         raise ValueError("n_atoms must be a positive integer")
@@ -374,16 +369,13 @@ def generate_atoms(
         n_atoms,
         n_channels,
         n_times_atom,
-    ), (
-        f"Output shape {D.shape} does not match expected shape {(n_atoms, n_channels, n_times_atom)}."
-    )
+    ), f"Output shape {D.shape} does not match expected shape {(n_atoms, n_channels, n_times_atom)}."
 
     return D
 
 
 def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True):
-    """
-    Plot one or more dictionaries, with the option of overlaying a ground truth dictionary.
+    """Plot one or more dictionaries, with the option of overlaying a ground truth dictionary.
 
     Parameters
     ----------
@@ -480,8 +472,7 @@ def create_gif_from_dict_lists(
     save_dir=None,
     gif_name="dict_learning.gif",
 ):
-    """
-    Generate a GIF from one or more lists of dictionary representations (D matrices).
+    """Generate a GIF from one or more lists of dictionary representations (D matrices).
 
     Parameters
     ----------
@@ -599,8 +590,7 @@ def generate_signal(
     window=False,
     rng=None,
 ):
-    """
-    Generate a multi-channel signal based on a set of atoms and activations.
+    """Generate a multi-channel signal based on a set of atoms and activations.
 
     This function generates a 3D array of signals, where the first dimension
     corresponds to different trials, the second dimension corresponds to
@@ -698,9 +688,7 @@ def generate_signal(
         n_trials,
         n_channels,
         n_times,
-    ), (
-        f"Output shape {X.shape} does not match expected shape {(n_trials, n_channels, n_times)}."
-    )
+    ), f"Output shape {X.shape} does not match expected shape {(n_trials, n_channels, n_times)}."
 
     return X, z, D
 
@@ -719,8 +707,7 @@ def validate_sparsity(sparsity, n_trials):
 def apply_contamination(
     X, contamination_params=None, rng=None, n_times_atom=64, n_splits=1, verbose=0
 ):
-    """
-    Add optional contamination to the signal.
+    """Add optional contamination to the signal.
 
     Parameters
     ----------
@@ -830,8 +817,7 @@ def generate_experiment(
     verbose=0,
     return_info_contam=False,
 ):
-    """
-    Generate a synthetic signal experiment with optional contamination.
+    """Generate a synthetic signal experiment with optional contamination.
 
     Parameters
     ----------
@@ -868,7 +854,6 @@ def generate_experiment(
     D_init : ndarray, shape (n_atoms + n_atom_extra, n_channels, n_times_atom)
         Initialized dictionary.
     """
-
     # Check required parameters
     if (
         "n_times" not in simulation_params
@@ -1003,7 +988,6 @@ def plot_signal(*list_X, X_true=None, labels=None, label_true="Original"):
     -------
     fig : matplotlib figure
     """
-
     if not list_X:
         raise ValueError("At least one signal should be provided.")
 
