@@ -23,7 +23,6 @@ description = "RObust and ScalablE Convolution Dictionary Learning"
 readme = "README.md"
 
 dependencies = [
-    "alphacsc",
     "imageio",
     "matplotlib",
     "numpy",
@@ -38,6 +37,7 @@ dependencies = [
 [project.optional-dependencies]
 
 experiments = [
+    "alphacsc",
     "benchopt",
     "joblib",
     "mne",
