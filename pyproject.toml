@@ -3,9 +3,12 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["rosecdl"]
+
 [project]
 
-name = "wincdl"
+name = "rosecdl"
 version = "0.1.0"
 
 requires-python = ">=3.10"
@@ -36,7 +39,6 @@ dependencies = [
 
 experiments = [
     "benchopt",
-    "dripp",
     "joblib",
     "mne",
     "seaborn",
@@ -44,9 +46,15 @@ experiments = [
 ]
 
 dev = [
+    "isort",
     "pytest",
     "ruff",
 ]
+
+[tool.isort]
+
+line_length = 88
+multi_line_output = 3
 
 [tool.ruff]
 

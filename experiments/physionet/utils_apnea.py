@@ -1,16 +1,15 @@
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from scipy.signal import tukey
-import matplotlib.pyplot as plt
-
-from alphacsc.learn_d_z import learn_d_z, compute_X_and_objective
+import wfdb
+from alphacsc.learn_d_z import compute_X_and_objective, learn_d_z
 from alphacsc.learn_d_z_multi import learn_d_z_multi
 from alphacsc.update_z import update_z
-
-import wfdb
-from wfdb.io.record import rdrecord
+from scipy.signal import tukey
 from wfdb.io.annotation import rdann
+from wfdb.io.record import rdrecord
 
 
 def load_ecg(

@@ -1,21 +1,20 @@
 from pathlib import Path
+from time import perf_counter
+
 import numpy as np
 import pandas as pd
 from alphacsc import BatchCDL
 from alphacsc.loss_and_gradient import compute_objective
-from alphacsc.utils.convolution import construct_X_multi
 from alphacsc.update_z_multi import update_z_multi
+from alphacsc.utils.convolution import construct_X_multi
 from joblib import Memory, Parallel, delayed
+from sporco.dictlrn import cbpdndl
 from torch import cuda
 from tqdm import tqdm
-from time import perf_counter
-from sporco.dictlrn import cbpdndl
 
-from wincdl.utils.utils_exp import (
-    plot_dicts,
-)
-from wincdl.utils.utils_signal import generate_experiment
-from wincdl.wincdl import WinCDL
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import plot_dicts
+from rosecdl.utils.utils_signal import generate_experiment
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -35,7 +34,7 @@ def run_one(
     """Run the experiment for comparing loss and convergence time between CDL packages.
 
     Args:
-        cdl_package (str): CDL package name: "wincdl" or "alphacsc"
+        cdl_package (str): CDL package name: "rosecdl" or "alphacsc"
         cdl_params (dict): Parameters for the CDL algorithm
         seed (int): Random seed
         i (int): Counting index of the run
@@ -70,17 +69,17 @@ def run_one(
             cost = compute_objective(
                 X, X_hat=X_hat, z_hat=z_hat, D=D, reg=cdl_configs["alphacsc"]["reg"]
             )
-        elif cdl_package == "wincdl":
+        elif cdl_package == "rosecdl":
             D = model.D_hat_
 
-            z_hat, _, _ = update_z_multi(X, D, reg=cdl_configs["wincdl"]["lmbd"])
+            z_hat, _, _ = update_z_multi(X, D, reg=cdl_configs["rosecdl"]["lmbd"])
             X_hat = construct_X_multi(z_hat, D=D)
             cost = compute_objective(
                 X,
                 X_hat=X_hat,
                 z_hat=z_hat,
                 D=D,
-                reg=cdl_configs["wincdl"]["lmbd"],
+                reg=cdl_configs["rosecdl"]["lmbd"],
             )
 
         elif cdl_package == "sporco":
@@ -108,8 +107,8 @@ def run_one(
         )
 
     # Run the experiment
-    if cdl_package == "wincdl":
-        cdl = WinCDL(
+    if cdl_package == "rosecdl":
+        cdl = RoseCDL(
             **cdl_params,
             D_init=D_init,
             callbacks=[callback_fn],
@@ -128,11 +127,14 @@ def run_one(
     elif cdl_package == "sporco":
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
 
-        opt = cbpdndl.ConvBPDNDictLearn.Options({
-            'Verbose': False, 
-            'MaxMainIter': cdl_params["n_iter"] + 1,
-            'CBPDN': opt_cbpdn
-        }, dmethod="cns")
+        opt = cbpdndl.ConvBPDNDictLearn.Options(
+            {
+                "Verbose": False,
+                "MaxMainIter": cdl_params["n_iter"] + 1,
+                "CBPDN": opt_cbpdn,
+            },
+            dmethod="cns",
+        )
 
         sporco_params = dict(
             D0=D_init.transpose(2, 1, 0).copy(),
@@ -217,9 +219,9 @@ if __name__ == "__main__":
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
 
-    cdl_packages = ["wincdl", "alphacsc"]
+    cdl_packages = ["rosecdl", "alphacsc"]
     cdl_configs = {
-        "wincdl": {
+        "rosecdl": {
             "lmbd": reg,
             "scale_lmbd": True,
             "epochs": 100,
@@ -272,5 +274,5 @@ if __name__ == "__main__":
     # Save results
     df = pd.DataFrame(results)
     # Add underscores to filename
-    packages_str = '_'.join(cdl_packages)
+    packages_str = "_".join(cdl_packages)
     df.to_csv(EXP_DIR / f"results_{packages_str}.csv", index=False)

@@ -1,11 +1,11 @@
 import os
-import string
 import pathlib
-import numpy as np
-import matplotlib.pyplot as plt
+import string
 
-from alphacsc.utils.validation import check_random_state
+import matplotlib.pyplot as plt
+import numpy as np
 from alphacsc.update_d_multi import prox_d
+from alphacsc.utils.validation import check_random_state
 
 DATA_HOME = pathlib.Path("data")
 DATA_HOME.mkdir(exist_ok=True)

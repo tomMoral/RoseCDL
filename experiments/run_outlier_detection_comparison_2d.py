@@ -1,23 +1,19 @@
 """This file contains the code to run the experiments for the outliers detection task
-using the WinCDL algorithm on 2D image data.
+using the RoseCDL algorithm on 2D image data.
 """
 
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from joblib import Parallel, delayed
-from joblib import Memory
 
-from wincdl.utils.utils_exp import (
-    evaluate_D_hat,
-    get_method_name,
-    get_outliers_metric,
-)
-from wincdl.wincdl import WinCDL
-from wincdl.utils.utils_outliers import add_outliers_2d
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat, get_method_name, get_outliers_metric
+from rosecdl.utils.utils_outliers import add_outliers_2d
 
 mem = Memory(location="__cache__", verbose=0)
 EXP_DIR = Path("results") / "outlier_detection_2d"
@@ -25,7 +21,7 @@ EXP_DIR.mkdir(exist_ok=True, parents=True)
 
 
 @mem.cache
-def run_one(method, outliers_kwargs, wincdl_params, X, D_true, i, seed, exp_dir):
+def run_one(method, outliers_kwargs, rosecdl_params, X, D_true, i, seed, exp_dir):
     # Add outliers to the clean data
     X_corrupted, outliers_mask = add_outliers_2d(
         X, contmination=0.1, patch_size=None, strength=0.6, seed=seed
@@ -74,18 +70,18 @@ def run_one(method, outliers_kwargs, wincdl_params, X, D_true, i, seed, exp_dir)
         )
 
     # Run the experiment with corrupted data
-    wincdl = WinCDL(
-        **wincdl_params,
+    rosecdl = RoseCDL(
+        **rosecdl_params,
         outliers_kwargs=this_outliers_kwargs,
         callbacks=[callback_fn],
         random_state=seed,
     )
-    wincdl.fit(X_corrupted)
+    rosecdl.fit(X_corrupted)
 
     # Plot learned dictionary if first run
     if i == 0:
-        fig, ax = plt.subplots(1, wincdl.D_hat_.shape[0], figsize=(10, 5))
-        for j, atom in enumerate(wincdl.D_hat_):
+        fig, ax = plt.subplots(1, rosecdl.D_hat_.shape[0], figsize=(10, 5))
+        for j, atom in enumerate(rosecdl.D_hat_):
             ax[j].imshow(atom.squeeze(), cmap="gray")
             ax[j].axis("off")
         plt.savefig(exp_dir / f"D_hat_{method_name}.pdf")
@@ -135,7 +131,7 @@ if __name__ == "__main__":
         opening_window=True,
     )
 
-    wincdl_params = {
+    rosecdl_params = {
         "n_components": 6,
         "kernel_size": (35, 35),
         "n_channels": 1,
@@ -164,7 +160,7 @@ if __name__ == "__main__":
     list_seeds = rng.integers(0, 2**32 - 1, args.n_runs)
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
         delayed(run_one)(
-            this_method, outliers_kwargs, wincdl_params, X, D_true, i, seed, exp_dir
+            this_method, outliers_kwargs, rosecdl_params, X, D_true, i, seed, exp_dir
         )
         for i, seed in enumerate(list_seeds)
         for this_method in list_methods

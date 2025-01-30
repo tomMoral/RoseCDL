@@ -1,17 +1,15 @@
-"""This file contains the code to run WinCDL on 2D image data."""
-
-from pathlib import Path
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from torch import cuda
-
-from wincdl.utils.utils_exp import evaluate_D_hat
-from wincdl.wincdl import WinCDL
+"""This file contains the code to run RoseCDL on 2D image data."""
 
 import time
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from torch import cuda
+
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat
 
 EXP_DIR = Path("results")
 EXP_DIR.mkdir(exist_ok=True, parents=True)
@@ -19,7 +17,7 @@ EXP_DIR.mkdir(exist_ok=True, parents=True)
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run WinCDL on 2D image data")
+    parser = argparse.ArgumentParser(description="Run RoseCDL on 2D image data")
     parser.add_argument(
         "data_path",
         type=str,
@@ -35,7 +33,7 @@ if __name__ == "__main__":
     seed = args.seed if args.seed is not None else np.random.randint(0, 2**32 - 1)
     print(f"Seed: {seed}")
 
-    exp_dir = EXP_DIR / f"wincdl_2d_reg_{args.reg}"
+    exp_dir = EXP_DIR / f"rosecdl_2d_reg_{args.reg}"
     exp_dir.mkdir(exist_ok=True, parents=True)
 
     # Load the data
@@ -66,8 +64,8 @@ if __name__ == "__main__":
         )
         t_start = time.perf_counter()
 
-    # Run WinCDL
-    wincdl = WinCDL(
+    # Run RoseCDL
+    rosecdl = RoseCDL(
         n_components=6,
         kernel_size=(35, 35),
         n_channels=1,
@@ -84,7 +82,7 @@ if __name__ == "__main__":
         callbacks=[callback_fn],
         random_state=seed,
     )
-    wincdl.fit(X)
+    rosecdl.fit(X)
 
     results = pd.DataFrame(results)
     results["time"] = results["time"].cumsum()
@@ -97,9 +95,9 @@ if __name__ == "__main__":
     fig.savefig(exp_dir / "learning_curve.png")
 
     # Plot atoms learned
-    fig, ax = plt.subplots(1, wincdl.D_hat_.shape[0], figsize=(10, 5))
-    for i, atom in enumerate(wincdl.D_hat_):
+    fig, ax = plt.subplots(1, rosecdl.D_hat_.shape[0], figsize=(10, 5))
+    for i, atom in enumerate(rosecdl.D_hat_):
         ax[i].imshow(atom.squeeze(), cmap="gray")
         ax[i].axis("off")
 
-    plt.savefig(exp_dir / "atoms_learned_wincdl.png")
+    plt.savefig(exp_dir / "atoms_learned_rosecdl.png")

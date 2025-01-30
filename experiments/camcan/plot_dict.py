@@ -1,19 +1,18 @@
 # %%
-import numpy as np
 from pathlib import Path
 
-from alphacsc.utils.dictionary import get_uv
+import numpy as np
 from alphacsc.utils.convolution import sort_atoms_by_explained_variances
+from alphacsc.utils.dictionary import get_uv
 from dripp.cdl.plotting import display_atoms
 
 from experiments.scripts.utils import (
-    get_lambda_global,
-    get_D_sub,
-    get_subject_z_and_cost,
     get_camcan_info,
+    get_D_sub,
+    get_lambda_global,
+    get_subject_z_and_cost
 )
 from experiments.scripts.utils_plot import plot_z_boxplot
-
 
 BASE_PATH = Path("/storage/store2/work/bmalezie")
 DICT_PATH = BASE_PATH / "cdl-population/results/camcan"

@@ -1,8 +1,7 @@
 # %%
-import pandas as pd
-
-import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 
 lmbd_max = "fixed"
 for reg in [0.1, 0.3]:

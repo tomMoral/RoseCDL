@@ -5,9 +5,10 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 # - skipping import to speed up autocompletion in CLI.
 # - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
-    from alphacsc.online_dictionary_learning import OnlineCDL
     from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
-    from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+    from alphacsc.online_dictionary_learning import OnlineCDL
+
+    from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
     ALGORITHMS = {
         "online": OnlineCDL,

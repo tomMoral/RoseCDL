@@ -6,7 +6,7 @@ with safe_import_context() as import_ctx:
     from alphacsc.utils.dictionary import get_lambda_max
     from sporco.dictlrn import cbpdndl
 
-    from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+    from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
 
 class Solver(BaseSolver):

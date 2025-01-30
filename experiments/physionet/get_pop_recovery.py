@@ -1,9 +1,9 @@
-import numpy as np
-import pandas as pd
 import argparse
 from pathlib import Path
-from tqdm import tqdm
 
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
 from utils_apnea import get_subject_z_and_cost
 
 parser = argparse.ArgumentParser()

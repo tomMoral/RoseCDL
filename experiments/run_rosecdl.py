@@ -1,11 +1,11 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
-import matplotlib.pyplot as plt
 
-from wincdl.datasets import SubwindowsDataset
-from wincdl.datasets.simulated import simulate_1d as simulate_data2
-from wincdl.wincdl import WinCDL
+from rosecdl.datasets import SubwindowsDataset
+from rosecdl.datasets.simulated import simulate_1d as simulate_data2
+from rosecdl.rosecdl import RoseCDL
 
 # ====== PARAMETERS ======
 # Data
@@ -69,7 +69,7 @@ def callback(model, epoch, loss):
     losses.append(loss)
 
 
-model = WinCDL(
+model = RoseCDL(
     n_components=N_COMPONENTS,
     kernel_size=KERNEL_SIZE,
     n_channels=N_CHANNELS,
@@ -85,4 +85,5 @@ model.fit(X)
 
 print("SHAPE D : ", model.D_hat_.shape)
 plt.plot(losses)
+plt.show()
 plt.show()

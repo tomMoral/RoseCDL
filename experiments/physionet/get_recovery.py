@@ -3,14 +3,14 @@ For a set a subjects, compute the recovery cost of one's dictionary on
 another's signal, and save the matrix as a dataframe.
 """
 
+import argparse
+import pickle
+from pathlib import Path
+
 # %%
 import numpy as np
 import pandas as pd
-import pickle
-from pathlib import Path
 from tqdm import tqdm
-import argparse
-
 from utils_apnea import get_subject_z_and_cost
 
 parser = argparse.ArgumentParser()

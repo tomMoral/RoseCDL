@@ -1,6 +1,6 @@
 import torch
 
-from wincdl.utils.utils_outliers import get_outlier_mask
+from rosecdl.utils.utils_outliers import get_outlier_mask
 
 
 def test_get_outlier_mask_1d():

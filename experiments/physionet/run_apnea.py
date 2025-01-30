@@ -1,15 +1,15 @@
 # %%
+import argparse
+import pickle
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import pickle
-from tqdm import tqdm
-import argparse
-
 from alphacsc.init_dict import init_dictionary
 from dripp.cdl.utils_plot import plot_z_boxplot
-
+from tqdm import tqdm
 from utils_apnea import load_ecg, run_cdl
+
 # %%
 # download apnea-ecg from physionet
 # wfdb.io.dl_database(db_dir='apnea-ecg', dl_dir='./apnea-ecg')

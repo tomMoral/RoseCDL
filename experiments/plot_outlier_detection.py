@@ -1,5 +1,5 @@
 """This file reads the results from outlier_detection.py and generates the plots for the
-outliers detection task using the WinCDL algorithm.
+outliers detection task using the RoseCDL algorithm.
 """
 
 # %%
@@ -25,7 +25,7 @@ def get_method_name(outliers_kwargs):
     return method
 
 
-EXP_DIR = Path.home() / "data/wincdl"
+EXP_DIR = Path.home() / "data/rosecdl"
 
 add_reg = True
 per_patch = True

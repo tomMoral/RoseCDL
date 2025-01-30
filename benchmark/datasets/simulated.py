@@ -2,7 +2,7 @@ from benchopt import BaseDataset, safe_import_context
 
 # Allow installing the requirements with `benchopt install`
 with safe_import_context() as import_ctx:
-    from wincdl.utils.utils_signal import generate_experiment
+    from rosecdl.utils.utils_signal import generate_experiment
 
 
 class Dataset(BaseDataset):

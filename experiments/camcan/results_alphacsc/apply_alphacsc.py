@@ -1,17 +1,15 @@
 # %%
-import numpy as np
 from pathlib import Path
+
 import matplotlib.pyplot as plt
-
+import numpy as np
 from alphacsc import GreedyCDL
-from alphacsc.utils.signal import split_signal
 from alphacsc.init_dict import init_dictionary
-
-
+from alphacsc.utils.signal import split_signal
 from dripp.cdl.plotting import display_atoms
 
-from experiments.scripts.utils_plot import plot_z_boxplot
 from experiments.scripts.utils import get_camcan_info
+from experiments.scripts.utils_plot import plot_z_boxplot
 
 BASE_PATH = Path("/storage/store2/work/bmalezie")
 DICT_PATH = BASE_PATH / "cdl-population/results/camcan"

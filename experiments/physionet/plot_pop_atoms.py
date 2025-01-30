@@ -1,6 +1,6 @@
-import numpy as np
 import argparse
 
+import numpy as np
 from utils_apnea import plot_temporal_atoms
 
 parser = argparse.ArgumentParser()

@@ -1,18 +1,14 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+from alphacsc.init_dict import init_dictionary
+from alphacsc.loss_and_gradient import compute_X_and_objective_multi
+from alphacsc.update_z_multi import update_z_multi
+from alphacsc.utils.dictionary import get_lambda_max
 from joblib import Parallel, delayed
-
-
 from mne_bids import BIDSPath, read_raw_bids
 
-from alphacsc.utils.dictionary import get_lambda_max
-from alphacsc.init_dict import init_dictionary
-from alphacsc.update_z_multi import update_z_multi
-from alphacsc.loss_and_gradient import compute_X_and_objective_multi
-
-
-from wincdl.wincdl import WinCDL
-
+from rosecdl.rosecdl import RoseCDL
 
 DEVICE = "cuda:1"
 
@@ -141,7 +137,7 @@ def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
     )
     # lmbd = lmbd * get_lambda_max(X[None, :], D_init).max()
 
-    CDL = WinCDL(
+    CDL = RoseCDL(
         n_components=n_atoms,
         kernel_size=n_times_atom,
         n_channels=n_channels,

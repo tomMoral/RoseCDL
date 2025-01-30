@@ -8,12 +8,7 @@ import pandas as pd
 import torch
 from scipy import signal
 from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import (
-    f1_score,
-    jaccard_score,
-    precision_score,
-    recall_score,
-)
+from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
 
 
 def multi_channel_2d_correlate(dk, pat):
@@ -108,7 +103,7 @@ def load_json(file_path):
 
 
 def check_and_initialize(
-    exp_dir, simulation_params, wincdl_params, results_file_name="df_results"
+    exp_dir, simulation_params, rosecdl_params, results_file_name="df_results"
 ):
     """
     Checks if previous simulation parameters exist and initializes the environment accordingly.
@@ -116,7 +111,7 @@ def check_and_initialize(
     Parameters:
     - exp_dir (Path): Directory where experiment results are stored.
     - simulation_params (dict): Current simulation parameters.
-    - wincdl_params (dict): Current wincdl parameters.
+    - rosecdl_params (dict): Current rosecdl parameters.
     - results_file_name (str): Name of the CSV file to store results.
 
     Returns:
@@ -125,22 +120,22 @@ def check_and_initialize(
 
     # Define paths based on exp_dir
     simulation_path = exp_dir / "simulation_params.json"
-    wincdl_path = exp_dir / "wincdl_params.json"
+    rosecdl_path = exp_dir / "rosecdl_params.json"
     results_path = exp_dir / f"{results_file_name}.csv"
 
     # Check if parameter files exist and compare them with current parameters
-    if simulation_path.exists() and wincdl_path.exists():
+    if simulation_path.exists() and rosecdl_path.exists():
         previous_simulation_params = load_json(simulation_path)
-        previous_wincdl_params = load_json(wincdl_path)
+        previous_rosecdl_params = load_json(rosecdl_path)
         if (
             simulation_params != previous_simulation_params
-            or wincdl_params != previous_wincdl_params
+            or rosecdl_params != previous_rosecdl_params
         ):
             print("Parameters changed, starting from scratch")
             df_results = pd.DataFrame()
             df_results.to_csv(results_path, index=False)
             save_json(simulation_params, simulation_path)
-            save_json(wincdl_params, wincdl_path)
+            save_json(rosecdl_params, rosecdl_path)
         else:
             print("Parameters are the same, loading previous results")
             try:
@@ -156,7 +151,7 @@ def check_and_initialize(
         df_results = pd.DataFrame()
         df_results.to_csv(results_path, index=False)
         save_json(simulation_params, simulation_path)
-        save_json(wincdl_params, wincdl_path)
+        save_json(rosecdl_params, rosecdl_path)
 
     return df_results
 
@@ -170,11 +165,11 @@ def get_method_name(method_spec: dict[str or float]) -> str:
 
 
 def get_outliers_metric(
-    true_outliers_mask, wincdl, X, dice_score_epsilon: float = 1e-7
+    true_outliers_mask, rosecdl, X, dice_score_epsilon: float = 1e-7
 ):
     """
 
-    wincdl: WinCDL instance
+    rosecdl: RoseCDL instance
     """
     # Converting true_outliers_mask to numpy array if not already
     if isinstance(true_outliers_mask, torch.Tensor):
@@ -183,10 +178,10 @@ def get_outliers_metric(
 
     assert isinstance(true_outliers_mask, np.ndarray)
 
-    X = torch.tensor(X, dtype=wincdl.dtype, device=wincdl.device)
-    X_hat, z_hat = wincdl.csc(X)
+    X = torch.tensor(X, dtype=rosecdl.dtype, device=rosecdl.device)
+    X_hat, z_hat = rosecdl.csc(X)
 
-    outliers_mask = wincdl.loss_fn.get_outliers_mask(X_hat, z_hat, X, opening=False)
+    outliers_mask = rosecdl.loss_fn.get_outliers_mask(X_hat, z_hat, X, opening=False)
     outliers_mask = outliers_mask.detach().cpu().numpy()
 
     # Ensure masks have the same shape

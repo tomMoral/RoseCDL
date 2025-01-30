@@ -1,12 +1,14 @@
 # %%
-import numpy as np
+import argparse
 
+import numpy as np
 from utils_apnea import plot_temporal_atoms
-from wincdl.datasets import create_physionet_dataloader
-from wincdl.wincdl import WinCDL
+
+from rosecdl.datasets import create_physionet_dataloader
+from rosecdl.rosecdl import RoseCDL
+
 # %%
 
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -19,7 +21,7 @@ args = parser.parse_args()
 group_id = args.group
 print(f"Run population CDL on group {group_id}")
 apnea_dataloader = create_physionet_dataloader(db_dir="./apnea-ecg", group_id=group_id)
-apnea_cdl = WinCDL(
+apnea_cdl = RoseCDL(
     n_components=10,
     kernel_size=75,
     n_channels=1,
@@ -35,4 +37,5 @@ apnea_cdl = WinCDL(
 losses, list_D, times = apnea_cdl.fit(apnea_dataloader)
 np.save(f"d_hat_pop_{group_id}", apnea_cdl.D_hat_)
 plot_temporal_atoms(apnea_cdl.D_hat_.squeeze(), save_fig=f"pop_{group_id}_atoms.pdf")
+# %%
 # %%

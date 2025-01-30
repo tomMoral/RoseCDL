@@ -1,5 +1,5 @@
 """This file contains the code to run the experiments for the outliers detection task
-using the WinCDL algorithm. It saves the results in a csv file that will be used by
+using the RoseCDL algorithm. It saves the results in a csv file that will be used by
 plot_outliers_detection.py to generate the plots.
 """
 
@@ -8,15 +8,15 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from joblib import Memory, Parallel, delayed
 import torch
+from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
 
-from wincdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric
-from wincdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
-from wincdl.utils.utils_outliers import add_outliers_2d
-from wincdl.wincdl import WinCDL
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric
+from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+from rosecdl.utils.utils_outliers import add_outliers_2d
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -46,8 +46,8 @@ def generate_run_config_list(
     run_config_list = []
     for package in cdl_packages:
         for timing in outlier_detection_timings:
-            if package != "wincdl" and timing == "during":
-                # Only wincdl can run the outlier detection during the CDL
+            if package != "rosecdl" and timing == "during":
+                # Only rosecdl can run the outlier detection during the CDL
                 continue
             for method in outlier_detection_methods:
                 if bool(timing == "never") != bool(method["method"] == "none"):
@@ -83,7 +83,7 @@ def run_one(
     """Run the experiment for a given CDL package and outlier detection method.
 
     Args:
-        cdl_package (str): CDL package name: "wincdl", "alphacsc" or "sporco".
+        cdl_package (str): CDL package name: "rosecdl", "alphacsc" or "sporco".
         outlier_detection_method (str): Outlier detection method.
             A dictionary is expected with two keys:
                 - "name": name of the method. Can be one of "quantile", "iqr",
@@ -165,8 +165,8 @@ def run_one(
     zshape = (
         X.shape[0],
         X.shape[1],
-        X.shape[-2] - cdl_configs["wincdl"]["kernel_size"][0] + 1,
-        X.shape[-1] - cdl_configs["wincdl"]["kernel_size"][1] + 1,
+        X.shape[-2] - cdl_configs["rosecdl"]["kernel_size"][0] + 1,
+        X.shape[-1] - cdl_configs["rosecdl"]["kernel_size"][1] + 1,
     )
 
     if outlier_detection_timing == "before":
@@ -196,7 +196,7 @@ def run_one(
             #     info_contam["outliers_mask"].max(axis=1, keepdims=True), model, X
             # )
 
-        D_hat = model.D_hat_ if cdl_package == "wincdl" else model.D_hat
+        D_hat = model.D_hat_ if cdl_package == "rosecdl" else model.D_hat
         recovery_score = evaluate_D_hat(D_true, D_hat)
         results.append(
             {
@@ -212,14 +212,14 @@ def run_one(
         )
 
     # Run the experiment
-    if cdl_package == "wincdl":
+    if cdl_package == "rosecdl":
         D_init = np.random.randn(
-            cdl_configs["wincdl"]["n_components"],
-            cdl_configs["wincdl"]["n_channels"],
-            *cdl_configs["wincdl"]["kernel_size"],
+            cdl_configs["rosecdl"]["n_components"],
+            cdl_configs["rosecdl"]["n_channels"],
+            *cdl_configs["rosecdl"]["kernel_size"],
         )
 
-        cdl = WinCDL(
+        cdl = RoseCDL(
             **cdl_params,
             D_init=D_init,
             outliers_kwargs=outliers_kwargs,
@@ -298,10 +298,10 @@ if __name__ == "__main__":
     contamination_params = {}
 
     # Define base CDL parameters
-    # cdl_packages = ["wincdl", "sporco"]
-    cdl_packages = ["wincdl"]
+    # cdl_packages = ["rosecdl", "sporco"]
+    cdl_packages = ["rosecdl"]
     cdl_configs = {
-        "wincdl": {
+        "rosecdl": {
             "kernel_size": (35, 30),
             "n_channels": 1,
             "n_components": 6,
