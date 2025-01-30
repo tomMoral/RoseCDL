@@ -4,6 +4,27 @@ from scipy.signal.windows import tukey
 from rosecdl.utils.validation import check_random_state
 
 
+def _patch_reconstruction_error(X, z, D):
+    """Return the reconstruction error for each patches of size (P, L)."""
+    _, n_channels, _ = X.shape
+    *_, n_times_atom = get_D_shape(D, n_channels)
+
+    from .convolution import construct_X_multi
+
+    X_hat = construct_X_multi(z, D, n_channels=n_channels)
+
+    diff = (X - X_hat) ** 2
+    patch = np.ones(n_times_atom)
+
+    return np.sum(
+        [
+            [np.convolve(patch, diff_ip, mode="valid") for diff_ip in diff_i]
+            for diff_i in diff
+        ],
+        axis=1,
+    )
+
+
 def flip_uv(uv, n_channels):
     """Ensure the temporal pattern v peak is positive for each atom.
 
