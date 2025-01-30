@@ -26,7 +26,7 @@ def flip_uv(uv, n_channels):
 
 
 def get_uv(D):
-    """Project D on the space of rank 1 dictionaries
+    """Project D on the space of rank 1 dictionaries.
 
     Parameter
     ---------
@@ -50,3 +50,18 @@ def tukey_window(n_times_atom):
     window[-1] = 1e-9
     return window
     return window
+
+
+def squeeze_all_except_one(X, axis=0):
+    squeeze_axis = tuple(set(range(X.ndim)) - set([axis]))
+    return X.squeeze(axis=squeeze_axis)
+
+
+def prox_d(D, return_norm=False):
+    norm_d = np.maximum(1, np.linalg.norm(D, axis=(1, 2), keepdims=True))
+    D /= norm_d
+
+    if return_norm:
+        return D, squeeze_all_except_one(norm_d, axis=0)
+    else:
+        return D
