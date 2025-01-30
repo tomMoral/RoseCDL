@@ -16,5 +16,5 @@ pip install .
 If you’d like to contribute to `rosecdl`, you should also install additional packages for code formatting, testing, and experiment dependencies. To do this, replace the `pip install` command above with:
 
 ```bash
-pip install -e .[dev][experiments]
+pip install -e .[dev,experiments]
 ```

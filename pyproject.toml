@@ -39,7 +39,6 @@ dependencies = [
 
 experiments = [
     "benchopt",
-    "dripp",
     "joblib",
     "mne",
     "seaborn",
