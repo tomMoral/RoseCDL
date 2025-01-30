@@ -3,17 +3,71 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from alphacsc.init_dict import init_dictionary
-from alphacsc.update_d_multi import prox_d
-from alphacsc.utils.convolution import construct_X_multi
-from alphacsc.utils.dictionary import tukey_window
-from alphacsc.utils.signal import split_signal
-from alphacsc.utils.validation import check_random_state
+from scipy.signal.windows import tukey
 from scipy.stats import norm
 from tqdm import tqdm
 
+from rosecdl.utils.convolution import construct_X_multi
+from rosecdl.utils.dictionary import init_dictionary, prox_d, tukey_window
+from rosecdl.utils.validation import check_random_state
+
 from .utils_exp import sort_atoms, sort_list_D
 from .utils_simulated_waves import WaveFactory
+
+
+def split_signal(X, n_splits=1, apply_window=True):
+    """Split the signal in ``n_splits`` chunks for faster training.
+
+    This function can be used to accelerate the dictionary learning algorithm
+    by creating independent chunks that can be processed in parallel. This can
+    bias the estimation and can create border artifacts so the number of chunks
+    should be kept as small as possible (`e.g.` equal to ``n_jobs``).
+
+    Also, it is advised to not use the result of this function to
+    call the ``DictionaryLearning.transform`` method, as it would return an
+    approximate reduction of the original signal in the sparse basis.
+
+    Note that this is a lossy operation, as all chunks will have length
+    ``n_times // n_splits`` and the last ``n_times % n_splits`` samples are
+    discarded.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n_channels, n_times) or (1, n_channels, n_times)
+        Signal to be split. It should be a single signal.
+    n_splits : int (default: 1)
+        Number of splits to create from the original signal. Default is 1.
+    apply_window : bool (default: True)
+        If set to True (default), a tukey window is applied to each split to
+        reduce the border artifacts by reducing the weights of the chunk
+        borders.
+
+    Returns
+    -------
+    X_split: ndarray, shape (n_splits, n_channels, n_times // n_splits)
+        The signal splitted in ``n_splits``.
+    """
+    msg = "This splitting utility is only designed for one multivariate signal"
+    if X.ndim == 3:
+        assert (
+            X.shape[0] == 1
+        ), msg + "(1, n_channels, n_times. Found X.shape={}".format(X.shape)
+        X = X[0]
+    assert X.ndim == 2, msg + " (n_channels, n_times). Found X.ndim={}.".format(X.ndim)
+
+    n_splits = int(n_splits)
+    assert n_splits > 0, "The number of splits should be large than 0."
+
+    n_channels, n_times = X.shape
+    n_times = n_times // n_splits
+    X_split = X[:, : n_splits * n_times].copy()
+    X_split = X_split.reshape(n_channels, n_splits, n_times).swapaxes(0, 1)
+
+    # Apply a window to the signal to reduce the border artifacts
+    if apply_window:
+        X_split *= tukey(n_times, alpha=0.1)[None, None, :]
+
+    return X_split
 
 
 def generate_z(
@@ -25,13 +79,15 @@ def generate_z(
     method="uniform",
     **kwargs,
 ):
-    """Generate activation vectors for a given number of trials, atoms, and valid time points with specified sparsity.
+    """Generate activation vectors for a given (n_trials, n_atoms, support, sparsity).
 
-    An "activation vector" is a 3D array with shape (n_trials, n_atoms, n_times_valid). For each trial and atom, it specifies
-    the activation over a series of time points. The activation can be generated using one of several methods ('uniform', 'random',
-    'constant', 'gaussian'), and the sparsity of the activations can be controlled using the 'sparsity' parameter. If 'sparsity' is
-    an integer, it represents the number of activations per atom per trial. If it's a float, it represents the fraction of nonzero
-    entries in the activation vector.
+    An "activation vector" is a 3D array with shape (n_trials, n_atoms, n_times_valid).
+    For each trial and atom, it specifies the activation over a series of time points.
+    The activation can be generated using one of several methods ('uniform', 'random',
+    'constant', 'gaussian'), and the sparsity of the activations can be controlled
+    using the 'sparsity' parameter. If 'sparsity' is an integer, it represents the
+    number of activations per atom per trial. If it's a float, it represents the
+    fraction of nonzero entries in the activation vector.
 
     Parameters
     ----------
@@ -42,18 +98,23 @@ def generate_z(
     n_times_valid : int
         The number of valid time points.
     sparsity : int or float (default=0.01)
-        If an integer, the number of activations per atom per trial. If a float, the fraction of nonzero entries.
+        If an integer, the number of activations per atom per trial. If a float, the
+        fraction of nonzero entries.
     positive_only : bool, optional (default=False)
         If True, only positive activations are generated.
     method : str, optional (default='uniform')
-        The method to generate the activations. Either 'uniform', 'random', 'constant', or 'gaussian'.
+        The method to generate the activations. Either 'uniform', 'random', 'constant',
+        or 'gaussian'.
     **kwargs : dict
         Additional parameters for the methods.
-        A random state can be provided with the 'rng' key (default=np.random.RandomState()).
-        A seed can be provided with the 'seed' key (default=None). In that case, a random state will be created, erasing any provided 'rng'.
+        A random state can be provided with the 'rng' key
+        (default=np.random.RandomState()).
+        A seed can be provided with the 'seed' key (default=None). In that case, a
+        random state will be created, erasing any provided 'rng'.
         For 'uniform', 'low' and 'high' to specify the range (default: [0, 1])
         For 'constant', 'value' to specify the constant value (default=1).
-        For 'gaussian', 'mean' and 'std' to specify the parameters of the normal distribution (default: 0 and 1).
+        For 'gaussian', 'mean' and 'std' to specify the parameters of the normal
+        distribution (default: 0 and 1).
 
     Returns
     -------
@@ -62,12 +123,14 @@ def generate_z(
 
     Example
     -------
-    Generate activation vectors with 2 trials, 3 atoms, and 100 valid time points, using the 'uniform' method and a sparsity of 0.5:
+    Generate activation vectors with 2 trials, 3 atoms, and 100 valid time points,
+    using the 'uniform' method and a sparsity of 0.5:
 
         z = generate_z(2, 3, 100, 0.5, method='uniform', low=0, high=1)
 
-    This will generate a 3D array with shape (2, 3, 100), with half of the entries being zero and the others being random values
-    drawn from a uniform distribution between 0 and 1.
+    This will generate a 3D array with shape (2, 3, 100), with half of the entries
+    being zero and the others being random values drawn from a uniform distribution
+    between 0 and 1.
     """
     # Input validation
     if not isinstance(n_trials, int) or n_trials < 0:
@@ -81,18 +144,21 @@ def generate_z(
 
     if isinstance(sparsity, int):
         if sparsity < 0 or (n_times_valid > 0 and sparsity > n_times_valid):
-            raise ValueError(
-                f"If sparsity is an integer, it must be between 0 and n_times_valid, got {sparsity}."
+            msg = (
+                f"If sparsity is an integer, it must be between 0 and n_times_valid, "
+                f"got {sparsity}."
             )
+            raise ValueError(msg)
     elif isinstance(sparsity, float):
         if sparsity < 0 or sparsity > 1:
-            raise ValueError(
-                f"If sparsity is a float, it must be between 0 and 1, got {sparsity}."
-            )
+            msg = f"If sparsity is a float, it must be between 0 and 1, got {sparsity}."
+            raise ValueError(msg)
     else:
-        raise ValueError(
-            f"sparsity must be either a non-negative integer or a float between 0 and 1, got {sparsity}."
+        msg = (
+            f"sparsity must be either a non-negative integer or a float "
+            f"between 0 and 1, got {sparsity}."
         )
+        raise ValueError(msg)
 
     # Set random state from kwargs
     rng = kwargs.get("rng", np.random.RandomState())
@@ -111,11 +177,11 @@ def generate_z(
     elif method == "gaussian":
         values = rng.normal(kwargs.get("mean", 0), kwargs.get("std", 1), size=shape_z)
     else:
-        raise ValueError(
-            "Unknown method '{}', available methods are 'uniform', 'constant', and 'gaussian'.".format(
-                method
-            )
+        msg = (
+            f"Unknown method '{method}', available methods are 'uniform', f"
+            f"'constant', and 'gaussian'."
         )
+        raise ValueError(msg)
 
     # Create a mask array to control the sparsity of the activation vectors.
     if isinstance(sparsity, int) and sparsity >= 1:
@@ -129,11 +195,11 @@ def generate_z(
         # Generate activations with a fixed sparsity
         mask = np.random.uniform(size=shape_z) < sparsity
     else:
-        raise ValueError(
-            "Sparsity must be either an integer greater or equal to 1, or a float between 0 and 1. Got {}.".format(
-                sparsity
-            )
+        msg = (
+            f"Sparsity must be either an integer greater or equal to 1, or a float "
+            f"between 0 and 1. Got {sparsity}."
         )
+        raise ValueError(msg)
 
     z = values * mask
 
@@ -265,10 +331,13 @@ def generate_atoms(
         The length of each atom.
 
     method : str, optional (default='shapes')
-        The method to generate atoms. Either 'shapes', 'gaussian', 'random' or 'uniform'.
-        If 'shapes', atoms will be generated by cycling through a set of predefined wave shapes.
+        The method to generate atoms. Either 'shapes', 'gaussian', 'random',
+            or 'uniform'.
+        If 'shapes', atoms will be generated by cycling through a set of predefined
+            wave shapes.
         If 'gaussian', atoms will be generated from a Gaussian distribution.
-        If 'random', atoms will be generated from a uniform distribution between 0 and 1.
+        If 'random', atoms will be generated from a uniform distribution between
+            0 and 1.
         If 'uniform', atoms will be generated from a uniform distribution.
 
     positive_only : bool, optional (default=False)
@@ -280,8 +349,11 @@ def generate_atoms(
     **kwargs : dict
         Additional parameters for the generation method.
         A random state can be provided with the 'rng' key.
-        A seed can be provided with the 'seed' key. In that case, a random state will be created, erasing any provided 'rng'.
-        For the 'shapes' method, 'shapes' which is a list of wave types to cycle through. Available shapes are 'sin', 'square', 'sawtooth', 'gaussian' and 'triangle'.
+        A seed can be provided with the 'seed' key. In that case, a random state will
+            be created, erasing any provided 'rng'.
+        For the 'shapes' method, 'shapes' which is a list of wave types to cycle
+            through. Available shapes are 'sin', 'square', 'sawtooth', 'gaussian'
+            and 'triangle'.
         For the 'gaussian' method: 'mean' and 'std' (default 0 and 1).
         For the 'uniform' method: 'low' and 'high' (default 0 and 1).
 
@@ -321,7 +393,8 @@ def generate_atoms(
         )
         start_freq = kwargs.get("start_freq", 1)
         wf = WaveFactory(start_freq=start_freq, shapes=shapes)
-        # Generate the atoms using the WaveFactory class. This class generates atoms with different waveform shapes by cycling through them.
+        # Generate the atoms using the WaveFactory class. This class generates atoms
+        # with different waveform shapes by cycling through them.
         # Each time a shape is used, its frequency is increased.
         patterns = np.array(
             [
@@ -375,7 +448,7 @@ def generate_atoms(
 
 
 def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True):
-    """Plot one or more dictionaries, with the option of overlaying a ground truth dictionary.
+    """Plot one or more dictionaries.
 
     Parameters
     ----------
@@ -383,7 +456,8 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
         Dictionaries to be plotted. They should all have the same shape.
 
     D_true : np.array, default=None
-        Ground truth dictionary. If provided, it will be plotted with black dashed lines.
+        Ground truth dictionary. If provided, it will be plotted with black
+        dashed lines.
 
     labels : list of str, default=None
         List of labels corresponding to the dictionaries. If not provided,
@@ -531,7 +605,7 @@ def create_gif_from_dict_lists(
         if D_true is not None:
             D_ref = D_true
         else:
-            # If no reference is given, take the final dictionary of the first list as reference
+            # If no reference is given, take the final dictionary of the first list
             D_ref = array_Ds[0][-1]
 
         for this_list_D in array_Ds:
@@ -700,7 +774,8 @@ def validate_sparsity(sparsity, n_trials):
         return sparsity
     else:
         raise ValueError(
-            f"Sparsity must be either an integer greater or equal to 1, or a float between 0 and 1. Got {sparsity}."
+            f"Sparsity must be either an integer greater or equal to 1, or a float "
+            f"between 0 and 1. Got {sparsity}."
         )
 
 
@@ -831,7 +906,8 @@ def generate_experiment(
         - n_times_atom : int, Duration of each atom.
         - n_patterns_per_atom : int, Number of patterns per atom.
         - n_iter, solver_z_max_iter, solver_z_tol, reg : Various solver parameters.
-        - rng : Random number generator, instance of RandomState. Optional, default is None.
+        - rng : Random number generator, instance of RandomState.
+            Optional, default is None.
         - init_d
         - init_d_kwargs
         - sparsity

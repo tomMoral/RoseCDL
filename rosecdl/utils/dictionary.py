@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.signal.windows import tukey
 
+from rosecdl.utils.validation import check_random_state
+
 
 def flip_uv(uv, n_channels):
     """Ensure the temporal pattern v peak is positive for each atom.
@@ -44,6 +46,32 @@ def get_uv(D):
     return flip_uv(uv, n_channels)
 
 
+def prox_uv(uv, uv_constraint="joint", n_channels=None, return_norm=False):
+    if uv_constraint == "joint":
+        norm_uv = np.maximum(1, np.linalg.norm(uv, axis=1, keepdims=True))
+        uv /= norm_uv
+
+    elif uv_constraint == "separate":
+        assert n_channels is not None
+        norm_u = np.maximum(
+            1, np.linalg.norm(uv[:, :n_channels], axis=1, keepdims=True)
+        )
+        norm_v = np.maximum(
+            1, np.linalg.norm(uv[:, n_channels:], axis=1, keepdims=True)
+        )
+
+        uv[:, :n_channels] /= norm_u
+        uv[:, n_channels:] /= norm_v
+        norm_uv = norm_u * norm_v
+    else:
+        raise ValueError("Unknown uv_constraint: %s." % (uv_constraint,))
+
+    if return_norm:
+        return uv, squeeze_all_except_one(norm_uv, axis=0)
+    else:
+        return uv
+
+
 def tukey_window(n_times_atom):
     window = tukey(n_times_atom)
     window[0] = 1e-9
@@ -65,3 +93,104 @@ def prox_d(D, return_norm=False):
         return D, squeeze_all_except_one(norm_d, axis=0)
     else:
         return D
+
+
+def get_D_shape(D, n_channels):
+    if D.ndim == 2:
+        n_times_atom = D.shape[1] - n_channels
+    else:
+        if n_channels is None:
+            n_channels = D.shape[1]
+        else:
+            assert (
+                n_channels == D.shape[1]
+            ), f"n_channels does not match D.shape: {D.shape}"
+        n_times_atom = D.shape[2]
+
+    return (D.shape[0], n_channels, n_times_atom)
+
+
+def init_dictionary(
+    X,
+    n_atoms,
+    n_times_atom,
+    uv_constraint="separate",
+    rank1=True,
+    window=False,
+    D_init=None,
+    random_state=None,
+):
+    """Return an initial dictionary for the signals X.
+
+    Parameter
+    ---------
+    X: array, shape(n_trials, n_channels, n_times)
+        The data on which to perform CSC.
+    n_atoms: int
+        The number of atoms to learn.
+    n_times_atom: int
+        The support of the atom.
+    uv_constraint: str in {'joint' | 'separate'}
+        The kind of norm constraint on the atoms:
+        If 'joint', the constraint is norm_2([u, v]) <= 1
+        If 'separate', the constraint is norm_2(u) <= 1 and norm_2(v) <= 1
+    rank1: boolean
+        If set to True, use a rank 1 dictionary.
+    window: boolean
+        If True, multiply the atoms with a temporal Tukey window.
+    D_init: array or {'chunk' | 'random'}
+        The initialization scheme for the dictionary or the initial
+        atoms. The shape should match the required dictionary shape, ie if
+        rank1 is True, (n_atoms, n_channels + n_times_atom) and else
+        (n_atoms, n_channels, n_times_atom)
+    random_state: int | None
+        The random state.
+
+    Return
+    ------
+    D: array shape(n_atoms, n_channels + n_times_atom) or
+              shape(n_atoms, n_channels, n_times_atom)
+        The initial atoms to learn from the data.
+    """
+    n_trials, n_channels, n_times = X.shape
+    rng = check_random_state(random_state)
+
+    D_shape = (n_atoms, n_channels, n_times_atom)
+    if rank1:
+        D_shape = (n_atoms, n_channels + n_times_atom)
+
+    if isinstance(D_init, np.ndarray):
+        D_hat = D_init.copy()
+        assert D_hat.shape == D_shape
+
+    elif D_init is None or D_init == "random":
+        D_hat = rng.randn(*D_shape)
+
+    elif D_init == "chunk":
+        D_hat = np.zeros((n_atoms, n_channels, n_times_atom))
+        for i_atom in range(n_atoms):
+            i_trial = rng.randint(n_trials)
+            t0 = rng.randint(n_times - n_times_atom)
+            D_hat[i_atom] = X[i_trial, :, t0 : t0 + n_times_atom].copy()
+        if rank1:
+            D_hat = get_uv(D_hat)
+
+    elif D_init == "greedy":
+        raise NotImplementedError()
+
+    else:
+        raise NotImplementedError(
+            "It is not possible to initialize uv with" " parameter {}.".format(D_init)
+        )
+
+    if window and not isinstance(D_init, np.ndarray):
+        if rank1:
+            D_hat[:, n_channels:] *= tukey_window(n_times_atom)[None, :]
+        else:
+            D_hat = D_hat * tukey_window(n_times_atom)[None, None, :]
+
+    if rank1:
+        D_hat = prox_uv(D_hat, uv_constraint=uv_constraint, n_channels=n_channels)
+    else:
+        D_hat = prox_d(D_hat)
+    return D_hat
