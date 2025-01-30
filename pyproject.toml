@@ -25,11 +25,8 @@ dependencies = [
     "matplotlib",
     "numpy",
     "pandas",
-    "pytest",
-    "ruff",
     "scipy",
     "scikit-learn",
-    "sporco",
     "torch",
     "tqdm",
     "wfdb",
@@ -43,6 +40,12 @@ experiments = [
     "joblib",
     "mne",
     "seaborn",
+    "sporco",
+]
+
+dev = [
+    "pytest",
+    "ruff",
 ]
 
 [tool.ruff]
