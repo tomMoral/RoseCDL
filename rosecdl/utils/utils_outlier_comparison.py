@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+
 from rosecdl.loss import LassoLoss, OutlierLoss
 
 

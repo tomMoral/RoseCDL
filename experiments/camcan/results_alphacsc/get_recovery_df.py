@@ -1,11 +1,11 @@
 # %%
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
+from alphacsc.init_dict import init_dictionary
 from joblib import Parallel, delayed
 from tqdm import tqdm
-
-from alphacsc.init_dict import init_dictionary
 
 from experiments.scripts.utils import get_subject_z_and_cost
 

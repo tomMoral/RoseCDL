@@ -7,6 +7,7 @@ from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils.dictionary import get_lambda_max
 from joblib import Parallel, delayed
 from mne_bids import BIDSPath, read_raw_bids
+
 from rosecdl.rosecdl import RoseCDL
 
 DEVICE = "cuda:1"

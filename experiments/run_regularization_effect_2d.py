@@ -8,10 +8,11 @@ import numpy as np
 import pandas as pd
 import torch
 from joblib import Memory, Parallel, delayed
+from tqdm import tqdm
+
 from rosecdl.datasets import create_dataloader
 from rosecdl.rosecdl import RoseCDL
 from rosecdl.utils.utils_exp import evaluate_D_hat
-from tqdm import tqdm
 
 mem = Memory(location="__cache__", verbose=0)
 EXP_DIR = Path("results") / "run_regularization_effect_2d"

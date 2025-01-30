@@ -14,11 +14,12 @@ from alphacsc.loss_and_gradient import compute_X_and_objective_multi
 from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils.dictionary import get_lambda_max
 from joblib import Memory, Parallel, delayed
+from torch import cuda
+from tqdm import tqdm
+
 from rosecdl.rosecdl import RoseCDL
 from rosecdl.utils.utils_exp import evaluate_D_hat
 from rosecdl.utils.utils_signal import generate_experiment
-from torch import cuda
-from tqdm import tqdm
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -278,4 +279,5 @@ if __name__ == "__main__":
     plt.yscale("log")
     plt.legend()
     plt.savefig(exp_dir / "loss_true.png")
+    plt.show()
     plt.show()

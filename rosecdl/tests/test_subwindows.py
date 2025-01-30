@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from rosecdl.datasets.subwindow_dataset import SubwindowsDataset
 
 

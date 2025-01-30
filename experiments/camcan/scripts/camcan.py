@@ -11,18 +11,15 @@ https://bmcneurol.biomedcentral.com/articles/10.1186/s12883-014-0204-1
 """
 
 import os
-from os.path import join
 from copy import deepcopy
+from os.path import join
 
 import mne
 import numpy as np
 import pandas as pd
-from joblib import Memory
-
-from mne_bids import BIDSPath, read_raw_bids
-
 from alphacsc.utils.signal import split_signal
-
+from joblib import Memory
+from mne_bids import BIDSPath, read_raw_bids
 
 mem = Memory(location=".", verbose=0)
 

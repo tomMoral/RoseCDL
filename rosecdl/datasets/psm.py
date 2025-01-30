@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import pandas as pd
 import requests
-from pathlib import Path
 
 URL_XTRAIN = (
     "https://drive.google.com/uc?&id=1d3tAbYTj0CZLhB7z3IDTfTRg3E7qj_tw"

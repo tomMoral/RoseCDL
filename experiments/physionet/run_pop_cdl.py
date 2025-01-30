@@ -2,9 +2,10 @@
 import argparse
 
 import numpy as np
+from utils_apnea import plot_temporal_atoms
+
 from rosecdl.datasets import create_physionet_dataloader
 from rosecdl.rosecdl import RoseCDL
-from utils_apnea import plot_temporal_atoms
 
 # %%
 

@@ -10,12 +10,13 @@ import numpy as np
 import pandas as pd
 from alphacsc import BatchCDL
 from joblib import Memory, Parallel, delayed
+from torch import cuda
+from tqdm import tqdm
+
 from rosecdl.rosecdl import RoseCDL
 from rosecdl.utils.utils_exp import evaluate_D_hat, get_outliers_metric, plot_dicts
 from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 from rosecdl.utils.utils_signal import generate_experiment
-from torch import cuda
-from tqdm import tqdm
 
 mem = Memory(location="__cache__", verbose=0)
 

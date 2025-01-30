@@ -1,8 +1,8 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-from pathlib import Path
 import sys
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import pandas as pd
 
 if __name__ == "__main__":
     import argparse

@@ -46,9 +46,15 @@ experiments = [
 ]
 
 dev = [
+    "isort",
     "pytest",
     "ruff",
 ]
+
+[tool.isort]
+
+line_length = 88
+multi_line_output = 3
 
 [tool.ruff]
 

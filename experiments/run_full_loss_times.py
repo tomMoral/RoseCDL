@@ -8,12 +8,13 @@ from alphacsc.loss_and_gradient import compute_objective
 from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils.convolution import construct_X_multi
 from joblib import Memory, Parallel, delayed
-from rosecdl.rosecdl import RoseCDL
-from rosecdl.utils.utils_exp import plot_dicts
-from rosecdl.utils.utils_signal import generate_experiment
 from sporco.dictlrn import cbpdndl
 from torch import cuda
 from tqdm import tqdm
+
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import plot_dicts
+from rosecdl.utils.utils_signal import generate_experiment
 
 mem = Memory(location="__cache__", verbose=0)
 

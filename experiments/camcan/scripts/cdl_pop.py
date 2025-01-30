@@ -5,20 +5,19 @@ their age category (and from the other catagories), compared to the one obtained
 with their own dict.
 """
 
+import pickle
+from pathlib import Path
+
 # %%
 import numpy as np
 import pandas as pd
-import pickle
-from pathlib import Path
 from joblib import Parallel, delayed
 
-
 from experiments.scripts.utils import (
-    get_lambda_global,
     get_D_sub,
-    get_subject_z_and_cost,
+    get_lambda_global,
+    get_subject_z_and_cost
 )
-
 
 BASE_PATH = Path("/storage/store2/work/bmalezie")
 DICT_PATH = BASE_PATH / "cdl-population/results/camcan"

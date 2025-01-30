@@ -7,6 +7,7 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 with safe_import_context() as import_ctx:
     from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
     from alphacsc.online_dictionary_learning import OnlineCDL
+
     from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
     ALGORITHMS = {

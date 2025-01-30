@@ -1,10 +1,10 @@
 # %%
-import pandas as pd
-from pathlib import Path
 import argparse
+from pathlib import Path
 
-import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

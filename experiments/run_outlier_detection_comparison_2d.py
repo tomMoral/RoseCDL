@@ -3,20 +3,16 @@ using the RoseCDL algorithm on 2D image data.
 """
 
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from joblib import Memory, Parallel, delayed
 from torch import cuda
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from joblib import Parallel, delayed
-from joblib import Memory
 
-from rosecdl.utils.utils_exp import (
-    evaluate_D_hat,
-    get_method_name,
-    get_outliers_metric,
-)
 from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat, get_method_name, get_outliers_metric
 from rosecdl.utils.utils_outliers import add_outliers_2d
 
 mem = Memory(location="__cache__", verbose=0)

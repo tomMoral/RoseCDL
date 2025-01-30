@@ -1,8 +1,8 @@
+import argparse
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import argparse
-
 from utils_apnea import plot_multi_subject_temporal_atoms
 
 parser = argparse.ArgumentParser()

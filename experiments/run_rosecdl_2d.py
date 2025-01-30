@@ -6,9 +6,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from torch import cuda
+
 from rosecdl.rosecdl import RoseCDL
 from rosecdl.utils.utils_exp import evaluate_D_hat
-from torch import cuda
 
 EXP_DIR = Path("results")
 EXP_DIR.mkdir(exist_ok=True, parents=True)

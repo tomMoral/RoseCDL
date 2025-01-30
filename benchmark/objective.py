@@ -11,6 +11,7 @@ with safe_import_context() as import_ctx:
     from alphacsc.update_z_multi import update_z_multi
     from alphacsc.utils.convolution import construct_X_multi
     from alphacsc.utils.dictionary import get_lambda_max
+
     from rosecdl.utils.utils_exp import evaluate_D_hat
 
 
