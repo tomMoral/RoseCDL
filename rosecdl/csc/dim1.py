@@ -118,7 +118,7 @@ class Rank1CSC1d(CSC1d):
                 dtype=self.dtype,
                 device=self.device,
             )
-        return torch.tensor(D_init, dtype=self.dtype, device=self.device)
+        return D_init.clone().detach().to(self.dtype).to(self.device)
 
     def init_D(self, D_init):
         """Initialize dictionary and normalize its atoms.

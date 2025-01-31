@@ -86,3 +86,22 @@ class TestRank1CSC1d(TestCSC1d):
                 assert type(csc.generator.seed()) is int
                 continue
             assert getattr(csc, k) == v
+
+    def test_rescale(self):
+        base_config = self.get_base_config()
+
+        n_components = base_config["n_components"]
+        n_channels = base_config["n_channels"]
+        atom_length = 10
+
+        base_config["D_init"] = torch.ones((n_components, n_channels + atom_length))
+        csc = Rank1CSC1d(**base_config, kernel_size=(atom_length,))
+
+        csc.state_dict()["u"] *= 2
+        csc.state_dict()["v"] *= 2
+        assert torch.linalg.vector_norm(csc.u, dim=(1, 2), keepdim=True).max() > 1
+        assert torch.linalg.vector_norm(csc.v, dim=(1, 2), keepdim=True).max() > 1
+
+        csc.rescale()
+        assert torch.linalg.vector_norm(csc.u, dim=(1, 2), keepdim=True).max() <= 1
+        assert torch.linalg.vector_norm(csc.v, dim=(1, 2), keepdim=True).max() <= 1
