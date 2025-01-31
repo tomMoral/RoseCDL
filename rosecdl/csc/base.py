@@ -29,6 +29,7 @@ class ConvolutionalSparseCoder(nn.Module):
         device=None,
         dtype=None,
     ):
+        super().__init__()
         self.n_components = n_components
         self.n_channels = n_channels
         self.kernel_size = kernel_size
