@@ -19,7 +19,7 @@ class ConvolutionalSparseCoder(nn.Module):
         self,
         lmbd: float,
         n_components: int,
-        kernel_size: int,
+        kernel_size: tuple,
         n_channels: int,
         D_init: torch.Tensor | None = None,
         window: bool = False,

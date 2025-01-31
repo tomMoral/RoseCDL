@@ -7,23 +7,43 @@ from rosecdl.utils.dictionary import get_uv
 
 
 class CSC1d(ConvolutionalSparseCoder):
+    """Convolutional Sparse (en)Coder for 1D signals."""
+
     def __init__(
         self,
-        lmbd,
-        n_components=None,
-        kernel_size=None,
-        n_channels=None,
-        D_init=None,
-        window=False,
-        positive_D=False,
-        positive_z=True,
-        n_iterations=30,
-        deepcdl=False,
-        random_state=None,
-        device=None,
-        dtype=None,
+        lmbd: float,
+        n_components: int,
+        kernel_size: tuple[int],
+        n_channels: int,
+        D_init: torch.Tensor | None = None,
+        window: bool = False,
+        positive_D: bool = False,
+        positive_z: bool = True,
+        n_iterations: int = 30,
+        deepcdl: bool = False,
+        random_state: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ):
+        """Initialize the object.
 
+        Args:
+            lmbd: regularization parameter,
+            n_components: number of atoms in the dictionary,
+            kernel_size: support of the atoms (tuple of lenght n for n-dim signals),
+            n_channels: number of channels in the signal,
+            D_init: optional initial dictionary,
+            window: whether a tukey window should be applied to the atoms,
+            positive_D: whether to impose the atoms to have positive values,
+            positive_z: whether to impose the the activation vectors
+                to have positive values,
+            n_iterations: number of approximate sparse coding iteration,
+            deepcdl: True if unrolled sparse coding, else False,
+            random_state: seed for dictionary initialization and atom resampling,
+            device: device where the parameters are stored,
+            dtype: data type of the parameters.
+
+        """
         super().__init__(
             lmbd=lmbd,
             n_components=n_components,
@@ -84,6 +104,8 @@ class CSC1d(ConvolutionalSparseCoder):
 
 
 class Rank1CSC1d(CSC1d):
+    """1D Convolutional Sparse (en)Coder with rank-1 constraint."""
+
     rank1 = True
 
     @property
