@@ -144,7 +144,7 @@ class RoseCDL(torch.nn.Module):
             )
 
         # CSC solver
-        csc_factory(
+        self.csc = csc_factory(
             lmbd=lmbd,
             n_components=n_components,
             kernel_size=kernel_size,
