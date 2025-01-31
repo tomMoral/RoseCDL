@@ -130,9 +130,7 @@ class CSC1d(nn.Module):
         return get_uv(self.D_hat_)
 
     def rescale(self):
-        """
-        Constrains the dictionary to have normalized atoms
-        """
+        """Constrains the dictionary to have normalized atoms."""
         with torch.no_grad():
             if self.rank1:
                 if self.positive_D:
@@ -172,7 +170,7 @@ class CSC1d(nn.Module):
                 return norm_atoms
 
     def _resample_atom(self, k0):
-        """Resample an atom if it is not used enough"""
+        """Resample an atom if it is not used enough."""
 
         # XXX: better resample?
         D_temp = torch.rand(
@@ -208,9 +206,7 @@ class CSC1d(nn.Module):
                 print(f"Resampled atom {k0}")
 
     def compute_lipschitz(self):
-        """
-        Compute the Lipschitz constant using the FFT
-        """
+        """Compute the Lipschitz constant using the FFT."""
         with torch.no_grad():
             fourier_dico = fft.fft(self.get_D(), dim=2)
             lipschitz = (
@@ -233,8 +229,7 @@ class CSC1d(nn.Module):
         )
 
     def forward(self, x, D=None):
-        """
-        (F)ISTA-like forward pass
+        """(F)ISTA-like forward pass.
 
         Parameters
         ----------
@@ -270,7 +265,7 @@ class CSC1d(nn.Module):
         return self.convt(z_hat, D), z_hat
 
     def fista(self, zO, x, D, lmbd, L, n_iter):
-        """
+        """FISTA algorithm.
 
         Parameters
         ----------
@@ -339,9 +334,7 @@ class CSC2d(CSC1d):
         self.convt = F.conv_transpose2d
 
     def rescale(self):
-        """
-        Constrains the dictionary to have normalized atoms
-        """
+        """Constrains the dictionary to have normalized atoms."""
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as _D_hat is a nn.Parameter
@@ -354,9 +347,7 @@ class CSC2d(CSC1d):
             return norm_atoms
 
     def compute_lipschitz(self):
-        """
-        Compute the Lipschitz constant using the FFT
-        """
+        """Compute the Lipschitz constant using the FFT."""
         with torch.no_grad():
             fourier_dico = fft.fftn(self._D_hat, dim=(1, 2, 3))
             lipschitz = (
