@@ -42,3 +42,26 @@ class TestCSC2d:
                 assert type(csc.generator.seed()) is int
                 continue
             assert getattr(csc, k) == v
+
+    def test_rescale(self):
+        base_config = self.get_base_config()
+
+        n_components = base_config["n_components"]
+        n_channels = base_config["n_channels"]
+        kernel_size = (10, 10)
+
+        base_config["D_init"] = torch.ones((n_components, n_channels, *kernel_size))
+        csc = CSC2d(**base_config, kernel_size=kernel_size)
+
+        epsilon = 1e-10
+
+        csc.state_dict()["_D_hat"] *= 2
+        assert (
+            torch.linalg.vector_norm(csc._D_hat, dim=(1, 2, 3), keepdim=True).max()
+            > 1 + epsilon
+        )
+        csc.rescale()
+        assert (
+            torch.linalg.vector_norm(csc._D_hat, dim=(1, 2, 3), keepdim=True).max()
+            <= 1 + epsilon
+        )
