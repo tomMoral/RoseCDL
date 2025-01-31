@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 from rosecdl.csc.dim2 import CSC2d
@@ -65,3 +66,18 @@ class TestCSC2d:
             torch.linalg.vector_norm(csc._D_hat, dim=(1, 2, 3), keepdim=True).max()
             <= 1 + epsilon
         )
+
+    def test_compute_lipschitz(self):
+        base_config = self.get_base_config()
+
+        n_components = base_config["n_components"]
+        n_channels = base_config["n_channels"]
+        kernel_size = (10, 10)
+
+        d_init = torch.zeros((n_components, n_channels, *kernel_size))
+        d_init[:, :, 0, 0] = 1
+        base_config["D_init"] = d_init
+
+        csc = CSC2d(**base_config, kernel_size=kernel_size)
+
+        assert np.allclose(csc.compute_lipschitz(), n_channels * n_components)
