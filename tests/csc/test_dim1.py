@@ -27,7 +27,11 @@ class TestCSC1d:
         csc = CSC1d(**base_config, kernel_size=(10,))
         for k, v in base_config.items():
             if k == "D_init":
-                assert csc._D_hat.shape == 0
+                assert csc._D_hat.shape == (
+                    base_config["n_components"],
+                    base_config["n_channels"],
+                    10,
+                )
                 continue
             if k == "window":
                 assert csc.do_window == v
