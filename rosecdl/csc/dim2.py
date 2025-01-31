@@ -52,8 +52,17 @@ class CSC2d(ConvolutionalSparseCoder):
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
 
-    def compute_lipschitz(self):
-        """Compute the Lipschitz constant using the FFT."""
+    def compute_lipschitz(self) -> float:
+        r"""Compute the Lipschitz constant of the gradient w.r.t. z.
+
+        This gradient writes as:
+        \begin{equation}
+            \nabla_{z} F = D^{\Lsh} * (D * z - X),
+        \end{equation}
+        where $D^{\Lsh}$ (a.k.a. "$D$ reverse") is obtained by reverting
+        the values of $D$ along all its axes. See more in Cédric's PhD thesis,
+        Appendix B.
+        """
         with torch.no_grad():
             fourier_dico = fft.fftn(self._D_hat, dim=(1, 2, 3))
             lipschitz = (

@@ -98,8 +98,17 @@ class ConvolutionalSparseCoder(nn.Module):
         """Normalize the atoms of the dictionary."""
 
     @abstractmethod
-    def compute_lipschitz(self):
-        pass
+    def compute_lipschitz(self) -> float:
+        r"""Compute the Lipschitz constant of the gradient w.r.t. z.
+
+        This gradient writes as:
+        \begin{equation}
+            \nabla_{z} F = D^{\Lsh} * (D * z - X),
+        \end{equation}
+        where $D^{\Lsh}$ (a.k.a. "$D$ reverse") is obtained by reverting
+        the values of $D$ along all its axes. See more in Cédric's PhD thesis,
+        Appendix B.
+        """
 
     def init_unnormalized_D(self, D_init):
         if D_init is None or (isinstance(D_init, str) and D_init == "random"):
