@@ -11,6 +11,8 @@ from rosecdl.utils.utils import get_torch_generator
 
 
 class ConvolutionalSparseCoder(nn.Module):
+    rank1 = False
+
     def __init__(
         self,
         lmbd,
@@ -18,7 +20,6 @@ class ConvolutionalSparseCoder(nn.Module):
         kernel_size=None,
         n_channels=None,
         D_init=None,
-        rank1=False,
         window=False,
         positive_D=False,
         positive_z=True,
@@ -62,9 +63,6 @@ class ConvolutionalSparseCoder(nn.Module):
         )
         self.grad_loss = lambda x, z, D: self.conv((self.convt(z, D) - x), D)
 
-        # Rank
-        self.rank1 = rank1
-
         self.init_D(D_init)
 
         # Collect usage statistics for the dictionary elements
@@ -81,31 +79,21 @@ class ConvolutionalSparseCoder(nn.Module):
     def compute_lipschitz(self):
         pass
 
-    def init_D(self, D_init):
-        # Initialisation
+    def init_unnormalized_D(self, D_init):
         if D_init is None or (isinstance(D_init, str) and D_init == "random"):
-            D_hat = torch.randn(
+            return torch.randn(
                 (self.n_components, self.n_channels, *self.kernel_size),
                 generator=self.generator,
                 dtype=self.dtype,
                 device=self.device,
             )
-        else:
-            D_hat = torch.tensor(D_init, dtype=self.dtype, device=self.device)
+        return torch.tensor(D_init, dtype=self.dtype, device=self.device)
 
-        if self.rank1:
-            u = D_hat[:, : self.n_channels][:, :, None]
-            v = D_hat[:, self.n_channels :][:, None, :]
-
-            self.u = nn.Parameter(torch.tensor(u, dtype=self.dtype, device=self.device))
-
-            self.v = nn.Parameter(torch.tensor(v, dtype=self.dtype, device=self.device))
-
-        else:
-            self._D_hat = nn.Parameter(
-                D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
-            )
-
+    def init_D(self, D_init):
+        D_hat = self.init_unnormalized_D(D_init)
+        self._D_hat = nn.Parameter(
+            D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
+        )
         self.rescale()
 
     def reset_usage_statistics(self):
