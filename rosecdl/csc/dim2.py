@@ -41,7 +41,7 @@ class CSC2d(ConvolutionalSparseCoder):
         self.convt = F.conv_transpose2d
 
     def rescale(self):
-        """Constrains the dictionary to have normalized atoms."""
+        """Renormalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as _D_hat is a nn.Parameter
