@@ -2,9 +2,8 @@ from contextlib import nullcontext
 
 import numpy as np
 import torch
-import torch.fft as fft
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import fft, nn
 
 from rosecdl.utils.dictionary import get_uv, tukey_window
 from rosecdl.utils.utils import get_torch_generator
