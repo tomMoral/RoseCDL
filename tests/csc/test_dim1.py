@@ -1,6 +1,6 @@
 import torch
 
-from rosecdl.csc.dim1 import CSC1d
+from rosecdl.csc.dim1 import CSC1d, Rank1CSC1d
 
 
 class TestCSC1d:
@@ -28,6 +28,35 @@ class TestCSC1d:
         for k, v in base_config.items():
             if k == "D_init":
                 assert csc._D_hat.shape == (
+                    base_config["n_components"],
+                    base_config["n_channels"],
+                    10,
+                )
+                continue
+            if k == "window":
+                assert csc.do_window == v
+                assert csc.window is None
+                continue
+            if k == "random_state":
+                assert type(csc.generator.seed()) is int
+                continue
+            assert getattr(csc, k) == v
+
+
+class TestRank1CSC1d(TestCSC1d):
+
+    def test_init(self):
+        base_config = self.get_base_config()
+        csc = Rank1CSC1d(**base_config, kernel_size=(10,))
+        for k, v in base_config.items():
+            if k == "D_init":
+                assert csc.u.shape == (
+                    base_config["n_components"],
+                    base_config["n_channels"],
+                    1,
+                )
+                assert csc.v.shape == (base_config["n_components"], 1, 10)
+                assert csc.D_hat_.shape == (
                     base_config["n_components"],
                     base_config["n_channels"],
                     10,
