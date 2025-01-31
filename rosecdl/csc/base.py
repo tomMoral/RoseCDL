@@ -34,19 +34,20 @@ class ConvolutionalSparseCoder(nn.Module):
         """Initialize the object.
 
         Args:
-            lmbd: regularization parameters
+            lmbd: regularization parameter,
             n_components: number of atoms in the dictionary,
             kernel_size: support of the atoms (tuple of lenght n for n-dim signals),
             n_channels: number of channels in the signal,
             D_init: optional initial dictionary,
             window: whether a tukey window should be applied to the atoms,
             positive_D: whether to impose the atoms to have positive values,
-            positive_z: whether to impose the ,
-            n_iterations: int = 30,
-            deepcdl: bool = False,
-            random_state: int | None = None,
-            device: torch.device | None = None,
-            dtype: torch.dtype | None = None,
+            positive_z: whether to impose the the activation vectors
+                to have positive values,
+            n_iterations: number of approximate sparse coding iteration,
+            deepcdl: True if unrolled sparse coding, else False,
+            random_state: seed for dictionary initialization and atom resampling,
+            device: device where the parameters are stored,
+            dtype: data type of the parameters.
 
         """
         super().__init__()
