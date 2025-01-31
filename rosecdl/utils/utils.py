@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from alphacsc.utils.dictionary import _patch_reconstruction_error, get_D_shape, get_uv
+
+from rosecdl.utils.dictionary import _patch_reconstruction_error, get_D_shape, get_uv
 
 
 def get_torch_generator(seed=None, device=None):

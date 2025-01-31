@@ -5,9 +5,9 @@ import torch
 import torch.fft as fft
 import torch.nn as nn
 import torch.nn.functional as F
-from alphacsc.utils.dictionary import get_uv, tukey_window
 
-from .utils.utils import get_torch_generator
+from rosecdl.utils.dictionary import get_uv, tukey_window
+from rosecdl.utils.utils import get_torch_generator
 
 
 class CSC1d(nn.Module):
@@ -61,8 +61,8 @@ class CSC1d(nn.Module):
         self.convt = F.conv_transpose1d
 
         # FISTA operators
-        self.prox = (
-            lambda x, lmbd: F.relu(x - lmbd)
+        self.prox = lambda x, lmbd: (
+            F.relu(x - lmbd)
             if self.positive_z
             else lambda x, lmbd: x - F.clip(x, -lmbd, lmbd)
         )

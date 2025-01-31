@@ -4,8 +4,9 @@ import string
 
 import matplotlib.pyplot as plt
 import numpy as np
-from alphacsc.update_d_multi import prox_d
-from alphacsc.utils.validation import check_random_state
+
+from rosecdl.utils.dictionary import prox_d
+from rosecdl.utils.validation import check_random_state
 
 DATA_HOME = pathlib.Path("data")
 DATA_HOME.mkdir(exist_ok=True)
@@ -45,7 +46,7 @@ CONVERT_CMD = """convert \
 
 
 def convert_str_to_png(text, margin=12):
-    """Returns the image associated to a string of characters.
+    """Return the image associated to a string of characters.
 
     Parameters
     ----------
@@ -86,7 +87,6 @@ def get_centered_padding(shape, expected_shape):
     padding: list
         padding necessary for original array to have the `expected_shape`.
     """
-
     padding = []
     for s, es in zip(shape, expected_shape):
         pad = es - s
@@ -117,7 +117,6 @@ def generate_text(n_atoms=5, text_length=3000, n_spaces=3, random_state=None):
     D: ndarray, shape (n_atoms, *atom_support)
         Images of the characters used to generate the image `X`.
     """
-
     if random_state == "ICML":
         rng = check_random_state(0)
         D_char = np.array(list("ICML" + " " * n_spaces))

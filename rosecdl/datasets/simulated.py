@@ -1,9 +1,10 @@
 import numpy as np
-from alphacsc.utils.convolution import construct_X
-from alphacsc.utils.dictionary import tukey_window
-from alphacsc.utils.validation import check_random_state
 from scipy.signal.windows import tukey
 from scipy.stats import norm
+
+from rosecdl.utils.convolution import construct_X
+from rosecdl.utils.dictionary import tukey_window
+from rosecdl.utils.validation import check_random_state
 
 
 def simulate_1d(
@@ -76,9 +77,9 @@ def simulate_1d(
         n_atoms, n_times_atom = ds.shape
 
     # Validate number of atoms
-    assert n_atoms <= ds.shape[0], (
-        f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
-    )
+    assert (
+        n_atoms <= ds.shape[0]
+    ), f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
     n_times_atom == ds.shape[1]
 
     # Randomly select subset of atoms if needed
