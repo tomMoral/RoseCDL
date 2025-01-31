@@ -3,9 +3,9 @@ import warnings
 import numpy as np
 import torch
 
+from rosecdl.csc import CSC1d, CSC2d
 from rosecdl.datasets import create_dataloader
 from rosecdl.loss import LassoLoss, OutlierLoss
-from rosecdl.model import CSC1d, CSC2d
 from rosecdl.optimizer import SLS
 from rosecdl.train import train
 
