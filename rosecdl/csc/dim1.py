@@ -104,6 +104,12 @@ class Rank1CSC1d(CSC1d):
             self.u /= norm_col_u
             return norm_col_v, norm_col_u
 
+    def get_D(self):
+        D = self.u * self.v
+        if self.do_window:
+            return D * self.window
+        return D
+
     def init_D(self, D_init):
         D_hat = self.init_unnormalized_D(D_init)
 

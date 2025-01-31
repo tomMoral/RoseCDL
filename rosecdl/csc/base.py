@@ -103,14 +103,10 @@ class ConvolutionalSparseCoder(nn.Module):
         self._processed_samples = 0
 
     def get_D(self):
-        if self.rank1:
-            D = self.u * self.v
-        else:
-            D = self._D_hat
+        D = self._D_hat
         if self.do_window:
             return D * self.window
-        else:
-            return D
+        return D
 
     @property
     def D_hat_(self):
