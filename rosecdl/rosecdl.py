@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import torch
 
-from rosecdl.csc import CSC1d, CSC2d
+from rosecdl.csc.factory import csc_factory
 from rosecdl.datasets import create_dataloader
 from rosecdl.loss import LassoLoss, OutlierLoss
 from rosecdl.optimizer import SLS
@@ -144,9 +144,7 @@ class RoseCDL(torch.nn.Module):
             )
 
         # CSC solver
-        csc_class = CSC1d if self.dimN == 1 else CSC2d
-
-        self.csc = csc_class(
+        csc_factory(
             lmbd=lmbd,
             n_components=n_components,
             kernel_size=kernel_size,
