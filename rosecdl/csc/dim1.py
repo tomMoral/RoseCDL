@@ -42,7 +42,7 @@ class CSC1d(ConvolutionalSparseCoder):
         self.conv = F.conv1d
         self.convt = F.conv_transpose1d
 
-    def rescale(self) -> None:
+    def normalize_atoms(self) -> None:
         """Renormalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
@@ -81,7 +81,7 @@ class Rank1CSC1d(CSC1d):
     def uv_hat_(self):
         return get_uv(self.D_hat_)
 
-    def rescale(self) -> None:
+    def normalize_atoms(self) -> None:
         """Renormalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
@@ -135,4 +135,4 @@ class Rank1CSC1d(CSC1d):
 
         self.u = nn.Parameter(u.clone().detach().to(self.dtype).to(self.device))
         self.v = nn.Parameter(v.clone().detach().to(self.dtype).to(self.device))
-        self.rescale()
+        self.normalize_atoms()

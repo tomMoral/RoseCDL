@@ -27,7 +27,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=
         loss.backward()
         optimizer.step(closure)
         optimizer.zero_grad()
-        model.rescale()
+        model.normalize_atoms()
 
         if scheduler is not None:
             scheduler.step()

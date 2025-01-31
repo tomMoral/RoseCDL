@@ -94,7 +94,7 @@ class ConvolutionalSparseCoder(nn.Module):
         self.to(device=device, dtype=dtype)
 
     @abstractmethod
-    def rescale(self) -> None:
+    def normalize_atoms(self) -> None:
         """Renormalize the atoms of the dictionary."""
 
     @abstractmethod
@@ -116,7 +116,7 @@ class ConvolutionalSparseCoder(nn.Module):
         self._D_hat = nn.Parameter(
             D_hat.clone().detach().to(dtype=self.dtype, device=self.device)
         )
-        self.rescale()
+        self.normalize_atoms()
 
     def reset_usage_statistics(self):
         self._z_usage = torch.zeros(
@@ -144,7 +144,7 @@ class ConvolutionalSparseCoder(nn.Module):
             device=self.device,
         )
         self._D_hat[k0] = D_temp
-        self.rescale()
+        self.normalize_atoms()
 
     def resample_atom(self):
         with torch.no_grad():

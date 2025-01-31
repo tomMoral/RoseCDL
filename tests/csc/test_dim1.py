@@ -43,7 +43,7 @@ class TestCSC1d:
                 continue
             assert getattr(csc, k) == v
 
-    def test_rescale(self):
+    def test_normalize_atoms(self):
         base_config = self.get_base_config()
 
         n_components = base_config["n_components"]
@@ -56,7 +56,7 @@ class TestCSC1d:
         csc.state_dict()["_D_hat"] *= 2
         assert torch.linalg.vector_norm(csc._D_hat, dim=(1, 2), keepdim=True).max() > 1
 
-        csc.rescale()
+        csc.normalize_atoms()
         assert torch.linalg.vector_norm(csc._D_hat, dim=(1, 2), keepdim=True).max() <= 1
 
     def test_compute_lipschitz(self):
@@ -103,7 +103,7 @@ class TestRank1CSC1d(TestCSC1d):
                 continue
             assert getattr(csc, k) == v
 
-    def test_rescale(self):
+    def test_normalize_atoms(self):
         base_config = self.get_base_config()
 
         n_components = base_config["n_components"]
@@ -118,6 +118,6 @@ class TestRank1CSC1d(TestCSC1d):
         assert torch.linalg.vector_norm(csc.u, dim=(1, 2), keepdim=True).max() > 1
         assert torch.linalg.vector_norm(csc.v, dim=(1, 2), keepdim=True).max() > 1
 
-        csc.rescale()
+        csc.normalize_atoms()
         assert torch.linalg.vector_norm(csc.u, dim=(1, 2), keepdim=True).max() <= 1
         assert torch.linalg.vector_norm(csc.v, dim=(1, 2), keepdim=True).max() <= 1

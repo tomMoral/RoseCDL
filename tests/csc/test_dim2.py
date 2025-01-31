@@ -44,7 +44,7 @@ class TestCSC2d:
                 continue
             assert getattr(csc, k) == v
 
-    def test_rescale(self):
+    def test_normalize_atoms(self):
         base_config = self.get_base_config()
 
         n_components = base_config["n_components"]
@@ -61,7 +61,7 @@ class TestCSC2d:
             torch.linalg.vector_norm(csc._D_hat, dim=(1, 2, 3), keepdim=True).max()
             > 1 + epsilon
         )
-        csc.rescale()
+        csc.normalize_atoms()
         assert (
             torch.linalg.vector_norm(csc._D_hat, dim=(1, 2, 3), keepdim=True).max()
             <= 1 + epsilon
