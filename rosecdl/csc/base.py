@@ -88,7 +88,7 @@ class ConvolutionalSparseCoder(nn.Module):
                 dtype=self.dtype,
                 device=self.device,
             )
-        return torch.tensor(D_init, dtype=self.dtype, device=self.device)
+        return D_init.clone().detach().to(self.dtype).to(self.device)
 
     def init_D(self, D_init):
         D_hat = self.init_unnormalized_D(D_init)
