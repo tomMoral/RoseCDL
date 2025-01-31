@@ -11,24 +11,44 @@ from rosecdl.utils.utils import get_torch_generator
 
 
 class ConvolutionalSparseCoder(nn.Module):
+    """Base class for Convolutional Sparse (en)Coders."""
+
     rank1 = False
 
     def __init__(
         self,
-        lmbd,
-        n_components=None,
-        kernel_size=None,
-        n_channels=None,
-        D_init=None,
-        window=False,
-        positive_D=False,
-        positive_z=True,
-        n_iterations=30,
-        deepcdl=False,
-        random_state=None,
-        device=None,
-        dtype=None,
+        lmbd: float,
+        n_components: int,
+        kernel_size: int,
+        n_channels: int,
+        D_init: torch.Tensor | None = None,
+        window: bool = False,
+        positive_D: bool = False,
+        positive_z: bool = True,
+        n_iterations: int = 30,
+        deepcdl: bool = False,
+        random_state: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ):
+        """Initialize the object.
+
+        Args:
+            lmbd: regularization parameters
+            n_components: number of atoms in the dictionary,
+            kernel_size: support of the atoms (tuple of lenght n for n-dim signals),
+            n_channels: number of channels in the signal,
+            D_init: optional initial dictionary,
+            window: whether a tukey window should be applied to the atoms,
+            positive_D: whether to impose the atoms to have positive values,
+            positive_z: whether to impose the ,
+            n_iterations: int = 30,
+            deepcdl: bool = False,
+            random_state: int | None = None,
+            device: torch.device | None = None,
+            dtype: torch.dtype | None = None,
+
+        """
         super().__init__()
         self.n_components = n_components
         self.n_channels = n_channels
