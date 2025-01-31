@@ -110,12 +110,31 @@ class Rank1CSC1d(CSC1d):
             return D * self.window
         return D
 
+    def init_unnormalized_D(self, D_init):
+        if D_init is None or (isinstance(D_init, str) and D_init == "random"):
+            return torch.randn(
+                (self.n_components, self.n_channels + self.kernel_size[0]),
+                generator=self.generator,
+                dtype=self.dtype,
+                device=self.device,
+            )
+        return torch.tensor(D_init, dtype=self.dtype, device=self.device)
+
     def init_D(self, D_init):
+        """Initialize dictionary and normalize its atoms.
+
+        In this cas we have uv constraint so u and v are actually initialized.
+        WARNING: Note that the shape differs from the non-rank1 case!!!
+
+        Args:
+            D_init: tensor of shape (n_atoms, n_channels + n_times_atom)
+        """
         D_hat = self.init_unnormalized_D(D_init)
 
-        u = D_hat[:, : self.n_channels][:, :, None]
-        v = D_hat[:, self.n_channels :][:, None, :]
+        n_channels = self.n_channels  # Just to avoid Flake8 flag in the slices below
+        u = torch.unsqueeze(D_hat[:, :n_channels], dim=2)
+        v = torch.unsqueeze(D_hat[:, n_channels:], dim=1)
 
-        self.u = nn.Parameter(torch.tensor(u, dtype=self.dtype, device=self.device))
-        self.v = nn.Parameter(torch.tensor(v, dtype=self.dtype, device=self.device))
+        self.u = nn.Parameter(u.clone().detach().to(self.dtype).to(self.device))
+        self.v = nn.Parameter(v.clone().detach().to(self.dtype).to(self.device))
         self.rescale()

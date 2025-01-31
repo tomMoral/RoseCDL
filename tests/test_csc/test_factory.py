@@ -6,7 +6,7 @@ def test_csc_factory():
     base_dict = {
         "lmbd": 0.1,
         "n_components": 4,
-        "n_channels": 10,
+        "n_channels": 2,
         "D_init": None,
         "window": False,
         "positive_D": True,
@@ -20,8 +20,8 @@ def test_csc_factory():
 
     io_pair_list = [
         {"input": {"kernel_size": (10,), "rank1": False}, "output": "CSC1d"},
-        {"input": {"kernel_size": (10,), "rank1": True}, "output": "CSC1d"},
-        {"input": {"kernel_size": (10, 10), "rank1": False}, "output": "CSC1d"},
+        {"input": {"kernel_size": (10,), "rank1": True}, "output": "Rank1CSC1d"},
+        {"input": {"kernel_size": (10, 10), "rank1": False}, "output": "CSC2d"},
     ]
 
     for io_pair in io_pair_list:
