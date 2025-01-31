@@ -34,7 +34,6 @@ def csc_factory(
         kernel_size=kernel_size,
         n_channels=n_channels,
         D_init=D_init,
-        rank1=rank1,
         window=window,
         positive_D=positive_D,
         positive_z=positive_z,
