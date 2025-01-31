@@ -95,7 +95,7 @@ class ConvolutionalSparseCoder(nn.Module):
 
     @abstractmethod
     def normalize_atoms(self) -> None:
-        """Renormalize the atoms of the dictionary."""
+        """Normalize the atoms of the dictionary."""
 
     @abstractmethod
     def compute_lipschitz(self):

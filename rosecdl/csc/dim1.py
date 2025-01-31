@@ -43,7 +43,7 @@ class CSC1d(ConvolutionalSparseCoder):
         self.convt = F.conv_transpose1d
 
     def normalize_atoms(self) -> None:
-        """Renormalize the atoms of the dictionary."""
+        """Normalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as _D_hat is a nn.Parameter
@@ -82,7 +82,7 @@ class Rank1CSC1d(CSC1d):
         return get_uv(self.D_hat_)
 
     def normalize_atoms(self) -> None:
-        """Renormalize the atoms of the dictionary."""
+        """Normalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as u, v are nn.Parameter
