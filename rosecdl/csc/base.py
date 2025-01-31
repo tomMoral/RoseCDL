@@ -94,7 +94,7 @@ class ConvolutionalSparseCoder(nn.Module):
         self.to(device=device, dtype=dtype)
 
     @abstractmethod
-    def rescale(self):
+    def rescale(self) -> None:
         """Renormalize the atoms of the dictionary."""
 
     @abstractmethod

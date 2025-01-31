@@ -40,7 +40,7 @@ class CSC2d(ConvolutionalSparseCoder):
         self.conv = F.conv2d
         self.convt = F.conv_transpose2d
 
-    def rescale(self):
+    def rescale(self) -> None:
         """Renormalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
@@ -51,7 +51,6 @@ class CSC2d(ConvolutionalSparseCoder):
             )
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
-            return norm_atoms
 
     def compute_lipschitz(self):
         """Compute the Lipschitz constant using the FFT."""

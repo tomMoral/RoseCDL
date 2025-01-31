@@ -42,7 +42,7 @@ class CSC1d(ConvolutionalSparseCoder):
         self.conv = F.conv1d
         self.convt = F.conv_transpose1d
 
-    def rescale(self):
+    def rescale(self) -> None:
         """Renormalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
@@ -59,7 +59,6 @@ class CSC1d(ConvolutionalSparseCoder):
                 )
             norm_atoms[torch.nonzero((norm_atoms == 0), as_tuple=False)] = 1
             self._D_hat /= norm_atoms
-            return norm_atoms
 
     def compute_lipschitz(self):
         """Compute the Lipschitz constant using the FFT."""
@@ -82,7 +81,7 @@ class Rank1CSC1d(CSC1d):
     def uv_hat_(self):
         return get_uv(self.D_hat_)
 
-    def rescale(self):
+    def rescale(self) -> None:
         """Renormalize the atoms of the dictionary."""
         with torch.no_grad():
             if self.positive_D:
@@ -102,7 +101,6 @@ class Rank1CSC1d(CSC1d):
             norm_col_u = torch.linalg.vector_norm(self.u, dim=1, keepdim=True)
             norm_col_u[torch.nonzero((norm_col_u == 0), as_tuple=False)] = 1
             self.u /= norm_col_u
-            return norm_col_v, norm_col_u
 
     def get_D(self):
         D = self.u * self.v
