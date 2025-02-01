@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from rosecdl.utils import get_torch_generator
+from rosecdl.utils.utils import get_torch_generator
 
 
 def check_threshold(threshold):
