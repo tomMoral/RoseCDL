@@ -67,6 +67,9 @@ def evaluate_D_hat(patterns, D_hat):
     else:
         axis = (1, 2)
 
+    patterns = patterns - patterns.mean(axis=axis, keepdims=True)
+    D_hat = D_hat - D_hat.mean(axis=axis, keepdims=True)
+
     patterns = torch.from_numpy(patterns)
     D_hat = torch.from_numpy(D_hat)
 
