@@ -50,9 +50,21 @@ class CSC1d(nn.Module):
 
         # Tukey window
         if window:
-            self.window = torch.tensor(
-                tukey_window(*self.kernel_size), dtype=dtype, device=device
-            )[None, None]
+            if isinstance(kernel_size, tuple) and len(kernel_size) == 2:
+                window_h = torch.tensor(
+                    tukey_window(self.kernel_size[0]), dtype=dtype, device=device
+                )
+                window_w = torch.tensor(
+                    tukey_window(self.kernel_size[1]), dtype=dtype, device=device
+                )
+                # Create 2D window using outer product
+                self.window = (window_h.unsqueeze(1) @ window_w.unsqueeze(0))[
+                    None, None, :, :
+                ]
+            else:
+                self.window = torch.tensor(
+                    tukey_window(*self.kernel_size), dtype=dtype, device=device
+                )[None, None]
         else:
             self.window = None
 
