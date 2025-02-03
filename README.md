@@ -8,8 +8,8 @@ RObust and ScalablE Convolutional Dictionary Learning
 You can install `rosecdl` from the source code by following these steps:
 
 ```bash
-git clone https://github.com/tomMoral/WinCDL.git
-cd WinCDL
+git clone https://github.com/tomMoral/RoseCDL.git
+cd RoseCDL
 pip install .
 ```
 
