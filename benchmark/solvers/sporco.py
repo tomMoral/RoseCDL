@@ -63,7 +63,7 @@ class Solver(BaseSolver):
         # opt_cbpdn["FastSolve"] = True
 
         opt = cbpdndl.ConvBPDNDictLearn.Options({
-            'Verbose': False, 'MaxMainIter': n_iter + 1, 'CBPDN': opt_cbpdn
+            'Verbose': False, 'MaxMainIter': n_iter, 'CBPDN': opt_cbpdn
         }, dmethod="cns")
 
         X = self.X
@@ -83,9 +83,11 @@ class Solver(BaseSolver):
         )
 
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
-        cdl.solve()
-
-        self.D = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0)
+        if n_iter > 0:
+            cdl.solve()
+            self.D = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0)
+        else:
+            self.D = self.D_init.copy()
         self.D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
 
     def get_result(self):

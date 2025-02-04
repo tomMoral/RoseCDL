@@ -1,6 +1,6 @@
 objective:
   - Convolutional Dictionary Learning:
-        reg: [0.8]
+        reg: [0.3, 0.8]
 solver:
     - alphacsc:
         type: batch
@@ -12,7 +12,7 @@ solver:
 dataset:
     - simulated:
         n_samples: [10]
-        n_times: [5000, 10000]
+        n_times: [5000, 10000, 20000]
         n_atoms: 5  # We use n_atoms to generate data and add 5 for the CDL
         n_times_atom: 50
         random_state: [93845, 92384, 2389, 230984, 234890]

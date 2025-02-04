@@ -27,10 +27,10 @@ class Dataset(BaseDataset):
     def get_data(self):
         size = self.n_times // 5000
         contamination_params = {
-            "n_atoms": 2 * size,
+            "n_atoms": 2,
             "sparsity": 3 * size,
             "init_z": "constant",
-            "init_z_kwargs": {"value": 50},
+            "init_z_kwargs": {"value": 20},
         } if self.contamination else None
 
         simulation_params = {
@@ -47,7 +47,7 @@ class Dataset(BaseDataset):
             'init_d_kwargs': {"shapes": ["sin", "gaussian"]},
             'init_z': "constant",
             'init_z_kwargs': {"value": 1},
-            'noise_std': 0.01,
+            'noise_std': 0.1,
             'rng': self.random_state,
             'sparsity': 20 * size,
         }
