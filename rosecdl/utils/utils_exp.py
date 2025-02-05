@@ -11,37 +11,48 @@ from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
 
 
-def multi_channel_2d_correlate(dk, pat):
+def multi_channel_pearson_coef(atom, pat):
     """
-    Compute the multi-channel 2D correlation between a dictionary element and a pattern.
+    Compute the multi-channel pearson coefficient per patch between an atom and
+    a reference pattern.
 
     Parameters:
-        dk, pat : np.ndarray
-            3D array of shape (n_channels, height, width) for 2D images, or
-            2D array of shape (n_channels, n_times_atom) for 1D signals.
+        atom, pat : np.ndarray
+            ND array of shape (n_channels, *atom_support).
 
     Returns:
-        np.ndarray : The correlation.
+        np.ndarray : The pearson coefficient per patch.
     """
-    return np.sum(
-        [signal.correlate(dk_c, pat_c, mode="full") for dk_c, pat_c in zip(dk, pat)],
-        axis=0,
+    patch = np.ones(np.minimum(atom.shape[1:], pat.shape[1:]))
+    N = atom.shape[0] * np.prod(patch.shape)
+    corr = np.sum(
+        [
+            signal.correlate(atom_c, pat_c, mode="same")
+            for atom_c, pat_c in zip(atom, pat)
+        ], axis=0,
+    ) / N
+    mean_atom = np.sum([
+        signal.correlate(atom_c, patch, mode="valid") for atom_c in atom
+    ], axis=0) / N
+    norm_atom = np.sum([
+        signal.correlate(atom_c ** 2, patch, mode="valid") for atom_c in atom
+    ], axis=0) / N
+    mean_pat = np.sum([
+        signal.correlate(pat_c, patch, mode="valid") for pat_c in pat
+    ], axis=0) / N
+    norm_pat = np.sum([
+        signal.correlate(pat_c ** 2, patch, mode="valid") for pat_c in pat
+    ], axis=0) / N
+    mean = mean_atom * mean_pat
+    norm = np.maximum(
+        np.sqrt((norm_atom - mean_atom**2) * (norm_pat - mean_pat**2)), 1e-6
     )
 
+    padding = tuple(((p-1) // 2 + ((p-1) % 2 == 1), (p -1) // 2) for p in patch.shape)
+    mean = np.pad(mean, padding, "edge")
+    norm = np.pad(norm, padding, "edge")
 
-def compute_best_assignment(corr):
-    """
-    Compute the best assignment for the correlation matrix using the Hungarian algorithm.
-
-    Parameters:
-        corr : np.ndarray
-            The correlation matrix.
-
-    Returns:
-        float : The mean value of the best assignment.
-    """
-    i, j = linear_sum_assignment(corr, maximize=True)
-    return corr[i, j].mean()
+    return (corr - mean) / norm
 
 
 def evaluate_D_hat(patterns, D_hat):
@@ -59,33 +70,16 @@ def evaluate_D_hat(patterns, D_hat):
     Returns:
         float : The evaluation score (mean correlation of best assignments).
     """
-    patterns, D_hat = patterns.copy(), D_hat.copy()
-
-    # axis = (2, 3)
-    if patterns.ndim == 4:
-        axis = (1, 2, 3)
-    else:
-        axis = (1, 2)
-
-    patterns -= patterns.mean(axis=axis, keepdims=True)
-    D_hat -= D_hat.mean(axis=axis, keepdims=True)
-
-    patterns = torch.from_numpy(patterns)
-    D_hat = torch.from_numpy(D_hat)
-
-    patterns /= torch.linalg.vector_norm(patterns, dim=axis, keepdim=True)
-    D_hat /= torch.linalg.vector_norm(D_hat, dim=axis, keepdim=True)
-
-    patterns = patterns.numpy()
-    D_hat = D_hat.numpy()
 
     corr = np.array(
         [
-            [multi_channel_2d_correlate(dk, pat).max() for dk in D_hat]
+            [multi_channel_pearson_coef(dk, pat).max() for dk in D_hat]
             for pat in patterns
         ]
     )
-    return compute_best_assignment(corr)
+
+    i, j = linear_sum_assignment(corr, maximize=True)
+    return corr[i, j].mean()
 
 
 def check_and_load_data(exp_dir, file_name):
