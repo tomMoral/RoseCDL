@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch import fft
 
 from rosecdl.csc.base import ConvolutionalSparseCoder
+from rosecdl.utils.dictionary import tukey_window_2d
 
 
 class CSC2d(ConvolutionalSparseCoder):
@@ -60,6 +61,12 @@ class CSC2d(ConvolutionalSparseCoder):
         )
         self.conv = F.conv2d
         self.convt = F.conv_transpose2d
+
+    def tukey_window(self) -> None:
+        """N-dimensional Tukey window."""
+        self.window = torch.tensor(
+            tukey_window_2d(*self.kernel_size), dtype=self.dtype, device=self.device
+        )[None, None]
 
     def normalize_atoms(self) -> None:
         """Normalize the atoms of the dictionary."""
