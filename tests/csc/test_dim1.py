@@ -26,22 +26,24 @@ class TestCSC1d:
     def test_init(self):
         base_config = self.get_base_config()
         csc = CSC1d(**base_config, kernel_size=(10,))
+        # Check that the parameters are well-initialized
         for k, v in base_config.items():
-            if k == "D_init":
-                assert csc._D_hat.shape == (
-                    base_config["n_components"],
-                    base_config["n_channels"],
-                    10,
-                )
-                continue
-            if k == "window":
-                assert csc.do_window == v
-                assert csc.window is None
-                continue
-            if k == "random_state":
-                assert type(csc.generator.seed()) is int
-                continue
-            assert getattr(csc, k) == v
+            if k not in ["D_init", "window", "random_state"]:
+                assert getattr(csc, k) == v
+
+        # Check the initial dictionary
+        assert csc._D_hat.shape == (
+            base_config["n_components"],
+            base_config["n_channels"],
+            10,
+        )
+
+        # Check window parameter
+        assert csc.do_window == base_config["window"]
+        assert csc.window is None
+
+        # Check random_state
+        assert type(csc.generator.seed()) is int
 
     def test_normalize_atoms(self):
         base_config = self.get_base_config()
