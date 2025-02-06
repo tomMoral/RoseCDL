@@ -344,20 +344,32 @@ def remove_outliers(
     return torch.masked_select(data, ~outliers_mask), outliers_mask
 
 
-def add_outliers_2d(X, contamination=0.1, patch_size=None, strength=0.8, seed=None):
-    """
-    Add outliers to 2D data.
+def add_outliers_2d(
+    X,
+    contamination=0.1,
+    patch_size=None,
+    strength=0.8,
+    seed=None,
+    clip=True,
+):
+    """Add outliers to 2D data.
 
     Parameters
     ----------
     X : torch.Tensor
         4D data of shape (n_trials, n_channels, height, width).
+    contamination : float, optional
+        Proportion of outliers to add, by default 0.1
     patch_size : int, tuple, optional
         Size of the patch to add outliers, by default None.
         if int, the size of the patch is (patch_size, patch_size).
         if None, randomly select a patch size between 5 and 15% of the image size.
+    strength : float, optional
+        Strength of the outliers, by default 0.8
     seed : int, optional
         Random seed for reproducibility, by default None
+    clip : bool, optional
+        Clip the data to [0, 1] after adding outliers, by default True
 
     Returns
     -------
@@ -413,6 +425,7 @@ def add_outliers_2d(X, contamination=0.1, patch_size=None, strength=0.8, seed=No
         running_contamination += torch.prod(torch.tensor(patch_size))
         ratio_contam = running_contamination / (height * width)
 
-    X_outliers = torch.clamp(X_outliers, 0, 1)
+    if clip:
+        X_outliers = torch.clamp(X_outliers, 0, 1)
 
     return X_outliers, outlier_mask
