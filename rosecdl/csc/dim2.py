@@ -11,9 +11,9 @@ class CSC2d(ConvolutionalSparseCoder):
     def __init__(
         self,
         lmbd: float,
-        n_components: int,
-        kernel_size: tuple[int, int],
-        n_channels: int,
+        n_components: int | None = None,
+        kernel_size: tuple | None = None,
+        n_channels: int | None = None,
         D_init: torch.Tensor | None = None,
         window: bool = False,
         positive_D: bool = False,
