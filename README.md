@@ -5,7 +5,7 @@ RObust and ScalablE Convolutional Dictionary Learning
 
 # Installation
 
-You can install `rosecdl` from the source code by following these steps:
+Before installing `rosecdl`, you should check that you have installed a version of `pytorch` that suits your hardware constraints. You can then install `rosecdl` from the source code by following these steps:
 
 ```bash
 git clone https://github.com/tomMoral/RoseCDL.git
