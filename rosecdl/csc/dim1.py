@@ -165,3 +165,5 @@ class Rank1CSC1d(CSC1d):
         self.u = nn.Parameter(u.clone().detach().to(self.dtype).to(self.device))
         self.v = nn.Parameter(v.clone().detach().to(self.dtype).to(self.device))
         self.normalize_atoms()
+
+        self.n_components, self.n_channels, *self.kernel_size = self.D_hat_.shape

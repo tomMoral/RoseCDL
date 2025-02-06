@@ -1,12 +1,15 @@
+import pytest
+
 from rosecdl.csc.factory import csc_factory
 
 
-@pytest.mark.parametrize("kernel_size, rank1, expected_cls",
+@pytest.mark.parametrize(
+    "kernel_size, rank1, expected_cls",
     [
         ((10,), False, "CSC1d"),
         ((10,), True, "Rank1CSC1d"),
         ((10, 10), False, "CSC2d"),
-    ]
+    ],
 )
 def test_csc_factory(kernel_size, rank1, expected_cls):
 

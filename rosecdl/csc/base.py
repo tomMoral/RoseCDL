@@ -125,6 +125,9 @@ class ConvolutionalSparseCoder(nn.Module):
         )
         self.normalize_atoms()
 
+        self.n_components, self.n_channels, *self.kernel_size = self.D_hat_.shape
+        self.kernel_size = tuple(self.kernel_size)
+
     def reset_usage_statistics(self):
         self._z_usage = torch.zeros(
             self.n_components, dtype=torch.int32, device=self.device
