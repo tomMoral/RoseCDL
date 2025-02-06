@@ -1,7 +1,14 @@
 from rosecdl.csc.factory import csc_factory
 
 
-def test_csc_factory():
+@pytest.mark.parametrize("kernel_size, rank1, expected_cls",
+    [
+        ((10,), False, "CSC1d"),
+        ((10,), True, "Rank1CSC1d"),
+        ((10, 10), False, "CSC2d"),
+    ]
+)
+def test_csc_factory(kernel_size, rank1, expected_cls):
 
     base_dict = {
         "lmbd": 0.1,
@@ -18,12 +25,5 @@ def test_csc_factory():
         "dtype": float,
     }
 
-    io_pair_list = [
-        {"input": {"kernel_size": (10,), "rank1": False}, "output": "CSC1d"},
-        {"input": {"kernel_size": (10,), "rank1": True}, "output": "Rank1CSC1d"},
-        {"input": {"kernel_size": (10, 10), "rank1": False}, "output": "CSC2d"},
-    ]
-
-    for io_pair in io_pair_list:
-        kwargs = {**base_dict, **io_pair["input"]}
-        assert type(csc_factory(**kwargs)).__name__ == io_pair["output"]
+    kwargs = dict(**base_dict, kernel_size=kernel_size, rank1=rank1)
+    assert type(csc_factory(**kwargs)).__name__ == expected_cls
