@@ -24,9 +24,13 @@ def csc_factory(
     """Instantiate a Convolutional Sparse (en)Coder."""
     signal_dimension = len(kernel_size)
 
-    csc_class = {1: {False: CSC1d, True: Rank1CSC1d}, 2: {False: CSC2d}}[
-        signal_dimension
-    ][rank1]
+    if signal_dimension == 1:
+         csc_class = Rank1CSC1d if rank1 else CSC1d
+    elif signal_dimension == 2:
+         assert not rank1, "Rank1 is only possible for 1d CSC"
+         csc_class = CSC2d
+    else:
+        raise NotImplementedError(f"CSC in dim {signal_dimension} is not implemented")
 
     return csc_class(
         lmbd=lmbd,
