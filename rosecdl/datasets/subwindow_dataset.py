@@ -45,7 +45,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         # Validate sample_window
         if sample_window is None:
             sample_window = data.shape[2:]
-            self.data = torch.tensor(data, device=self.device, dtype=self.dtype)
+            self.data = data.clone().detach().to(device=self.device, dtype=self.dtype)
         elif isinstance(sample_window, int):
             sample_window = tuple(sample_window for _ in range(self.dimN))
         assert len(sample_window) == self.dimN, (
