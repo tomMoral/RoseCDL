@@ -35,24 +35,20 @@ name = "pytorch-cu11"
 url = "https://download.pytorch.org/whl/cu118"
 priority = "explicit"
 
-[tool.poetry.group.experiments]
-optional = true
-
-[tool.poetry.group.experiments.dependencies]
-alphacsc = "*"
-benchopt = "*"
-joblib = "*"
-mne = "*"
-seaborn = "*"
-sporco = "*"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-isort = "*"
-pytest = "*"
-ruff = "*"
+[project.optional-dependencies]
+experiments = [
+    "alphacsc",
+    "benchopt",
+    "joblib",
+    "mne",
+    "seaborn",
+    "sporco",
+]
+dev = [
+    "isort",
+    "pytest",
+    "ruff",
+]
 
 [tool.isort]
 line_length = 88
