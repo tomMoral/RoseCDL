@@ -1,17 +1,10 @@
 [build-system]
-
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-packages = ["rosecdl"]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [project]
-
 name = "rosecdl"
 version = "0.1.0"
-
-requires-python = ">=3.10"
 authors = [
   {name = "Jad Yehya", email = "jad.yehya@inria.fr"},
   {name = "Mansour Benbakoura", email = "mansour.benbakoura@inria.fr"},
@@ -21,7 +14,6 @@ authors = [
 ]
 description = "RObust and ScalablE Convolution Dictionary Learning"
 readme = "README.md"
-
 dependencies = [
     "imageio",
     "matplotlib",
@@ -34,8 +26,16 @@ dependencies = [
     "wfdb",
 ]
 
-[project.optional-dependencies]
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = {version = "*", source = "pytorch-cu11"}
 
+[[tool.poetry.source]]
+name = "pytorch-cu11"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[project.optional-dependencies]
 experiments = [
     "alphacsc",
     "benchopt",
@@ -44,7 +44,6 @@ experiments = [
     "seaborn",
     "sporco",
 ]
-
 dev = [
     "isort",
     "pytest",
@@ -52,12 +51,10 @@ dev = [
 ]
 
 [tool.isort]
-
 line_length = 88
 multi_line_output = 3
 
 [tool.ruff]
-
 exclude = [
     ".direnv",
     ".eggs",
@@ -72,12 +69,10 @@ exclude = [
     "dist",
     "__cache__",
 ]
-
 line-length = 88
 indent-width = 4
 
 [tool.ruff.format]
-
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
@@ -86,7 +81,6 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint]
-
 select = ["ALL"]
 ignore = [
     "COM812",
@@ -99,15 +93,12 @@ ignore = [
 ]
 fixable = ["ALL"]
 unfixable = []
-
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.flake8-annotations]
-
 mypy-init-return = true
 
 [tool.ruff.lint.per-file-ignores]
-
 "tests/*" = [
     "ANN",
     "COM812",
