@@ -13,8 +13,6 @@ from rosecdl.utils.utils import get_torch_generator
 class ConvolutionalSparseCoder(nn.Module):
     """Base class for Convolutional Sparse (en)Coders."""
 
-    rank1 = False
-
     def __init__(
         self,
         lmbd: float,

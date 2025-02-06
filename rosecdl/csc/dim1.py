@@ -106,8 +106,6 @@ class CSC1d(ConvolutionalSparseCoder):
 class Rank1CSC1d(CSC1d):
     """1D Convolutional Sparse (en)Coder with rank-1 constraint."""
 
-    rank1 = True
-
     @property
     def uv_hat_(self):
         return get_uv(self.D_hat_)

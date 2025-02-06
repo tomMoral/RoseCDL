@@ -25,12 +25,15 @@ def csc_factory(
     signal_dimension = len(kernel_size)
 
     if signal_dimension == 1:
-         csc_class = Rank1CSC1d if rank1 else CSC1d
+        csc_class = Rank1CSC1d if rank1 else CSC1d
     elif signal_dimension == 2:
-         assert not rank1, "Rank1 is only possible for 1d CSC"
-         csc_class = CSC2d
+        if rank1:
+            msg = "Rank1 is only possible for 1d CSC"
+            raise ValueError(msg)
+        csc_class = CSC2d
     else:
-        raise NotImplementedError(f"CSC in dim {signal_dimension} is not implemented")
+        msg = f"CSC in dim {signal_dimension} is not implemented"
+        raise NotImplementedError(msg)
 
     return csc_class(
         lmbd=lmbd,
