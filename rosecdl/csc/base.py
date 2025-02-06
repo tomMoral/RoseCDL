@@ -89,7 +89,7 @@ class ConvolutionalSparseCoder(nn.Module):
         self.to(device=device, dtype=dtype)
 
     @abstractmethod
-    def tukey_window(self) -> None:
+    def tukey_window(self) -> torch.Tensor:
         """N-dimensional Tukey window."""
 
     @abstractmethod

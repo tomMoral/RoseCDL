@@ -62,9 +62,9 @@ class CSC1d(ConvolutionalSparseCoder):
         self.conv = F.conv1d
         self.convt = F.conv_transpose1d
 
-    def tukey_window(self) -> None:
+    def tukey_window(self) -> torch.Tensor:
         """N-dimensional Tukey window."""
-        self.window = torch.tensor(
+        return torch.tensor(
             tukey_window(*self.kernel_size), dtype=self.dtype, device=self.device
         )[None, None]
 
