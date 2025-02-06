@@ -44,6 +44,16 @@ class TestCSC2d:
                 continue
             assert getattr(csc, k) == v
 
+    def test_init_with_dict(self):
+        config = self.get_base_config()
+        for k in ["n_components", "n_channels", "kernel_size"]:
+            config[k] = None
+        config["D_init"] = torch.zeros(4, 2, 10, 10)
+        csc = CSC2d(**config)
+        assert csc.n_components == 4
+        assert csc.n_channels == 2
+        assert csc.kernel_size == (10, 10)
+
     def test_normalize_atoms(self):
         base_config = self.get_base_config()
 
