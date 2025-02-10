@@ -6,7 +6,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from rosecdl.utils.dictionary import tukey_window
 from rosecdl.utils.utils import get_torch_generator
 
 
@@ -69,9 +68,7 @@ class ConvolutionalSparseCoder(nn.Module):
 
         # Tukey window
         if window:
-            self.window = torch.tensor(
-                tukey_window(*self.kernel_size), dtype=dtype, device=device
-            )[None, None]
+            self.window = self.tukey_window()
         else:
             self.window = None
 
@@ -90,6 +87,10 @@ class ConvolutionalSparseCoder(nn.Module):
         self._resampled_atoms = []
 
         self.to(device=device, dtype=dtype)
+
+    @abstractmethod
+    def tukey_window(self) -> torch.Tensor:
+        """N-dimensional Tukey window."""
 
     @abstractmethod
     def normalize_atoms(self) -> None:

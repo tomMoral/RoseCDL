@@ -2,11 +2,11 @@ import torch
 from tqdm import tqdm
 
 
-def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=None):
+def train_loop(dataloader, csc, loss_fn, optimizer, max_batch=None, scheduler=None):
     avg_loss = 0
     count = 0
     for batch, X in enumerate(dataloader):
-        X_hat, z_hat = model(X)
+        X_hat, z_hat = csc(X)
         if hasattr(loss_fn, "get_outliers_mask"):
             outliers_mask = loss_fn.get_outliers_mask(X_hat, z_hat, X)
             loss = loss_fn(X_hat, z_hat, X, outliers_mask=outliers_mask)
@@ -18,7 +18,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=
 
         def closure():
             with torch.no_grad():
-                X_hat, z_hat = model(X)
+                X_hat, z_hat = csc(X)
                 if hasattr(loss_fn, "get_outliers_mask"):
                     return loss_fn(X_hat, z_hat, X, outliers_mask=outliers_mask)
                 return loss_fn(X_hat, z_hat, X)
@@ -27,7 +27,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=
         loss.backward()
         optimizer.step(closure)
         optimizer.zero_grad()
-        model.normalize_atoms()
+        csc.normalize_atoms()
 
         if scheduler is not None:
             scheduler.step()
@@ -39,7 +39,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, max_batch=None, scheduler=
 
 
 def train(
-    model,
+    cdl,
     train_dataloader,
     optimizer,
     loss_fn,
@@ -50,12 +50,11 @@ def train(
     stopping_criterion=True,
     tol=1e-8,
 ):
-    """
-    Training process
+    """Training process.
 
     Parameters
     ----------
-    model : torch.nn.Module
+    cdl : torch.nn.Module
         Torch network
     train_dataloader : torch.utils.data.DataLoader
         Train dataset
@@ -73,7 +72,6 @@ def train(
     list, list
         Train losses, test losses
     """
-
     print("TRAINING STARTED")
 
     old_loss = None
@@ -82,11 +80,11 @@ def train(
     for epoch in pbar:
         # Compute threshold for outliers detection
         if hasattr(loss_fn, "compute_outlier_threshold"):
-            loss_fn.compute_outlier_threshold(model.csc, train_dataloader)
+            loss_fn.compute_outlier_threshold(cdl.csc, train_dataloader)
 
         train_loss = train_loop(
             train_dataloader,
-            model.csc,
+            cdl.csc,
             loss_fn,
             optimizer,
             max_batch=max_batch,
@@ -94,7 +92,7 @@ def train(
         )
 
         for callback in callbacks:
-            if callback(model, epoch, train_loss):
+            if callback(cdl, epoch, train_loss):
                 pbar.close()
                 return
 
@@ -111,4 +109,4 @@ def train(
             old_loss = train_loss
 
         # resample atoms
-        model.csc.resample_atom()
+        cdl.csc.resample_atom()

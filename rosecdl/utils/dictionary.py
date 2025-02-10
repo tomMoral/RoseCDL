@@ -98,6 +98,17 @@ def tukey_window(n_times_atom):
     window[0] = 1e-9
     window[-1] = 1e-9
     return window
+
+
+def tukey_window_2d(n_rows: int, n_cols: int):
+    vertical_window = np.expand_dims(tukey(n_rows), axis=1)
+    horizontal_window = np.expand_dims(tukey(n_cols), axis=0)
+    window = vertical_window * horizontal_window
+    window[0, :] = 1e-9
+    window[-1, :] = 1e-9
+    window[:, 0] = 1e-9
+    window[:, -1] = 1e-9
+
     return window
 
 
