@@ -7,7 +7,7 @@ import wfdb
 from alphacsc.learn_d_z import compute_X_and_objective, learn_d_z
 from alphacsc.learn_d_z_multi import learn_d_z_multi
 from alphacsc.update_z import update_z
-from scipy.signal import tukey
+from scipy.signal.windows import tukey
 from wfdb.io.annotation import rdann
 from wfdb.io.record import rdrecord
 
