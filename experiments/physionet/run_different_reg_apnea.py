@@ -9,6 +9,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from alphacsc import BatchCDL
+from alphacsc.init_dict import init_dictionary
 from alphacsc.loss_and_gradient import compute_objective
 from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils.convolution import construct_X_multi
@@ -124,7 +126,14 @@ def generate_run_config_list(  # noqa: PLR0913
     for package in cdl_packages:
         for reg in regularization_values:
             package_config = cdl_configs[package].copy()
-            package_config["lmbd"] = reg
+
+            if package == "rosecdl":
+                package_config["lmbd"] = reg
+            elif package == "alphacsc":
+                package_config["reg"] = reg
+            else:
+                msg = f"Unknown CDL package {package}"
+                raise ValueError(msg)
 
             for timing in outlier_detection_timings:
                 if package != "rosecdl" and timing == "during":
@@ -194,7 +203,13 @@ def run_one(
     if outlier_detection_timing != "never":
         summary_name += f" ({outlier_detection_timing})"
 
-    print(f"Running {summary_name} reg = {cdl_params['lmbd']} ({seed})")
+    if cdl_package == "rosecdl":
+        print(f"Running {summary_name} reg = {cdl_params['lmbd']} ({seed})")
+    elif cdl_package == "alphacsc":
+        print(f"Running {summary_name} reg = {cdl_params['reg']} ({seed})")
+    else:
+        msg = f"Unknown CDL package {cdl_package}"
+        raise ValueError(msg)
 
     if cdl_package == "sporco":
         return []
@@ -209,18 +224,19 @@ def run_one(
     Xgood = data[labels == "N"]
 
     X = Xbad[:10]
-    # To create X_test, we take 5 good signals and 5 bad signals that are not in the training set
-    X_test = np.concatenate((Xgood[:5], Xbad[10:15]))
 
-    # Perform outlier detection on the data before CDL
-    # XXX: Get z shape otherwise :
-    # zshape = (X.shape[0], X.shape[1], X.shape[-2]-kernel_size[0]+1, X.shape[-1]-kernel_size[1]+1)
+
+    if cdl_package == "rosecdl":
+        kernel_size = cdl_params["kernel_size"]
+    elif cdl_package == "alphacsc":
+        kernel_size = cdl_params["n_times_atom"]
+
 
     if outlier_detection_timing == "before":
         zshape = (
             X.shape[0],
             X.shape[1],
-            X.shape[-1] - cdl_params["kernel_size"] + 1,
+            X.shape[-1] - kernel_size + 1,
         )
 
         X = remove_outliers_before_cdl(
@@ -230,24 +246,36 @@ def run_one(
         )
         outliers_kwargs = None
 
+    assert X.ndim == 3, f"X should have 3 dimensions, got {X.ndim}"
+
     # Setup the callback
     results = []
 
-    def callback_fn(model, epoch, loss):
+    def callback_fn(model, *args) -> None:
+        if len(args) == 1:
+            pobj = args[0]
+            # alphacsc adds the loss twice in pobj per epoch,
+            # Divide by two the epoch number
+            loss, epoch = 0 if len(pobj) == 0 else pobj[-1], len(pobj) // 2
+            print(f"Epoch {epoch} - Loss {loss}")
+        else:
+            epoch, loss = args
 
-        if epoch % 2 != 0:
+        if epoch % 2 == 0:
             return
 
-        D = model.D_hat_
+        D_hat = model.D_hat_ if cdl_package == "rosecdl" else model.D_hat
 
-        z_hat, _, _ = update_z_multi(X_test, D, reg=cdl_params["lmbd"])
-        X_hat = construct_X_multi(z_hat, D=D)
+        regu = cdl_params["lmbd"] if cdl_package == "rosecdl" else cdl_params["reg"]
+
+        z_hat, _, _ = update_z_multi(Xgood[:10], D_hat, reg=regu)
+        X_hat = construct_X_multi(z_hat, D=D_hat)
         cost = compute_objective(
-            X_test,
+            Xgood[:10],
             X_hat=X_hat,
             z_hat=z_hat,
-            D=D,
-            reg=cdl_params["lmbd"],
+            D=D_hat,
+            reg=regu,
         )
 
         results.append(
@@ -259,7 +287,7 @@ def run_one(
                 "loss": loss,
                 "cost": cost,
                 "method": cdl_package,
-                "lmbd": cdl_params["lmbd"],
+                "lmbd": regu,
             },
         )
 
@@ -290,9 +318,37 @@ def run_one(
             fig.savefig(
                 exp_dir / f"D_hat_{summary_name.replace(' ', '_')}_reg_{cdl_params["lmbd"]}.pdf"
                 )
+    elif cdl_package == "alphacsc":
+        rng = np.random.default_rng(seed)
+        D_init = init_dictionary(
+            X,
+            cdl_params["n_atoms"],
+            cdl_params["n_times_atom"],
+            window=True,
+            rank1=cdl_params["rank1"],
+            D_init="random",
+            random_state=seed,
+        )
+
+        cdl = BatchCDL(**cdl_params, D_init=D_init)
+        cdl.raise_on_increase = False
+        cdl.callback = callback_fn
+        cdl.fit(X)
+
+        if i == 0:
+            # Plot result dictionary
+            fig, axes = plt.subplots(1, cdl.D_hat.shape[0], figsize=(12, 3))
+            for idx, ax in enumerate(axes):
+                ax.plot(cdl.D_hat[idx].squeeze())
+                ax.set_yticks(np.linspace(-0.5, 0.5, 3))
+            plt.suptitle(f"RoseCDL - {summary_name} - reg = {cdl_params['reg']}")
+            fig.savefig(
+                exp_dir / f"D_hat_{summary_name.replace(' ', '_')}_reg_{cdl_params["reg"]}.pdf"
+                )
 
     else:
-        raise ValueError(f"Unknown CDL package {cdl_package}")
+        msg = f"Unknown CDL package {cdl_package}"
+        raise ValueError(msg)
 
     return results
 
@@ -301,7 +357,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Run a comparison of the different methods for dictionary recovery in 2D"
+        description="Run the outlier detection experiment for the apnea dataset",
     )
     parser.add_argument(
         "data_path",
@@ -356,24 +412,34 @@ if __name__ == "__main__":
     exp_dir.mkdir(exist_ok=True, parents=True)
 
     # Define base CDL parameters
-    cdl_packages = ["rosecdl"]
+    cdl_packages = ["rosecdl", "alphacsc"]
+    # cdl_packages = ["alphacsc"]
     cdl_configs = {
         "rosecdl": {
             "kernel_size": 100,
             "n_channels": 1,
             "n_components": 3,
             "scale_lmbd": True,
-            "epochs": 50,
+            "epochs": 10 if args.debug else 30,
             "max_batch": 20,
             "mini_batch_size": 10,
             "sample_window": 960,
             "optimizer": "adam",
-            "n_iterations": 60,
+            "n_iterations": 10 if args.debug else 40,
             "window": True,
             "device": DEVICE,
             "positive_D": False,
         },
-        "sporco": {},
+        "alphacsc": {
+            "n_times_atom": 100,
+            "n_atoms": 3,
+            "lmbd_max": "scaled",
+            "n_iter": 10 if args.debug else 30,
+            "solver_z": "lgcd",
+            "rank1": False,
+            "window": True,
+            "verbose": 0,
+        },
     }
 
     regularization_values = [0.01] if args.debug else [0.01, 0.1, 0.3, 0.5, 0.8]
