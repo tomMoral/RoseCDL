@@ -9,6 +9,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from alphacsc.loss_and_gradient import compute_objective
+from alphacsc.update_z_multi import update_z_multi
+from alphacsc.utils.convolution import construct_X_multi
 from joblib import Memory, Parallel, delayed
 from scipy.signal.windows import tukey
 from torch import cuda
@@ -206,7 +209,8 @@ def run_one(
     Xgood = data[labels == "N"]
 
     X = Xbad[:10]
-
+    # To create X_test, we take 5 good signals and 5 bad signals that are not in the training set
+    X_test = np.concatenate((Xgood[:5], Xbad[10:15]))
 
     # Perform outlier detection on the data before CDL
     # XXX: Get z shape otherwise :
@@ -229,6 +233,36 @@ def run_one(
     # Setup the callback
     results = []
 
+    def callback_fn(model, epoch, loss):
+
+        if epoch % 2 != 0:
+            return
+
+        D = model.D_hat_
+
+        z_hat, _, _ = update_z_multi(X_test, D, reg=cdl_params["lmbd"])
+        X_hat = construct_X_multi(z_hat, D=D)
+        cost = compute_objective(
+            X_test,
+            X_hat=X_hat,
+            z_hat=z_hat,
+            D=D,
+            reg=cdl_params["lmbd"],
+        )
+
+        results.append(
+            {
+                "name": summary_name,
+                **outlier_detection_method,
+                "seed": seed,
+                "epoch": epoch,
+                "loss": loss,
+                "cost": cost,
+                "method": cdl_package,
+                "lmbd": cdl_params["lmbd"],
+            },
+        )
+
     # Run the experiment
     if cdl_package == "rosecdl":
         rng = np.random.default_rng(seed)
@@ -242,14 +276,15 @@ def run_one(
             **cdl_params,
             D_init=D_init,
             outliers_kwargs=outliers_kwargs,
+            callbacks=[callback_fn],
         )
         cdl.fit(X)
 
         if i == 0:
             # Plot result dictionary
             fig, axes = plt.subplots(1, cdl.D_hat_.shape[0], figsize=(12, 3))
-            for i, ax in enumerate(axes):
-                ax.plot(cdl.D_hat_[i].squeeze())
+            for idx, ax in enumerate(axes):
+                ax.plot(cdl.D_hat_[idx].squeeze())
                 ax.set_yticks(np.linspace(-0.5, 0.5, 3))
             plt.suptitle(f"RoseCDL - {summary_name} - reg = {cdl_params['lmbd']}")
             fig.savefig(
@@ -283,20 +318,22 @@ if __name__ == "__main__":
         default=None,
         help="Master seed for reproducible job",
     )
-
-    # parser.add_argument(
-    #     "--n-runs",
-    #     "-n",
-    #     type=int,
-    #     default=20,
-    #     help="Number of repetitions for the experiment",
-    # )
+    parser.add_argument(
+        "--n-runs",
+        "-n",
+        type=int,
+        default=20,
+        help="Number of repetitions for the experiment",
+    )
     parser.add_argument(
         "--output",
         "-o",
         type=str,
         default="results",
         help="Output directory to store the results",
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Run in debug mode",
     )
     args = parser.parse_args()
 
@@ -308,14 +345,15 @@ if __name__ == "__main__":
         seed = np.random.default_rng().integers(0, 2**32 - 1)
     print(f"Seed: {seed}")  # noqa: T201
 
-    # Replace the dynamic n_runs with a fixed value since only the dictionary matters
-    n_runs = 1
+    n_runs = args.n_runs
+
+    # Fix t nruns and jobs to 1 for debugging
+    if args.debug:
+        n_runs = 1
+        args.n_jobs = 1
 
     exp_dir = Path(args.output) / "reg_impact_dict_quality_apnea"
     exp_dir.mkdir(exist_ok=True, parents=True)
-
-    # Base contamination parameters
-    contamination_params = {}
 
     # Define base CDL parameters
     cdl_packages = ["rosecdl"]
@@ -338,10 +376,10 @@ if __name__ == "__main__":
         "sporco": {},
     }
 
-    regularization_values = [0.01, 0.1, 0.3, 0.5, 0.8]
+    regularization_values = [0.01] if args.debug else [0.01, 0.1, 0.3, 0.5, 0.8]
 
     # Fixed outlier detection parameters
-    outlier_detection_timings = ["before", "during", "never"]
+    outlier_detection_timings = ["before"] if args.debug else ["before", "during", "never"]
     outliers_kwargs = {
         "moving_average": None,
         "union_channels": True,
@@ -350,6 +388,8 @@ if __name__ == "__main__":
 
     # Define multiple outlier detection methods to test
     outlier_methods = [
+        {"method": "mad", "alpha": 3.5},
+    ] if args.debug else [
         {"method": "mad", "alpha": 3.5},
         {"method": "zscore", "alpha": 1.0},
         {"method": "iqr", "alpha": 1.5},
@@ -380,3 +420,42 @@ if __name__ == "__main__":
     results = [
         r for res in tqdm(results, "Running", total=len(run_configs)) for r in res
     ]
+
+    # Save results
+    df_results = pd.DataFrame(results)
+    df_results.to_csv(exp_dir / "df_results.csv", index=False)
+
+    # Plot recovery score with separate curves for each reg value
+    fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+
+    # Group by name, regularization value, and epoch
+    curves = (
+        df_results.groupby(["name", "lmbd", "epoch"])["cost"]
+        .quantile([0.2, 0.5, 0.8])
+        .unstack()
+    )
+
+    # Plot each combination of name and reg value
+    color_idx = 0
+    for name in df_results.name.unique():
+        reg_values = df_results[df_results.name == name]["lmbd"].unique()
+        for reg in reg_values:
+            label = f"{name} (reg={reg})"
+            idx = (name, reg)
+            if idx in curves.index:
+                ax.fill_between(
+                    curves.loc[idx].index,
+                    curves.loc[idx, 0.2],
+                    curves.loc[idx, 0.8],
+                    alpha=0.3,
+                    color=f"C{color_idx}",
+                    label=None,
+                )
+                curves.loc[idx, 0.5].plot(label=label, c=f"C{color_idx}")
+                color_idx += 1
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Full cost")
+    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    fig.tight_layout()
+    fig.savefig(exp_dir / "full_cost_apnea.pdf", bbox_inches="tight")
