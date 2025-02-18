@@ -264,8 +264,7 @@ def run_one(
         if epoch % 2 == 0:
             return
 
-        D_hat = model.D_hat_ if cdl_package == "rosecdl" else model.D_hat
-
+        D_hat = model.D_hat_
         regu = cdl_params["lmbd"] if cdl_package == "rosecdl" else cdl_params["reg"]
 
         z_hat, _, _ = update_z_multi(Xgood[:10], D_hat, reg=regu)
