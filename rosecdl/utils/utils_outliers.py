@@ -345,12 +345,13 @@ def remove_outliers(
 
 
 def add_outliers_2d(
-    X,
-    contamination=0.1,
-    patch_size=None,
-    strength=0.8,
-    seed=None,
-    clip=True,
+    X: torch.Tensor,
+    contamination: float = 0.1,
+    patch_size: tuple[int, int] | int | None = None,
+    strength: float = 0.8,
+    seed: int | None = None,
+    noise: float | None = None,
+    clip: bool = True,
 ):
     """Add outliers to 2D data.
 
@@ -377,6 +378,7 @@ def add_outliers_2d(
         Data with outliers
     torch.Tensor
         Mask indicating where outliers were added (1 for outliers, 0 for clean data)
+
     """
     # If numpy array, convert to tensor
     if not torch.is_tensor(X):
@@ -395,6 +397,9 @@ def add_outliers_2d(
     outlier_mask = torch.zeros_like(X, dtype=torch.int)
     running_contamination = 0
     ratio_contam = 0
+
+    if noise is not None:
+        X_outliers += noise * torch.rand_like(X_outliers, generator=generator)
 
     while ratio_contam < contamination:
         if patch_size is None:
