@@ -264,7 +264,7 @@ def run_one(
         if epoch % 2 == 0:
             return
 
-        D_hat = model.D_hat_
+        D_hat = model.D_hat_ if cdl_package == "rosecdl" else model.D_hat
         regu = cdl_params["lmbd"] if cdl_package == "rosecdl" else cdl_params["reg"]
 
         z_hat, _, _ = update_z_multi(Xgood[:10], D_hat, reg=regu)
@@ -317,6 +317,7 @@ def run_one(
             fig.savefig(
                 exp_dir / f"D_hat_{summary_name.replace(' ', '_')}_reg_{cdl_params["lmbd"]}.pdf"
                 )
+
     elif cdl_package == "alphacsc":
         rng = np.random.default_rng(seed)
         D_init = init_dictionary(
@@ -336,11 +337,11 @@ def run_one(
 
         if i == 0:
             # Plot result dictionary
-            fig, axes = plt.subplots(1, cdl.D_hat.shape[0], figsize=(12, 3))
+            fig, axes = plt.subplots(1, cdl.D_hat_.shape[0], figsize=(12, 3))
             for idx, ax in enumerate(axes):
-                ax.plot(cdl.D_hat[idx].squeeze())
+                ax.plot(cdl.D_hat_[idx].squeeze())
                 ax.set_yticks(np.linspace(-0.5, 0.5, 3))
-            plt.suptitle(f"RoseCDL - {summary_name} - reg = {cdl_params['reg']}")
+            plt.suptitle(f"AlphaCSC - {summary_name} - reg = {cdl_params['reg']}")
             fig.savefig(
                 exp_dir / f"D_hat_{summary_name.replace(' ', '_')}_reg_{cdl_params["reg"]}.pdf"
                 )
