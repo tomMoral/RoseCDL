@@ -70,4 +70,6 @@ def remove_outliers_before_cdl(
         data_clean = data.copy()
         data_clean[outlier_mask] = data[~outlier_mask].mean()
 
+    outlier_mask = outlier_mask.reshape(data.shape)
+
     return data_clean if not return_outliers_mask else (data_clean, outlier_mask)

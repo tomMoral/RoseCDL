@@ -399,7 +399,10 @@ def add_outliers_2d(
     ratio_contam = 0
 
     if noise is not None:
-        X_outliers += noise * torch.rand_like(X_outliers, generator=generator)
+        # Not using torch.rand_like because of generator
+        X_outliers += noise * torch.randn(
+            X_outliers.shape, device=X.device, generator=generator
+            )
 
     while ratio_contam < contamination:
         if patch_size is None:
