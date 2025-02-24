@@ -84,10 +84,11 @@ class SubwindowsDataset(torch.utils.data.Dataset):
             for i, sw in zip(idx_windows, self.sample_window)
         ]
 
-        return torch.tensor(
-            self.data[(idx_samp, slice(None), *slice_window)],
-            device=self.device,
-            dtype=self.dtype,
+        return (
+            self.data[(idx_samp, slice(None), *slice_window)]
+            .clone()
+            .detach()
+            .to(device=self.device, dtype=self.dtype)
         )
 
     def __len__(self):

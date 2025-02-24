@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 
 from rosecdl.rosecdl import RoseCDL
 
@@ -19,7 +20,7 @@ from rosecdl.rosecdl import RoseCDL
 def test_rosecdl(n_components, n_channels, kernel_size, support, rank1, positive_D):
     """Test positive dictionary constraint with 1D and 2D data"""
     # Setup test data
-    X = np.random.rand(10, n_channels, *support)
+    X = torch.rand(10, n_channels, *support)
 
     # Initialize RoseCDL and fit it
     cdl = RoseCDL(

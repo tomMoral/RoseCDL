@@ -87,25 +87,6 @@ def evaluate_D_hat(patterns, D_hat):
     Returns:
         float : The evaluation score (mean correlation of best assignments).
     """
-    patterns, D_hat = patterns.copy(), D_hat.copy()
-
-    # axis = (2, 3)
-    if patterns.ndim == 4:
-        axis = (1, 2, 3)
-    else:
-        axis = (1, 2)
-
-    patterns -= patterns.mean(axis=axis, keepdims=True)
-    D_hat -= D_hat.mean(axis=axis, keepdims=True)
-
-    patterns = torch.from_numpy(patterns)
-    D_hat = torch.from_numpy(D_hat)
-
-    patterns /= torch.linalg.vector_norm(patterns, dim=axis, keepdim=True)
-    D_hat /= torch.linalg.vector_norm(D_hat, dim=axis, keepdim=True)
-
-    patterns = patterns.numpy()
-    D_hat = D_hat.numpy()
 
     corr = np.array(
         [
