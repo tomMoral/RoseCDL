@@ -15,13 +15,15 @@ def test_dictionary_recovery_2d(
 ):
     # One seed per config to avoid having too correlated tests
     seed = hash((n_atoms, extra_n_atoms, n_channels, height, width, size_increase))
-    rng = np.random.RandomState(seed % (2 ** 32 -1))
+    rng = np.random.RandomState(seed % (2**32 - 1))
 
     true_d = rng.rand(n_atoms, n_channels, height, width)
     true_d[:, :, :5, :5] = 3
     dict2 = rng.rand(
-        n_atoms + extra_n_atoms, n_channels,
-        height + size_increase, width + size_increase
+        n_atoms + extra_n_atoms,
+        n_channels,
+        height + size_increase,
+        width + size_increase,
     )
 
     random_score = evaluate_D_hat(true_d, dict2)
