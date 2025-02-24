@@ -25,30 +25,47 @@ def multi_channel_pearson_coef(atom, pat):
     """
     patch = np.ones(np.minimum(atom.shape[1:], pat.shape[1:]))
     N = atom.shape[0] * np.prod(patch.shape)
-    corr = np.sum(
-        [
-            signal.correlate(atom_c, pat_c, mode="same")
-            for atom_c, pat_c in zip(atom, pat)
-        ], axis=0,
-    ) / N
-    mean_atom = np.sum([
-        signal.correlate(atom_c, patch, mode="valid") for atom_c in atom
-    ], axis=0) / N
-    norm_atom = np.sum([
-        signal.correlate(atom_c ** 2, patch, mode="valid") for atom_c in atom
-    ], axis=0) / N
-    mean_pat = np.sum([
-        signal.correlate(pat_c, patch, mode="valid") for pat_c in pat
-    ], axis=0) / N
-    norm_pat = np.sum([
-        signal.correlate(pat_c ** 2, patch, mode="valid") for pat_c in pat
-    ], axis=0) / N
+    corr = (
+        np.sum(
+            [
+                signal.correlate(atom_c, pat_c, mode="same")
+                for atom_c, pat_c in zip(atom, pat)
+            ],
+            axis=0,
+        )
+        / N
+    )
+    mean_atom = (
+        np.sum(
+            [signal.correlate(atom_c, patch, mode="valid") for atom_c in atom], axis=0
+        )
+        / N
+    )
+    norm_atom = (
+        np.sum(
+            [signal.correlate(atom_c**2, patch, mode="valid") for atom_c in atom],
+            axis=0,
+        )
+        / N
+    )
+    mean_pat = (
+        np.sum([signal.correlate(pat_c, patch, mode="valid") for pat_c in pat], axis=0)
+        / N
+    )
+    norm_pat = (
+        np.sum(
+            [signal.correlate(pat_c**2, patch, mode="valid") for pat_c in pat], axis=0
+        )
+        / N
+    )
     mean = mean_atom * mean_pat
     norm = np.maximum(
         np.sqrt((norm_atom - mean_atom**2) * (norm_pat - mean_pat**2)), 1e-6
     )
 
-    padding = tuple(((p-1) // 2 + ((p-1) % 2 == 1), (p -1) // 2) for p in patch.shape)
+    padding = tuple(
+        ((p - 1) // 2 + ((p - 1) % 2 == 1), (p - 1) // 2) for p in patch.shape
+    )
     mean = np.pad(mean, padding, "edge")
     norm = np.pad(norm, padding, "edge")
 
