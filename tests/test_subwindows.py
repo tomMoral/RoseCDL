@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 
 from rosecdl.datasets.subwindow_dataset import SubwindowsDataset
 
@@ -9,7 +10,7 @@ class TestSubwindowsDataset:
     @pytest.mark.parametrize("sample_window", [None, 5])
     def test_1d_no_window(self, n_trials, sample_window):
         n_times = 10
-        data = np.zeros((n_trials, 1, n_times))
+        data = torch.zeros(n_trials, 1, n_times)
         dataset = SubwindowsDataset(data, sample_window=sample_window)
 
         n_windows = n_times - sample_window + 1 if sample_window is not None else 1
@@ -24,7 +25,7 @@ class TestSubwindowsDataset:
     @pytest.mark.parametrize("sample_window", [None, (5, 4)])
     def test_2d_no_window(self, n_trials, sample_window):
         support = (10, 11)
-        data = np.zeros((n_trials, 1, *support))
+        data = torch.zeros(n_trials, 1, *support)
         dataset = SubwindowsDataset(data, sample_window=sample_window)
 
         n_windows = np.prod(

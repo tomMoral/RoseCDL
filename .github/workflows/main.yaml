@@ -32,7 +32,7 @@ jobs:
         python -m pip install -e .[dev]
     - name: Test with pytest
       run: |
-        python -m pytest -v rosecdl
+        python -m pytest -v .
   lint:
     runs-on: ubuntu-latest
     steps:
