@@ -23,6 +23,7 @@ description = "RObust and ScalablE Convolution Dictionary Learning"
 readme = "README.md"
 
 dependencies = [
+    "fft-conv-pytorch",
     "imageio",
     "matplotlib",
     "numpy",
