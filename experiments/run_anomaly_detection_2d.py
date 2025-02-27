@@ -21,7 +21,7 @@ mem = Memory(location="__cache__", verbose=0)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -89,9 +89,7 @@ def validate_dimensions(tensor: np.ndarray, expected_dim: int, name: str) -> Non
             f"Expected {name} to have {expected_dim} dimensions, "
             f"but got {tensor.ndim} dimensions"
         )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
 
 @mem.cache
@@ -141,13 +139,15 @@ def run_one(
     validate_dimensions(X, 4, "Input data X")  # (n_trials, n_channels, height, width)
 
     D_true = np.expand_dims(D_true, axis=1)
-    validate_dimensions(D_true, 4, "Dictionary D")  # (n_atoms, n_channels, height, width)
+    validate_dimensions(
+        D_true, 4, "Dictionary D"
+    )  # (n_atoms, n_channels, height, width)
 
     # Add outliers to the data
     X_outliers, outliers_mask = add_outliers_2d(
         X,
         contamination=0.2,
-        patch_size=(30, 30),
+        patch_size=(80, 80),
         strength=3,
         seed=seed,
         noise=0.1,
@@ -225,10 +225,14 @@ def run_one(
 
         if outlier_detection_timing == "during":
             metrics = get_outliers_metric(
-                true_outliers_mask, model, X, dice_score_epsilon
+                true_outliers_mask, model, X, dice_score_epsilon, crop=True
             )
         elif outlier_detection_timing == "before":
-            mask_before = info_contam["mask_before"]
+            kheight, kwidth = cdl_params["kernel_size"]
+            true_outliers_mask = true_outliers_mask[:, :, : -kheight + 1, : -kwidth + 1]
+            mask_before = info_contam["mask_before"][
+                :, :, : -kheight + 1, : -kwidth + 1
+            ]
 
             if isinstance(true_outliers_mask, torch.Tensor):
                 true_outliers_mask = true_outliers_mask.cpu().numpy()
@@ -343,6 +347,9 @@ if __name__ == "__main__":
         "--reg", type=float, default=0.8, help="Regularization parameter"
     )
     parser.add_argument(
+        "--window", action="store_true", help="Use windowing in the CDL algorithm"
+    )
+    parser.add_argument(
         "--debug", action="store_true", help="Run the script in debug mode"
     )
     args = parser.parse_args()
@@ -359,7 +366,8 @@ if __name__ == "__main__":
     n_runs = 1 if args.debug else args.n_runs
     reg = args.reg
 
-    exp_dir = Path(args.output) / f"anomaly_detection_2d_reg_{reg}"
+    window_suffix = "window" if args.window else "no_window"
+    exp_dir = Path(args.output) / f"anomaly_detection_2d_reg_{reg}_{window_suffix}"
     exp_dir.mkdir(exist_ok=True, parents=True)
 
     # Define base CDL parameters
@@ -376,8 +384,8 @@ if __name__ == "__main__":
             "mini_batch_size": 10,
             "sample_window": 960,
             "optimizer": "adam",
-            "n_iterations": 30 if args.debug else 60,
-            "window": False,
+            "n_iterations": 30 if args.debug else 50,
+            "window": args.window,
             "device": DEVICE,
             "positive_D": True,
         },
@@ -414,6 +422,21 @@ if __name__ == "__main__":
         seed=seed,
     )
 
+    # Save configuration parameters as JSON for reproducibility
+    import json
+
+    config_to_save = {
+        "cdl_configs": cdl_configs,
+        "outlier_detection_methods": outlier_detection_methods,
+        "outlier_detection_timings": outlier_detection_timings,
+        "outliers_kwargs": outliers_kwargs,
+        "n_runs": n_runs,
+        "seed": seed,
+        "args": vars(args),
+    }
+    with open(exp_dir / "experiment_config.json", "w") as f:
+        json.dump(config_to_save, f, indent=4, default=str)
+
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
         delayed(run_one)(
             **run_config,
@@ -431,7 +454,6 @@ if __name__ == "__main__":
     df_results = pd.DataFrame(results)
     df_results.to_csv(exp_dir / "df_results.csv", index=False)
 
-
     fig_box, ax_box = plt.subplots(figsize=(8, 6))
 
     last_epoch = df_results["epoch"].max()
@@ -440,7 +462,7 @@ if __name__ == "__main__":
     box_plot = ax_box.boxplot(
         [group["f1"].to_numpy() for name, group in last_epoch_data.groupby("name")],
         tick_labels=[name for name, _ in last_epoch_data.groupby("name")],
-        patch_artist=True
+        patch_artist=True,
     )
 
     for i, patch in enumerate(box_plot["boxes"]):
