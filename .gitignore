@@ -3,12 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pdf
-*.png 
+*.png
 *.npy
 *.csv
 *.ipynb
 *.npy
 *.pickle
+*.parquet
 experiments/physionet/apnea-ecg
 experiments/figures
 *joblib/
@@ -148,3 +149,5 @@ local/
 output/*
 
 *.npz
+
+.DS_Store

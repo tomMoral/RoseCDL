@@ -179,7 +179,7 @@ def get_method_name(method_spec: dict[str or float]) -> str:
 
 
 def get_outliers_metric(
-    true_outliers_mask, rosecdl, X, dice_score_epsilon: float = 1e-7
+    true_outliers_mask, rosecdl, X, dice_score_epsilon: float = 1e-7, crop=False,
 ):
     """
 
@@ -197,6 +197,30 @@ def get_outliers_metric(
 
     outliers_mask = rosecdl.loss_fn.get_outliers_mask(X_hat, z_hat, X, opening=False)
     outliers_mask = outliers_mask.detach().cpu().numpy()
+
+    if crop:
+        # We only change either the last dimension or the last two dimensions
+        # depending on the shape of the mask
+
+        kernel_size = rosecdl.csc.kernel_size
+
+        if len(kernel_size) == 1:
+            outliers_mask = outliers_mask[:, :, : -kernel_size[0] + 1]
+            true_outliers_mask = true_outliers_mask[:, :, : -kernel_size[0] + 1]
+
+        elif len(kernel_size) == 2:
+            outliers_mask = outliers_mask[
+                :,
+                :,
+                : -kernel_size[0] + 1,
+                : -kernel_size[1] + 1,
+            ]
+            true_outliers_mask = true_outliers_mask[
+                :,
+                :,
+                : -kernel_size[0] + 1,
+                : -kernel_size[1] + 1,
+            ]
 
     # Ensure masks have the same shape
     if true_outliers_mask.shape != outliers_mask.shape:
