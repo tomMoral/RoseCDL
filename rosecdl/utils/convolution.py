@@ -16,7 +16,7 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
         D: Convolutional dictionary. Shape (n_atoms, n_channels, *kernel_size).
 
     Returns:
-        A tensor of shape (batch_size, n_channels, *valid_support), where each dimension
+        A tensor of shape (batch_size, n_atoms, *valid_support), where each dimension
         of valid_support  is given by:
             valid_support[i] = signal_size[i] - kernel_size[i] + 1.
 
@@ -40,12 +40,17 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     dictionary = pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
-    fourier_signal = torch.fft.rfftn(signal)
-    fourier_dict = torch.fft.rfftn(dictionary)
+    fourier_signal = torch.fft.fftn(signal, dim=tuple(range(3, signal.ndim)))
+    fourier_dict = torch.fft.fftn(dictionary, dim=tuple(range(3, signal.ndim)))
     fourier_dict.imag *= -1
 
-    fourier_output = (fourier_dict * fourier_signal).sum(dim=2)
-    return torch.fft.irfftn(fourier_output)[output_slice]
+    fourier_output = fourier_dict * fourier_signal
+
+    result = torch.fft.ifftn(fourier_output, dim=tuple(range(3, signal.ndim)))
+    result = result.sum(dim=2)
+    result = result[output_slice]
+
+    return torch.real(result)
 
 
 def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:

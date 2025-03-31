@@ -5,18 +5,13 @@ from rosecdl.utils.convolution import fft_conv, fft_conv_transpose
 
 
 def test_fft_conv():
-    x = torch.rand(4, 3, 100, 100)
-    D = torch.rand(10, 3, 10, 10)
+    x = torch.rand(3, 2, 10, 10)
+    D = torch.rand(4, 2, 3, 3)
 
     fft_res = fft_conv(x, D)
     torch_res = conv2d(x, D)
 
-    print(fft_res.min())
-    print(fft_res.max())
-    print(torch_res.min())
-    print(torch_res.max())
-
-    # assert torch.abs(fft_conv(x, D) - conv2d(x, D)).max() < 1
+    assert torch.allclose(fft_res, torch_res)
 
 
 def test_fft_conv_transpose():
