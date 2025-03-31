@@ -24,7 +24,10 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     output_slice = [
         slice(None),
         slice(None),
-        *[slice(k_dim - 1, None) for k_dim in D.shape[2:]],
+        *[
+            slice(0, dim - k_dim + 1)
+            for dim, k_dim in zip(x.shape[2:], D.shape[2:], strict=True)
+        ],
     ]
     dict_padding = [
         item
@@ -37,11 +40,12 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     dictionary = pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
-    fourier_signal = torch.fft.fftn(signal)
-    fourier_dict = torch.fft.fftn(dictionary)
+    fourier_signal = torch.fft.rfftn(signal)
+    fourier_dict = torch.fft.rfftn(dictionary)
+    fourier_dict.imag *= -1
 
     fourier_output = (fourier_dict * fourier_signal).sum(dim=2)
-    return torch.real(torch.fft.ifftn(fourier_output))[output_slice]
+    return torch.fft.irfftn(fourier_output)[output_slice]
 
 
 def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
