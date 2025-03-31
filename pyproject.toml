@@ -89,14 +89,23 @@ docstring-code-line-length = "dynamic"
 
 select = ["ALL"]
 ignore = [
-    "FBT",
+    "ANN",
     "COM812",
     "D100",
+    "D102",
     "D104",
     "D203",
     "D213",
+    "FBT",
+    "FIX",
+    "N802",
+    "N803",
+    "N806",
+    "PLR0913",
     "PLR2004",
     "RUF012",
+    "T201",
+    "TD",
 ]
 fixable = ["ALL"]
 unfixable = []
