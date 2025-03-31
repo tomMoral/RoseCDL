@@ -32,7 +32,7 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
         for item in (0, dim - k_dim)
     ]
 
-    signal = x.unsqueeze(2)  # Add an "output_channels" dimension.
+    signal = x.unsqueeze(1)  # Add an "output_channels" dimension.
 
     dictionary = pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
@@ -40,7 +40,7 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     fourier_signal = torch.fft.fftn(signal)
     fourier_dict = torch.fft.fftn(dictionary)
 
-    fourier_output = (fourier_dict * fourier_signal).sum(dim=1)
+    fourier_output = (fourier_dict * fourier_signal).sum(dim=2)
     return torch.real(torch.fft.ifftn(fourier_output))[output_slice]
 
 
