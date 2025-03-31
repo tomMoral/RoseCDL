@@ -40,13 +40,13 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     dictionary = pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
-    fourier_signal = torch.fft.fftn(signal, dim=tuple(range(3, signal.ndim)))
-    fourier_dict = torch.fft.fftn(dictionary, dim=tuple(range(3, signal.ndim)))
+    fourier_signal = torch.fft.rfftn(signal, dim=tuple(range(3, signal.ndim)))
+    fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, signal.ndim)))
     fourier_dict.imag *= -1
 
     fourier_output = fourier_dict * fourier_signal
 
-    result = torch.fft.ifftn(fourier_output, dim=tuple(range(3, signal.ndim)))
+    result = torch.fft.irfftn(fourier_output, dim=tuple(range(3, signal.ndim)))
     result = result.sum(dim=2)
     result = result[output_slice]
 
