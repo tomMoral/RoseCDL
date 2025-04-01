@@ -55,7 +55,6 @@ def get_lambda_global(
 
     Parameters
     ----------
-
     list_subjects_path : list of paths
 
     method : callable
@@ -65,7 +64,6 @@ def get_lambda_global(
 
     Returns
     -------
-
     lambda_global : float
 
     list_lmbd : list

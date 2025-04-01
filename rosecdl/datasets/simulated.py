@@ -220,7 +220,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
     elif shape == "square":
         ds = list()
         for idx in range(n_cycles):
-            ds.append(0.5 * np.ones((n_times_atom // (2 * n_cycles))))
+            ds.append(0.5 * np.ones(n_times_atom // (2 * n_cycles)))
             ds.append(-ds[-1])
         d = np.hstack(ds)
         d = np.pad(d, (0, n_times_atom - d.shape[0]), "constant")
@@ -234,7 +234,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
         xx = np.linspace(0, n_times_atom, n_times_atom)
         means = np.linspace(0, n_times_atom, num=(n_cycles + 1), endpoint=False)[1:]
         weights = rng.choice([-3, -2, -1, 1, 2, 3], size=n_cycles, replace=True)
-        for m, w in zip(means, weights):
+        for m, w in zip(means, weights, strict=False):
             d += w * norm.pdf(xx, loc=m, scale=1)
 
     if zero_mean:

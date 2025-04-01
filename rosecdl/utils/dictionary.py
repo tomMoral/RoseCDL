@@ -37,7 +37,7 @@ def flip_uv(uv, n_channels):
     n_channels: int
         number of channels in the original multivariate series
 
-    Return
+    Return:
     ------
     uv: array, shape (n_atoms, n_channels + n_times_atom)
 
@@ -56,7 +56,7 @@ def get_uv(D):
     ---------
     D: array, shape (n_atoms, n_channels, n_times_atom)
 
-    Return
+    Return:
     ------
     uv: array, shape (n_atoms, n_channels + n_times_atom)
 
@@ -91,8 +91,7 @@ def prox_uv(uv, uv_constraint="joint", n_channels=None, return_norm=False):
 
     if return_norm:
         return uv, squeeze_all_except_one(norm_uv, axis=0)
-    else:
-        return uv
+    return uv
 
 
 def tukey_window(n_times_atom):
@@ -125,8 +124,7 @@ def prox_d(D, return_norm=False):
 
     if return_norm:
         return D, squeeze_all_except_one(norm_d, axis=0)
-    else:
-        return D
+    return D
 
 
 def get_D_shape(D, n_channels):
@@ -180,7 +178,7 @@ def init_dictionary(
     random_state: int | None
         The random state.
 
-    Return
+    Return:
     ------
     D: array shape(n_atoms, n_channels + n_times_atom) or
               shape(n_atoms, n_channels, n_times_atom)
@@ -211,11 +209,11 @@ def init_dictionary(
             D_hat = get_uv(D_hat)
 
     elif D_init == "greedy":
-        raise NotImplementedError()
+        raise NotImplementedError
 
     else:
         raise NotImplementedError(
-            "It is not possible to initialize uv with" " parameter {}.".format(D_init)
+            f"It is not possible to initialize uv with parameter {D_init}."
         )
 
     if window and not isinstance(D_init, np.ndarray):

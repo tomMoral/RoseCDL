@@ -50,10 +50,10 @@ def split_signal(X, n_splits=1, apply_window=True):
     msg = "This splitting utility is only designed for one multivariate signal"
     if X.ndim == 3:
         assert X.shape[0] == 1, (
-            msg + "(1, n_channels, n_times. Found X.shape={}".format(X.shape)
+            msg + f"(1, n_channels, n_times. Found X.shape={X.shape}"
         )
         X = X[0]
-    assert X.ndim == 2, msg + " (n_channels, n_times). Found X.ndim={}.".format(X.ndim)
+    assert X.ndim == 2, msg + f" (n_channels, n_times). Found X.ndim={X.ndim}."
 
     n_splits = int(n_splits)
     assert n_splits > 0, "The number of splits should be large than 0."
@@ -163,7 +163,7 @@ def generate_z(
 
     # Set random state from kwargs
     rng = kwargs.get("rng", np.random.RandomState())
-    seed = kwargs.get("seed", None)
+    seed = kwargs.get("seed")
     if seed is not None:
         rng = np.random.RandomState(seed)
 
@@ -284,7 +284,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
     elif shape == "square":
         ds = list()
         for idx in range(n_cycles):
-            ds.append(0.5 * np.ones((n_times_atom // (2 * n_cycles))))
+            ds.append(0.5 * np.ones(n_times_atom // (2 * n_cycles)))
             ds.append(-ds[-1])
         d = np.hstack(ds)
         d = np.pad(d, (0, n_times_atom - d.shape[0]), "constant")
@@ -298,7 +298,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
         xx = np.linspace(0, n_times_atom, n_times_atom)
         means = np.linspace(0, n_times_atom, num=(n_cycles + 1), endpoint=False)[1:]
         weights = rng.choice([-3, -2, -1, 1, 2, 3], size=n_cycles, replace=True)
-        for m, w in zip(means, weights):
+        for m, w in zip(means, weights, strict=False):
             d += w * norm.pdf(xx, loc=m, scale=1)
 
     if zero_mean:
@@ -381,7 +381,7 @@ def generate_atoms(
 
     # Set random state from kwargs
     rng = kwargs.get("rng", np.random.RandomState())
-    seed = kwargs.get("seed", None)
+    seed = kwargs.get("seed")
     if seed is not None:
         rng = np.random.RandomState(seed)
 
@@ -523,7 +523,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
                 axs[i, j].plot(
                     D_true[i, j, :], color="black", linestyle="--", label="D_true"
                 )
-            for d, label in zip(dicts, labels):
+            for d, label in zip(dicts, labels, strict=False):
                 if i == 0 and j == (n_channels - 1):
                     # Only add legend for top right subplot
                     label = label
@@ -782,13 +782,12 @@ def generate_signal(
 def validate_sparsity(sparsity, n_trials):
     if isinstance(sparsity, float) and 0 <= sparsity <= 1:
         return int(n_trials * sparsity)
-    elif isinstance(sparsity, int) and sparsity >= 1:
+    if isinstance(sparsity, int) and sparsity >= 1:
         return sparsity
-    else:
-        raise ValueError(
-            f"Sparsity must be either an integer greater or equal to 1, or a float "
-            f"between 0 and 1. Got {sparsity}."
-        )
+    raise ValueError(
+        f"Sparsity must be either an integer greater or equal to 1, or a float "
+        f"between 0 and 1. Got {sparsity}."
+    )
 
 
 def apply_contamination(
@@ -963,7 +962,6 @@ def generate_experiment(
     sparsity = simulation_params.get("sparsity", 1)
     rank1 = simulation_params.pop("rank1", False)
 
-    #
     n_times *= n_trials
     n_splits = n_trials
     if sparsity >= 1:
@@ -1134,7 +1132,7 @@ def plot_signal(*list_X, X_true=None, labels=None, label_true="Original"):
                     label=label_true,
                 )
 
-            for X, label in zip(list_X, labels):
+            for X, label in zip(list_X, labels, strict=False):
                 axs[i, j].plot(X[i, j, :], alpha=alpha, label=label)
 
             axs[i, j].set_title(f"Trial {i + 1}, Channel {j + 1}")

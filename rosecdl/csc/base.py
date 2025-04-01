@@ -192,7 +192,7 @@ class ConvolutionalSparseCoder(nn.Module):
 
     def init_z(self, x):
         support_shape = tuple(
-            fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size)
+            fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size, strict=False)
         )
         return torch.zeros(
             (x.shape[0], self.n_components, *support_shape),

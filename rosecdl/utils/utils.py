@@ -34,6 +34,7 @@ def get_z_nnz(z_hat):
     ----------
     z_hat : numpy.ndarray
         Input array from which to count non-zero elements. Expected to be a 3D array.
+
     Returns
     -------
     numpy.ndarray

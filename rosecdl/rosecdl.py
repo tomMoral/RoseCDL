@@ -199,7 +199,7 @@ class RoseCDL(torch.nn.Module):
                 f"RoseCDL. Got {X.shape[1]=}, while we expected {self.csc.n_channels}"
             )
 
-        if any(supp < 3 * ks for supp, ks in zip(X.shape[2:], self.csc.kernel_size)):
+        if any(supp < 3 * ks for supp, ks in zip(X.shape[2:], self.csc.kernel_size, strict=False)):
             warnings.warn(
                 "The support of the signal is smaller than 3 times the kernel size. "
                 "This may lead to poor performance."

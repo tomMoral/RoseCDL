@@ -27,10 +27,9 @@ def apply_threshold(z, p_threshold, per_atom=True):
 
         return [z_nan[i][mask[i]] for i in range(n_atoms)]
 
-    else:
-        threshold = np.percentile(z[z > 0], p_threshold)  # global threshold
-        print(f"Global thresholding at {p_threshold}%: {threshold}")
-        return [this_z[this_z > threshold] for this_z in z]
+    threshold = np.percentile(z[z > 0], p_threshold)  # global threshold
+    print(f"Global thresholding at {p_threshold}%: {threshold}")
+    return [this_z[this_z > threshold] for this_z in z]
 
 
 def plot_z_boxplot(
