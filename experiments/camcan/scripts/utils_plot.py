@@ -42,8 +42,7 @@ def plot_z_boxplot(
     add_number=True,
     fig_name=None,
 ):
-    """
-    Plot activations boxplot for each atom, with a possible thresholding.
+    """Plot activations boxplot for each atom, with a possible thresholding.
 
     Parameters
     ----------

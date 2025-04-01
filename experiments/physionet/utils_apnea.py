@@ -15,9 +15,7 @@ from wfdb.io.record import rdrecord
 def load_ecg(
     subject_id="a01", T=60, data_path=Path("apnea-ecg"), apply_window=True, verbose=True
 ):
-    """
-
-    Parameters
+    """Parameters
     ----------
     subject_id : str
 
@@ -50,7 +48,6 @@ def load_ecg(
         corresponds to each datta split.
 
     """
-
     # ECG record
     record_name = str(data_path / subject_id)
     ecg_record = rdrecord(record_name=record_name)
@@ -90,9 +87,7 @@ def load_ecg(
 
 
 def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_section=0):
-    """
-
-    n_sections : int
+    """n_sections : int
         number of sections to plot
 
     n_min_per_plot : int
@@ -101,7 +96,6 @@ def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_sec
     first_section : int
         index of the first section to start from
     """
-
     data_path = Path("apnea-ecg")
     record_name = str(data_path / subject_id)
     ecg_record = rdrecord(record_name=record_name)
@@ -159,9 +153,7 @@ def plot_loss_history(pobj, times=None, save_fig=False):
 
 
 def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
-    """
-
-    Parameters
+    """Parameters
     ----------
     d_hat : array, shape (n_atoms, n_times)
         The estimated atoms.
@@ -208,9 +200,7 @@ def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
 
 
 def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
-    """
-
-    Parameters
+    """Parameters
     ----------
 
     dict_d_hat : dict of arrays of shape (n_atoms, n_times)
@@ -221,7 +211,6 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
     -------
 
     """
-
     n_atoms, n_times_atom = list(dict_d_hat.values())[0].shape
     t = np.arange(n_times_atom) / sfreq  # time support of the atom
 
@@ -270,9 +259,7 @@ def run_cdl(
     plot_atoms=True,
     save_fig=False,
 ):
-    """
-
-    Parameters
+    """Parameters
     ----------
     X : ndarray, shape (n_splits, n_channels, n_times)
 

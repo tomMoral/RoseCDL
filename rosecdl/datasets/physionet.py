@@ -13,9 +13,7 @@ except ImportError:
 
 
 class PhysionetDataset(torch.utils.data.Dataset):
-    """
-
-    db_dir : string
+    """db_dir : string
         path to the dataset
         values can be 'apnea-ecg'
 

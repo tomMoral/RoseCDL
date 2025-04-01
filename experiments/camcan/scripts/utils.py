@@ -115,7 +115,6 @@ def get_lambda_global(
 
 def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
     """Get subject's self dictionary using Windowing-CDL"""
-
     X = np.load(subject_path)
     X /= X.std()
     if X.ndim == 2:
@@ -194,7 +193,6 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
             number of non-null activations for each atom
 
     """
-
     subject_id = subject_path.name.split(".")[0]
 
     X = np.load(subject_path)
@@ -224,16 +222,13 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
 
 
 def get_camcan_info(subject_id, return_raw=False):
-    """
-
-    Parameters
+    """Parameters
     ----------
 
     Returns
     -------
 
     """
-
     # paths to CamCAN files for Inria Saclay users
     DATA_DIR = Path("/storage/store/data/")
     BIDS_root = DATA_DIR / "camcan/BIDSsep/smt/"
