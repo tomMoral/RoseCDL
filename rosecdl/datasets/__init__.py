@@ -34,6 +34,7 @@ def create_dataloader(
     -------
     torch.utils.data.DataLoader
         Torch DataLoader
+
     """
     generator = get_torch_generator(random_state)
     if isinstance(data, np.ndarray | torch.Tensor):

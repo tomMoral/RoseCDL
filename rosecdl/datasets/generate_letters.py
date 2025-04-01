@@ -87,6 +87,7 @@ def get_centered_padding(shape, expected_shape):
     -------
     padding: list
         padding necessary for original array to have the `expected_shape`.
+
     """
     padding = []
     for s, es in zip(shape, expected_shape):
@@ -117,6 +118,7 @@ def generate_text(n_atoms=5, text_length=3000, n_spaces=3, random_state=None):
         among `n_atoms` letters and 2 whitespaces.
     D: ndarray, shape (n_atoms, *atom_support)
         Images of the characters used to generate the image `X`.
+
     """
     if random_state == "ICML":
         rng = check_random_state(0)
@@ -165,6 +167,7 @@ def generate_text_npy(n_atoms=5, text_length=3000, random_state=None):
     -------
     filename: str
         Name of the generated file.
+
     """
     X, D = generate_text(
         n_atoms=n_atoms, text_length=text_length, random_state=random_state

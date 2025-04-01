@@ -171,6 +171,7 @@ def plot_temporal_atoms(d_hat, sfreq=100, save_fig=False):
 
     Returns
     -------
+
     """
     assert d_hat.ndim == 2
 
@@ -218,6 +219,7 @@ def plot_multi_subject_temporal_atoms(dict_d_hat, sfreq=100, save_fig=False):
 
     Returns
     -------
+
     """
 
     n_atoms, n_times_atom = list(dict_d_hat.values())[0].shape
@@ -276,6 +278,7 @@ def run_cdl(
 
     Returns
     -------
+
     """
     n_splits, n_channels, n_times = X.shape
     if n_channels == 1:

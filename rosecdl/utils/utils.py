@@ -18,6 +18,7 @@ def get_torch_generator(seed=None, device=None):
     -------
     torch.Generator
         Generator object for torch.
+
     """
     generator = torch.Generator(device=device)
     if seed is None:
@@ -44,6 +45,7 @@ def get_z_nnz(z_hat):
     The function calculates element-wise count of non-zero values in z_hat
     across the first (0) and last (2) axes, effectively reducing the 3D array
     to a 1D array of counts.
+
     """
     z_nnz = np.sum(z_hat != 0, axis=(0, 2))
     # return z_nnz / z_nnz.shape[-1]
@@ -63,6 +65,7 @@ def get_max_error_patch(X, z, D):
     D_k : ndarray, shape (n_channels, n_times_atom) or
             (n_channels + n_times_atom,)
         Patch of the residual with the largest error.
+
     """
     patch_rec_error = _patch_reconstruction_error(X, z, D)
     i0 = patch_rec_error.argmax()

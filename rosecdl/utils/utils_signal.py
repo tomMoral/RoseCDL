@@ -45,6 +45,7 @@ def split_signal(X, n_splits=1, apply_window=True):
     -------
     X_split: ndarray, shape (n_splits, n_channels, n_times // n_splits)
         The signal splitted in ``n_splits``.
+
     """
     msg = "This splitting utility is only designed for one multivariate signal"
     if X.ndim == 3:
@@ -130,6 +131,7 @@ def generate_z(
     This will generate a 3D array with shape (2, 3, 100), with half of the entries
     being zero and the others being random values drawn from a uniform distribution
     between 0 and 1.
+
     """
     # Input validation
     if not isinstance(n_trials, int) or n_trials < 0:
@@ -268,6 +270,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
         Number of cycles/repetitions in the atom
     random_state : RandomState
         Random number generator for gaussian atoms
+
     """
     if shape == "triangle":
         ds = list()
@@ -360,6 +363,7 @@ def generate_atoms(
     -------
     np.array
         A 3D array of atoms with shape (n_atoms, n_channels, n_times_atom).
+
     """
     # Validate inputs
     if not isinstance(n_atoms, int) or n_atoms < 1:
@@ -469,6 +473,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
     -------
     fig : matplotlib.figure.Figure
         The created figure object.
+
     """
     if not dicts:
         raise ValueError("At least one dictionary should be provided.")
@@ -573,6 +578,7 @@ def create_gif_from_dict_lists(
     -------
     gif_path : Path
         Path to the created GIF.
+
     """
     import imageio
 
@@ -726,6 +732,7 @@ def generate_signal(
     ... )
     >>> X.shape
     (2, 3, 100)
+
     """
     rng = check_random_state(rng)
 
@@ -801,6 +808,7 @@ def apply_contamination(
     -------
     X : np.ndarray
         The contaminated signal.
+
     """
     if contamination_params is None:
         info = dict(percentage=0)
@@ -928,6 +936,7 @@ def generate_experiment(
         Generated dictionary.
     D_init : ndarray, shape (n_atoms + n_atom_extra, n_channels, n_times_atom)
         Initialized dictionary.
+
     """
     # Check required parameters
     if (
@@ -1062,6 +1071,7 @@ def plot_signal(*list_X, X_true=None, labels=None, label_true="Original"):
     Returns
     -------
     fig : matplotlib figure
+
     """
     if not list_X:
         raise ValueError("At least one signal should be provided.")

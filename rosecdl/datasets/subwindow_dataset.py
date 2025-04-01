@@ -25,6 +25,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
     device, dtype: str, optional
         Device and data type for the data. If None, the data will be converted to
         torch.tensor with default values.
+
     """
 
     def __init__(self, data, sample_window=None, overlap=True, device=None, dtype=None):

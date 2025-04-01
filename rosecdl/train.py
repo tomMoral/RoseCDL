@@ -71,6 +71,7 @@ def train(
     -------
     list, list
         Train losses, test losses
+
     """
     print("TRAINING STARTED")
 

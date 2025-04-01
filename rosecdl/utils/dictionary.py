@@ -40,6 +40,7 @@ def flip_uv(uv, n_channels):
     Return
     ------
     uv: array, shape (n_atoms, n_channels + n_times_atom)
+
     """
     v = uv[:, n_channels:]
     index_array = np.argmax(np.abs(v), axis=1)
@@ -58,6 +59,7 @@ def get_uv(D):
     Return
     ------
     uv: array, shape (n_atoms, n_channels + n_times_atom)
+
     """
     n_atoms, n_channels, n_times_atom = D.shape
     uv = np.zeros((n_atoms, n_channels + n_times_atom))
@@ -183,6 +185,7 @@ def init_dictionary(
     D: array shape(n_atoms, n_channels + n_times_atom) or
               shape(n_atoms, n_channels, n_times_atom)
         The initial atoms to learn from the data.
+
     """
     n_trials, n_channels, n_times = X.shape
     rng = check_random_state(random_state)

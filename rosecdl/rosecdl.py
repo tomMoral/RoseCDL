@@ -72,6 +72,7 @@ class RoseCDL(torch.nn.Module):
         torch.tensor with default values.
     random_state : int, optional
         Random seed for reproducibility.
+
     """
 
     def __init__(
