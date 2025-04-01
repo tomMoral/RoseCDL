@@ -75,13 +75,19 @@ def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     dictionary = pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
+    output_last_dim = dictionary.shape[-1]
+    parity_padding_for_rfftn = (0, output_last_dim % 2)
+    activation = pad(activation, parity_padding_for_rfftn)
+    dictionary = pad(dictionary, parity_padding_for_rfftn)
+
     fourier_activation = torch.fft.rfftn(
         activation, dim=tuple(range(3, activation.ndim))
     )
     fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, dictionary.ndim)))
 
     fourier_output = (fourier_dict * fourier_activation).sum(dim=1)
-    return torch.fft.irfftn(fourier_output, dim=tuple(range(2, fourier_output.ndim)))
+    result = torch.fft.irfftn(fourier_output, dim=tuple(range(2, fourier_output.ndim)))
+    return result[..., :output_last_dim]
 
 
 def _sparse_convolve(z_i, ds):
