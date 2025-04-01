@@ -49,9 +49,9 @@ def split_signal(X, n_splits=1, apply_window=True):
     """
     msg = "This splitting utility is only designed for one multivariate signal"
     if X.ndim == 3:
-        assert (
-            X.shape[0] == 1
-        ), msg + "(1, n_channels, n_times. Found X.shape={}".format(X.shape)
+        assert X.shape[0] == 1, (
+            msg + "(1, n_channels, n_times. Found X.shape={}".format(X.shape)
+        )
         X = X[0]
     assert X.ndim == 2, msg + " (n_channels, n_times). Found X.ndim={}.".format(X.ndim)
 
@@ -212,7 +212,9 @@ def generate_z(
         n_trials,
         n_atoms,
         n_times_valid,
-    ), f"Output shape {z.shape} does not match expected shape {(n_trials, n_atoms, n_times_valid)}."
+    ), (
+        f"Output shape {z.shape} does not match expected shape {(n_trials, n_atoms, n_times_valid)}."
+    )
 
     return z
 
@@ -243,7 +245,7 @@ def expand_z(z, n_times_atom):
 
 
 def cycler(n_atoms, n_times_atom, shapes):
-    """Helper to generate atom parameters"""
+    """Helper to generate atom parameters."""
     idx = 0
     for n_cycles in range(1, n_times_atom // 2):
         for shape in shapes:
@@ -445,7 +447,9 @@ def generate_atoms(
         n_atoms,
         n_channels,
         n_times_atom,
-    ), f"Output shape {D.shape} does not match expected shape {(n_atoms, n_channels, n_times_atom)}."
+    ), (
+        f"Output shape {D.shape} does not match expected shape {(n_atoms, n_channels, n_times_atom)}."
+    )
 
     return D
 
@@ -768,7 +772,9 @@ def generate_signal(
         n_trials,
         n_channels,
         n_times,
-    ), f"Output shape {X.shape} does not match expected shape {(n_trials, n_channels, n_times)}."
+    ), (
+        f"Output shape {X.shape} does not match expected shape {(n_trials, n_channels, n_times)}."
+    )
 
     return X, z, D
 

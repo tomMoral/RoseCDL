@@ -51,7 +51,7 @@ def get_lambda_global(
     list_subjects_path, n_atoms, n_times_atom, q=0.95, reg=0.3, method=np.median
 ):
     """For a list of subject, compute their lambda, and return a global value
-    (median, mean, etc.)
+    (median, mean, etc.).
 
     Parameters
     ----------
@@ -114,7 +114,7 @@ def get_lambda_global(
 
 
 def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
-    """Get subject's self dictionary using Windowing-CDL"""
+    """Get subject's self dictionary using Windowing-CDL."""
     X = np.load(subject_path)
     X /= X.std()
     if X.ndim == 2:

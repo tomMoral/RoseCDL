@@ -78,9 +78,9 @@ def simulate_1d(
         n_atoms, n_times_atom = ds.shape
 
     # Validate number of atoms
-    assert (
-        n_atoms <= ds.shape[0]
-    ), f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
+    assert n_atoms <= ds.shape[0], (
+        f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
+    )
     n_times_atom == ds.shape[1]
 
     # Randomly select subset of atoms if needed
@@ -134,7 +134,7 @@ def simulate_1d(
 
 
 def cycler(n_atoms, n_times_atom, shapes):
-    """Helper to generate atom parameters"""
+    """Helper to generate atom parameters."""
     idx = 0
     for n_cycles in range(1, n_times_atom // 2):
         for shape in shapes:
