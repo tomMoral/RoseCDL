@@ -15,15 +15,7 @@ def test_fft_conv():
 
 
 def test_fft_conv_transpose():
-    z = torch.rand(4, 10, 100, 100)
-    D = torch.rand(10, 3, 10, 10)
+    z = torch.rand(4, 2, 10, 10)
+    D = torch.rand(2, 3, 3, 3)
 
-    fft_res = fft_conv_transpose(z, D)
-    torch_res = conv_transpose2d(z, D)
-
-    print(fft_res.min())
-    print(fft_res.max())
-    print(torch_res.min())
-    print(torch_res.max())
-
-    # assert torch.abs(fft_conv_transpose(z, D) - conv_transpose2d(z, D)).max() < 1
+    assert torch.allclose(fft_conv_transpose(z, D), conv_transpose2d(z, D))
