@@ -58,6 +58,7 @@ def simulate_1d(
         Dictionary of atoms used to generate data.
     z : ndarray of shape (n_atoms, n_trials, n_times - n_times_atom + 1)
         Activation coefficients.
+
     """
     rng = check_random_state(random_state)
 
@@ -169,6 +170,7 @@ def get_activations2(
         Percentage of possible atom support taken
     overlap : bool
         If True, allow atoms overlap
+
     """
     starts = list()
     n_atoms, n_trials, n_times_valid = shape_z
@@ -206,6 +208,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
         Number of cycles/repetitions in the atom
     random_state : RandomState
         Random number generator for gaussian atoms
+
     """
     if shape == "triangle":
         ds = list()

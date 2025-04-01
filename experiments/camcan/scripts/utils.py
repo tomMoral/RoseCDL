@@ -192,6 +192,7 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
         z_hat : 2d-array shape (n_atoms, n_times)
         n_acti : 1d-array of length n_atoms
             number of non-null activations for each atom
+
     """
 
     subject_id = subject_path.name.split(".")[0]
@@ -230,6 +231,7 @@ def get_camcan_info(subject_id, return_raw=False):
 
     Returns
     -------
+
     """
 
     # paths to CamCAN files for Inria Saclay users

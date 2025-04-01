@@ -64,6 +64,7 @@ class Solver(BaseSolver):
             Whether to use a windowed dictionary or not.
         has_outliers : bool
             Whether the data has outliers or not.
+
         """
 
         self.X, self.D_init, self.reg = X, D_init, reg

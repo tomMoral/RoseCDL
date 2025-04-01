@@ -22,6 +22,7 @@ def multi_channel_pearson_coef(atom, pat):
 
     Returns:
         np.ndarray : The pearson coefficient per patch.
+
     """
     patch = np.ones(np.minimum(atom.shape[1:], pat.shape[1:]))
     N = atom.shape[0] * np.prod(patch.shape)
@@ -86,6 +87,7 @@ def evaluate_D_hat(patterns, D_hat):
 
     Returns:
         float : The evaluation score (mean correlation of best assignments).
+
     """
 
     corr = np.array(
@@ -130,6 +132,7 @@ def check_and_initialize(
 
     Returns:
     - df_results (DataFrame): DataFrame to hold results, either loaded from file or initialized as empty.
+
     """
 
     # Define paths based on exp_dir
@@ -278,6 +281,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
     -------
     fig : matplotlib.figure.Figure
         The created figure object.
+
     """
     if not dicts:
         raise ValueError("At least one dictionary should be provided.")
@@ -364,6 +368,7 @@ def sort_list_D(*list_D, D_ref=None):
     -------
     list_D_sorted : list of ndarray
         List of sorted dictionaries.
+
     """
 
     # If D_hat is provided, sort atoms in each dictionary in the list
@@ -399,6 +404,7 @@ def sort_atoms(D, D_ref=None, return_permutation=False):
     -----
     The correlation between two atoms is computed by flattening their 2D
     representations into 1D arrays and computing the correlation coefficient.
+
     """
 
     if D_ref is None:

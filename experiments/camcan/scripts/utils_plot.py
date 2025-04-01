@@ -50,6 +50,7 @@ def plot_z_boxplot(
 
     Returns
     -------
+
     """
     n_atoms = z_hat.shape[1]
     values = apply_threshold(z=z_hat, p_threshold=p_threshold, per_atom=per_atom)

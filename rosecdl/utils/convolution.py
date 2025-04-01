@@ -226,6 +226,7 @@ def construct_X(z, ds):
     Returns
     -------
     X : array, shape (n_trials, n_times)
+
     """
     assert z.shape[0] == ds.shape[0]
     n_atoms, n_trials, n_times_valid = z.shape
@@ -257,6 +258,7 @@ def construct_X_multi(z, D=None, n_channels=None):
     Returns
     -------
     X : array, shape (n_trials, n_channels, n_times)
+
     """
     n_trials, n_atoms, n_times_valid = z.shape
     assert n_atoms == D.shape[0]

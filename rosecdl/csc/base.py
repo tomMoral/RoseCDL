@@ -214,6 +214,7 @@ class ConvolutionalSparseCoder(nn.Module):
             (number of data, n_components,
             time - kernel_size + 1)
             Approximation of the sparse code associated to y
+
         """
         # Compute current dictionary
         if D is None:
@@ -253,6 +254,7 @@ class ConvolutionalSparseCoder(nn.Module):
             Lipschitz constant for the data-fit term
         n_iter : int
             Number of iterations
+
         """
         z = zO
         w = z.clone()

@@ -20,6 +20,7 @@ def get_kernel_size(X, z):
     kernel_size : tuple
         The kernel's size corresponding for each dimension to
         full_support - valid_support + 1.
+
     """
     return tuple(full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:]))
 
@@ -33,6 +34,7 @@ def reduce_loss(loss, reduction):
         The loss tensor to reduce.
     reduction : str
         The reduction method. Can be "none", "mean", "sum".
+
     """
     if reduction == "mean":
         return loss.mean()
@@ -61,6 +63,7 @@ class _ReconstructionLoss(_Loss):
         -------
         lambda_max : float
             The maximum value of the regularization parameter.
+
         """
         conv = F.conv1d if D.ndim == 3 else F.conv2d
         with torch.no_grad():
@@ -142,6 +145,7 @@ class OutlierLoss(_ReconstructionLoss):
         ----------
         _threshold : float
             Current outlier detection threshold (None until computed)
+
         """
         super().__init__()
 
@@ -204,6 +208,7 @@ class OutlierLoss(_ReconstructionLoss):
         -------
         err : torch.Tensor, shape (n_batch, n_channels, *patch_support)
             The reconstruction error per patch, maintaining channel dimension.
+
         """
         kernel_size = get_kernel_size(X_hat, z_hat)
 
