@@ -9,9 +9,9 @@ from tqdm import tqdm
 
 from rosecdl.utils.convolution import construct_X_multi
 from rosecdl.utils.dictionary import init_dictionary, prox_d, tukey_window
+from rosecdl.utils.utils_exp import sort_atoms, sort_list_D
+from rosecdl.utils.utils_simulated_waves import WaveFactory
 from rosecdl.utils.validation import check_random_state
-from rosecdl.utils_exp import sort_atoms, sort_list_D
-from rosecdl.utils_simulated_waves import WaveFactory
 
 
 def split_signal(X, n_splits=1, apply_window=True):
