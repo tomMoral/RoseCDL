@@ -31,7 +31,7 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     ]
     dict_padding = [
         item
-        for dim, k_dim in zip(x.shape[2:], D.shape[2:], strict=True)
+        for dim, k_dim in reversed(list(zip(x.shape[2:], D.shape[2:], strict=True)))
         for item in (0, dim - k_dim)
     ]
 
@@ -64,8 +64,10 @@ def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
         A tensor of shape (batch_size, n_channels, *signal_size).
 
     """
-    activation_padding = [item for k_dim in D.shape[2:] for item in (0, k_dim - 1)]
-    dict_padding = [item for dim in z.shape[2:] for item in (0, dim - 1)]
+    activation_padding = [
+        item for k_dim in reversed(D.shape[2:]) for item in (0, k_dim - 1)
+    ]
+    dict_padding = [item for dim in reversed(z.shape[2:]) for item in (0, dim - 1)]
 
     activation = pad(z, activation_padding)
     activation = activation.unsqueeze(2)  # Add an "output_channels" dimension.
