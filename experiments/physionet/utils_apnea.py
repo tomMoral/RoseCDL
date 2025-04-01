@@ -87,7 +87,9 @@ def load_ecg(
 
 
 def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_section=0):
-    """n_sections : int
+    """Plot Records sections.
+
+    n_sections : int
         number of sections to plot
 
     n_min_per_plot : int

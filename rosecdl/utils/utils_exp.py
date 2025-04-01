@@ -179,8 +179,7 @@ def get_method_name(method_spec: dict[str or float]) -> str:
 def get_outliers_metric(
     true_outliers_mask, rosecdl, X, dice_score_epsilon: float = 1e-7
 ):
-    """rosecdl: RoseCDL instance
-    """
+    """rosecdl: RoseCDL instance."""
     # Converting true_outliers_mask to numpy array if not already
     if isinstance(true_outliers_mask, torch.Tensor):
         true_outliers_mask = true_outliers_mask.detach().cpu().numpy()

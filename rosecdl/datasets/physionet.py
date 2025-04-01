@@ -13,7 +13,8 @@ except ImportError:
 
 
 class PhysionetDataset(torch.utils.data.Dataset):
-    """db_dir : string
+    """db_dir : string.
+
         path to the dataset
         values can be 'apnea-ecg'
 
@@ -47,15 +48,15 @@ class PhysionetDataset(torch.utils.data.Dataset):
         if not self.db_dir.exists():
             if not download:
                 raise FileNotFoundError("The Physionet data was not found")
-            print("Downloading data...", end='', flush=True)
+            print("Downloading data...", end="", flush=True)
             wfdb.dl_database("apnea-ecg", dl_dir=str(self.db_dir))
             print("ok")
 
         # get subjects
-        subject_id_list = sorted(list(set(
-            f.with_suffix('').name for f in self.db_dir.glob("*")
-        )))
-        subject_id_list = [f for f in subject_id_list if 'r' not in f]
+        subject_id_list = sorted(
+            list(set(f.with_suffix("").name for f in self.db_dir.glob("*")))
+        )
+        subject_id_list = [f for f in subject_id_list if "r" not in f]
 
         if group_id is not None:
             self.subjects = [id for id in subject_id_list if id[0] == group_id]
@@ -63,16 +64,18 @@ class PhysionetDataset(torch.utils.data.Dataset):
             self.subjects = subject_id_list
         self.n_subjects = len(self.subjects)
         # get signals' lengths
-        self._shape_window = np.array([
-            wfdb.rdrecord(record_name=str(self.db_dir / subject_id)).sig_len
-            for subject_id in self.subjects
-        ])
+        self._shape_window = np.array(
+            [
+                wfdb.rdrecord(record_name=str(self.db_dir / subject_id)).sig_len
+                for subject_id in self.subjects
+            ]
+        )
         self.shapes_time = np.cumsum(
             np.maximum(1, self._shape_window - self.sample_window)
         )
-        self.n_windows = int(sum(
-            np.maximum(1, T // self.sample_window) for T in self._shape_window
-        ))
+        self.n_windows = int(
+            sum(np.maximum(1, T // self.sample_window) for T in self._shape_window)
+        )
 
     def __len__(self):
         return self.shapes_time[-1]
@@ -83,7 +86,7 @@ class PhysionetDataset(torch.utils.data.Dataset):
         ecg_record = wfdb.rdrecord(
             record_name=str(self.db_dir / self.subjects[subject_idx]),
             sampfrom=time_idx,
-            sampto=time_idx+self.sample_window,
+            sampto=time_idx + self.sample_window,
         )
         X = ecg_record.p_signal.T
         X /= X.std()
