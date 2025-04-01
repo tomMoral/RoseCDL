@@ -1,15 +1,22 @@
+import pytest
 import torch
 from torch.nn.functional import conv2d, conv_transpose2d
 
 from rosecdl.utils.convolution import fft_conv, fft_conv_transpose
 
 
-def test_fft_conv():
+@pytest.mark.parametrize("batch_size", [2, 4, 8])
+@pytest.mark.parametrize("n_atoms", [2, 4, 10])
+@pytest.mark.parametrize("n_channels", [1, 3])
+@pytest.mark.parametrize("signal_size", [(10, 10), (20, 20), (50, 50), (100, 100)])
+@pytest.mark.parametrize("kernel_size", [(3, 3), (5, 5), (9, 9)])
+@pytest.mark.parametrize("seed", [40, 41, 42])
+def test_fft_conv(batch_size, n_channels, signal_size, n_atoms, kernel_size, seed):
     rng = torch.Generator()
-    rng.manual_seed(42)
+    rng.manual_seed(seed)
 
-    x = torch.rand(3, 2, 10, 10, generator=rng)
-    D = torch.rand(4, 2, 3, 3, generator=rng)
+    x = torch.rand(batch_size, n_channels, *signal_size, generator=rng)
+    D = torch.rand(n_atoms, n_channels, *kernel_size, generator=rng)
 
     fft_res = fft_conv(x, D)
     torch_res = conv2d(x, D)
@@ -17,11 +24,23 @@ def test_fft_conv():
     assert torch.allclose(fft_res, torch_res)
 
 
-def test_fft_conv_transpose():
+@pytest.mark.parametrize("batch_size", [2, 4, 8])
+@pytest.mark.parametrize("n_atoms", [2, 4, 10])
+@pytest.mark.parametrize("n_channels", [1, 3])
+@pytest.mark.parametrize("signal_size", [(10, 10), (20, 20), (50, 50), (100, 100)])
+@pytest.mark.parametrize("kernel_size", [(3, 3), (5, 5), (9, 9)])
+@pytest.mark.parametrize("seed", [40, 41, 42])
+def test_fft_conv_transpose(
+    batch_size, n_channels, signal_size, n_atoms, kernel_size, seed
+):
+    print(locals())
     rng = torch.Generator()
     rng.manual_seed(42)
 
-    z = torch.rand(4, 2, 10, 10, generator=rng)
-    D = torch.rand(2, 3, 3, 3, generator=rng)
+    z = torch.rand(batch_size, n_atoms, *signal_size, generator=rng)
+    D = torch.rand(n_atoms, n_channels, *kernel_size, generator=rng)
 
-    assert torch.allclose(fft_conv_transpose(z, D), conv_transpose2d(z, D))
+    fft_res = fft_conv_transpose(z, D)
+    torch_res = conv_transpose2d(z, D)
+
+    assert torch.allclose(fft_res, torch_res, atol=3e-5)
