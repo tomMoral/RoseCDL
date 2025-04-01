@@ -75,7 +75,6 @@ def run_one(
         i (int): Counting index of the run.
 
     """
-
     # Generate the data
     simulation_params["rng"] = seed
     X, z, D_true, D_init, info_contam = generate_experiment(

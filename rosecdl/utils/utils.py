@@ -53,8 +53,7 @@ def get_z_nnz(z_hat):
 
 
 def get_max_error_patch(X, z, D):
-    """
-    Returns the patch of the signal with the largest reconstuction error.
+    """Returns the patch of the signal with the largest reconstuction error.
 
     Parameters
     ----------

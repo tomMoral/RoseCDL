@@ -66,7 +66,6 @@ class Solver(BaseSolver):
             Whether the data has outliers or not.
 
         """
-
         self.X, self.D_init, self.reg = X, D_init, reg
         self.window = window
         self.has_outliers = has_outliers
