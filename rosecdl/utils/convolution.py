@@ -40,6 +40,11 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     dictionary = pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
+    output_last_dim = dictionary.shape[-1]
+    parity_padding_for_rfftn = (0, output_last_dim % 2)
+    signal = pad(signal, parity_padding_for_rfftn)
+    dictionary = pad(dictionary, parity_padding_for_rfftn)
+
     fourier_signal = torch.fft.rfftn(signal, dim=tuple(range(3, signal.ndim)))
     fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, signal.ndim)))
     fourier_dict.imag *= -1
