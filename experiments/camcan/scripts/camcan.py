@@ -99,8 +99,8 @@ def load_data(
     # path to the CamCAN subjects' informations file
     participants_file = join(BIDS_root, "participants.tsv")
 
-    pick_types_epoch = dict(meg="grad", eeg=False, eog=True, stim=False)
-    pick_types_final = dict(meg="grad", eeg=False, eog=False, stim=False)
+    pick_types_epoch = {"meg": "grad", "eeg": False, "eog": True, "stim": False}
+    pick_types_final = {"meg": "grad", "eeg": False, "eog": False, "stim": False}
 
     # print subject's age and sex information
     subject_info = get_subject_info(subject_id, participants_file)
@@ -148,7 +148,7 @@ def load_data(
             t_max,
             picks=picks,
             baseline=baseline,
-            reject=dict(grad=4000e-13, eog=350e-6),
+            reject={"grad": 4000e-13, "eog": 350e-6},
             preload=True,
         )
         epochs.pick_types(**pick_types_final)
@@ -179,14 +179,13 @@ def load_data(
 
     # Deep copy before modifying info to avoid issues when saving EvokedArray
     info = deepcopy(info)
-    event_info = dict(event_id=event_id, events=events, subject_info=subject_info)
+    event_info = {"event_id": event_id, "events": events, "subject_info": subject_info}
 
     info["temp"] = event_info
 
     if return_array:
         X /= np.std(X)
         return X, info
-    elif epoch:
+    if epoch:
         return epoch, info
-    else:
-        return raw, info
+    return raw, info
