@@ -42,7 +42,9 @@ def test_fft_conv_transpose1d(
     fft_res = fft_conv_transpose(z, D)
     torch_res = conv_transpose1d(z, D)
 
-    assert torch.allclose(fft_res, torch_res, atol=1e-6)
+    atol = 1e-6 * torch.abs(torch_res).max()
+
+    assert torch.allclose(fft_res, torch_res, atol=atol)
 
 
 @pytest.mark.parametrize("batch_size", [2, 4, 8])
@@ -82,4 +84,6 @@ def test_fft_conv_transpose2d(
     fft_res = fft_conv_transpose(z, D)
     torch_res = conv_transpose2d(z, D)
 
-    assert torch.allclose(fft_res, torch_res, atol=3e-5)
+    atol = 1e-6 * torch.abs(torch_res).max()
+
+    assert torch.allclose(fft_res, torch_res, atol=atol)
