@@ -1,6 +1,7 @@
 import os
 import pathlib
 import string
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,12 +12,12 @@ from rosecdl.utils.validation import check_random_state
 DATA_HOME = pathlib.Path("data")
 DATA_HOME.mkdir(exist_ok=True)
 
-TMP = pathlib.Path("/tmp")
+TMP = Path("/tmp")
 if not TMP.exists():
-    TMP = pathlib.Path(".")
+    TMP = Path(".")
 
 TEXT_DATA_DIR = DATA_HOME
-HEADER_FILE = os.path.join(os.path.dirname(__file__), "header.tex")
+HEADER_FILE = Path.parent(__file__) / "header.tex"
 
 
 ##############################################################################

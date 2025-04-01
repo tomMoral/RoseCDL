@@ -94,6 +94,8 @@ ignore = [
     "D100",
     "D102",
     "D104",
+    "D105",
+    "D107",
     "D203",
     "D213",
     "EM",
@@ -102,6 +104,7 @@ ignore = [
     "N802",
     "N803",
     "N806",
+    "PERF401",
     "PLR0913",
     "PLR2004",
     "RUF012",
@@ -128,3 +131,5 @@ mypy-init-return = true
     "S",
     "SLF001",
 ]
+
+"experiments/camcan/scripts/camcan.py" = ["ALL"]
