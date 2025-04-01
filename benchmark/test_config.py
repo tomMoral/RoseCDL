@@ -8,4 +8,3 @@ def check_test_solver_install(solver_class):
     particular architecture, call pytest.xfail when
     detecting the situation.
     """
-    pass

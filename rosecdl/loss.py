@@ -22,7 +22,7 @@ def get_kernel_size(X, z):
         full_support - valid_support + 1.
 
     """
-    return tuple(full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:]))
+    return tuple(full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:], strict=False))
 
 
 def reduce_loss(loss, reduction):
@@ -38,9 +38,9 @@ def reduce_loss(loss, reduction):
     """
     if reduction == "mean":
         return loss.mean()
-    elif reduction == "sum":
+    if reduction == "sum":
         return loss.sum()
-    elif reduction != "none":
+    if reduction != "none":
         raise ValueError(f"reduction={reduction} is not valid.")
     return loss
 
@@ -141,6 +141,7 @@ class OutlierLoss(_ReconstructionLoss):
             Whether to apply morphological opening when calculating thresholds
         union_channels : bool, default=True
             Whether to detect outliers jointly across channels
+
         Attributes
         ----------
         _threshold : float

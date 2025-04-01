@@ -77,7 +77,7 @@ lmbd_max = "fixed"
 reg = 0.3
 suff = f"reg_{reg}_lmbd_{lmbd_max}"
 if lmbd_max == "fixed":
-    suff += f"_{str(LMBD)}"
+    suff += f"_{LMBD!s}"
 reg *= LMBD
 
 cdl_params.update(reg=reg, lmbd_max=lmbd_max, D_init=D_init)

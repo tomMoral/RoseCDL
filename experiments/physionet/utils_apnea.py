@@ -77,13 +77,12 @@ def load_ecg(
         # ensure that labels and data have the same number of trials
         n_trials = min(len(ann.symbol), n_splits)
         return X[:n_trials], labels[:n_trials]
-    else:
-        import warnings
+    import warnings
 
-        warnings.warn(
-            f"The returned labels do not match the data as T != 60 (got T = {T})."
-        )
-        return X, labels
+    warnings.warn(
+        f"The returned labels do not match the data as T != 60 (got T = {T})."
+    )
+    return X, labels
 
 
 def plot_records_sections(subject_id, n_sections=20, n_min_per_plot=5, first_section=0):

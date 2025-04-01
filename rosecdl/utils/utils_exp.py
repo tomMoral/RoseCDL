@@ -15,11 +15,13 @@ def multi_channel_pearson_coef(atom, pat):
     """Compute the multi-channel pearson coefficient per patch between an atom and
     a reference pattern.
 
-    Parameters:
+    Parameters
+    ----------
         atom, pat : np.ndarray
             ND array of shape (n_channels, *atom_support).
 
-    Returns:
+    Returns
+    -------
         np.ndarray : The pearson coefficient per patch.
 
     """
@@ -29,7 +31,7 @@ def multi_channel_pearson_coef(atom, pat):
         np.sum(
             [
                 signal.correlate(atom_c, pat_c, mode="same")
-                for atom_c, pat_c in zip(atom, pat)
+                for atom_c, pat_c in zip(atom, pat, strict=False)
             ],
             axis=0,
         )
@@ -75,7 +77,8 @@ def multi_channel_pearson_coef(atom, pat):
 def evaluate_D_hat(patterns, D_hat):
     """Evaluate the learned dictionary D_hat with respect to a set of patterns.
 
-    Parameters:
+    Parameters
+    ----------
         patterns : np.ndarray
             The set of patterns, either:
             - 4D array (n_patterns, n_channels, height, width) for 2D images
@@ -83,7 +86,8 @@ def evaluate_D_hat(patterns, D_hat):
         D_hat : np.ndarray
             The learned dictionary, same shape as patterns
 
-    Returns:
+    Returns
+    -------
         float : The evaluation score (mean correlation of best assignments).
 
     """
@@ -111,7 +115,7 @@ def save_json(data, file_path):
 
 
 def load_json(file_path):
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         return json.load(f)
 
 
@@ -120,13 +124,15 @@ def check_and_initialize(
 ):
     """Checks if previous simulation parameters exist and initializes the environment accordingly.
 
-    Parameters:
+    Parameters
+    ----------
     - exp_dir (Path): Directory where experiment results are stored.
     - simulation_params (dict): Current simulation parameters.
     - rosecdl_params (dict): Current rosecdl parameters.
     - results_file_name (str): Name of the CSV file to store results.
 
-    Returns:
+    Returns
+    -------
     - df_results (DataFrame): DataFrame to hold results, either loaded from file or initialized as empty.
 
     """
@@ -321,7 +327,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
                     linestyle="--",
                     label="D_true",
                 )
-            for d, label in zip(dicts, labels):
+            for d, label in zip(dicts, labels, strict=False):
                 if i == 0 and j == (n_channels - 1):
                     # Only add legend for top right subplot
                     label = label

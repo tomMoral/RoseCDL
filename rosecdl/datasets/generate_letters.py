@@ -14,7 +14,7 @@ DATA_HOME.mkdir(exist_ok=True)
 
 TMP = Path("/tmp")
 if not TMP.exists():
-    TMP = Path(".")
+    TMP = Path()
 
 TEXT_DATA_DIR = DATA_HOME
 HEADER_FILE = Path.parent(__file__) / "header.tex"
@@ -90,7 +90,7 @@ def get_centered_padding(shape, expected_shape):
 
     """
     padding = []
-    for s, es in zip(shape, expected_shape):
+    for s, es in zip(shape, expected_shape, strict=False):
         pad = es - s
         padding.append((pad // 2, (pad + 1) // 2))
     return padding
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
     files = []
     for l in np.logspace(
-        np.log10(150 + 0.1),  # noqa: E741
+        np.log10(150 + 0.1),
         np.log10(args.max_length + 0.1),
         num=5,
         dtype=int,
