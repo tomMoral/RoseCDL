@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch.nn.functional import pad
+import torch.nn.functional as f
 
 from rosecdl.utils.dictionary import get_D_shape
 
@@ -37,13 +37,13 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
 
     signal = x.unsqueeze(1)  # Add an "output_channels" dimension.
 
-    dictionary = pad(D, dict_padding)
+    dictionary = f.pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
     output_last_dim = dictionary.shape[-1]
     parity_padding_for_rfftn = (0, output_last_dim % 2)
-    signal = pad(signal, parity_padding_for_rfftn)
-    dictionary = pad(dictionary, parity_padding_for_rfftn)
+    signal = f.pad(signal, parity_padding_for_rfftn)
+    dictionary = f.pad(dictionary, parity_padding_for_rfftn)
 
     fourier_signal = torch.fft.rfftn(signal, dim=tuple(range(3, signal.ndim)))
     fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, signal.ndim)))
@@ -74,16 +74,16 @@ def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     ]
     dict_padding = [item for dim in reversed(z.shape[2:]) for item in (0, dim - 1)]
 
-    activation = pad(z, activation_padding)
+    activation = f.pad(z, activation_padding)
     activation = activation.unsqueeze(2)  # Add an "output_channels" dimension.
 
-    dictionary = pad(D, dict_padding)
+    dictionary = f.pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
     output_last_dim = dictionary.shape[-1]
     parity_padding_for_rfftn = (0, output_last_dim % 2)
-    activation = pad(activation, parity_padding_for_rfftn)
-    dictionary = pad(dictionary, parity_padding_for_rfftn)
+    activation = f.pad(activation, parity_padding_for_rfftn)
+    dictionary = f.pad(dictionary, parity_padding_for_rfftn)
 
     fourier_activation = torch.fft.rfftn(
         activation, dim=tuple(range(3, activation.ndim))
@@ -163,7 +163,11 @@ def _sparse_convolve_multi_uv(z_i, uv, n_channels):
 def _dense_convolve_multi(z_i, ds):
     """Convolve z_i[k] and ds[k] for each atom k, and return the sum."""
     return np.sum(
-        [[np.convolve(zik, dkp) for dkp in dk] for zik, dk in zip(z_i, ds, strict=False)], 0
+        [
+            [np.convolve(zik, dkp) for dkp in dk]
+            for zik, dk in zip(z_i, ds, strict=False)
+        ],
+        0,
     )
 
 

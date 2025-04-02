@@ -1,5 +1,5 @@
 import torch
-from torch.nn.functional import avg_pool1d, avg_pool2d, conv1d, conv2d, pad
+import torch.nn.functional as f
 from torch.nn.modules.loss import _Loss
 
 from rosecdl.utils.utils_outliers import get_outlier_mask, get_threshold
@@ -67,7 +67,7 @@ class _ReconstructionLoss(_Loss):
             The maximum value of the regularization parameter.
 
         """
-        conv = conv1d if D.ndim == 3 else conv2d
+        conv = f.conv1d if D.ndim == 3 else f.conv2d
         with torch.no_grad():
             n_samples, conv_res_i_batches = 0, []
             for X in dataloader:
@@ -202,11 +202,11 @@ class OutlierLoss(_ReconstructionLoss):
         diff = self.loss_fn(X_hat, z_hat, X)
         self.loss_fn.reduction = old_red
 
-        avg_pool = avg_pool1d if X.ndim == 3 else avg_pool2d
+        avg_pool = f.avg_pool1d if X.ndim == 3 else f.avg_pool2d
 
         # Extend on right to get patches aligned with coefficient z
         pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks - 1))
-        diff = pad(diff, pad_size, "constant", 0)
+        diff = f.pad(diff, pad_size, "constant", 0)
         return avg_pool(diff, kernel_size, stride=1)
 
     def compute_outlier_threshold(self, model, dataloader):
@@ -256,7 +256,7 @@ class LassoLoss(_ReconstructionLoss):
         # Compute the L1 norm and pad it to be able to add it to each patch
         if self.lmbd > 0:
             pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks - 1))
-            z_hat = pad(z_hat.abs().sum(dim=1, keepdim=True), pad_size, "constant", 0)
+            z_hat = f.pad(z_hat.abs().sum(dim=1, keepdim=True), pad_size, "constant", 0)
             loss += self.lmbd * z_hat
 
         return reduce_loss(loss, self.reduction)
