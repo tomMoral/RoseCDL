@@ -135,5 +135,6 @@ mypy-init-return = true
 "benchmark/*" = ["ALL"]
 "experiments/*" = ["ALL"]
 "rosecdl/datasets/*" = ["ALL"]
+"rosecdl/optimizer.py" = ["C901", "PLR0912", "PLW2901"]
 "rosecdl/train.py" = ["B023"]
 "rosecdl/utils/*" = ["ALL"]
