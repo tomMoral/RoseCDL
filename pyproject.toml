@@ -133,3 +133,8 @@ mypy-init-return = true
 ]
 
 "experiments/camcan/scripts/camcan.py" = ["ALL"]
+"rosecdl/train.py" = ["B023"]
+"rosecdl/utils/utils.py" = ["ALL"]
+"rosecdl/utils/dictionary.py" = ["ALL"]
+"rosecdl/utils/utils_exp.py" = ["ALL"]
+"rosecdl/utils/utils_signal.py" = ["ALL"]
