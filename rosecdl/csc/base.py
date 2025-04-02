@@ -3,8 +3,8 @@ from contextlib import nullcontext
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
+from torch.nn.functional import clip, relu
 
 from rosecdl.utils.utils import get_torch_generator
 
@@ -80,9 +80,9 @@ class ConvolutionalSparseCoder(nn.Module):
 
         # FISTA operators
         self.prox = lambda x, lmbd: (
-            F.relu(x - lmbd)
+            relu(x - lmbd)
             if self.positive_z
-            else lambda x, lmbd: x - F.clip(x, -lmbd, lmbd)
+            else lambda x, lmbd: x - clip(x, -lmbd, lmbd)
         )
         self.grad_loss = lambda x, z, D: self.conv((self.convt(z, D) - x), D)
 
@@ -205,8 +205,10 @@ class ConvolutionalSparseCoder(nn.Module):
 
         Parameters
         ----------
-        x : torch.Tensor, shape (number of samples, channels, time)
+        x : torch.Tensor, shape (num_samples, num_channels, *signal_size)
             Data to be processed by (F)ISTA
+        D : torch.Tensor, shape (num_atoms, num_channels, *kernel_size)
+            Convolutional dictionary
 
         Returns
         -------
@@ -259,7 +261,7 @@ class ConvolutionalSparseCoder(nn.Module):
         z = zO
         w = z.clone()
         beta = 1
-        for i in range(n_iter):
+        for _ in range(n_iter):
             w_new = self.prox(z - self.grad_loss(x, z, D) / L, lmbd / L)
             beta_new = (1 + np.sqrt(1 + 4 * beta**2)) / 2
             z_new = w_new + (beta - 1) / beta_new * (w_new - w)
