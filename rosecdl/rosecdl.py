@@ -105,11 +105,12 @@ class RoseCDL(torch.nn.Module):
         super().__init__()
 
         if n_components is None:
-            assert hasattr(D_init, "shape"), (
-                "If D_init is not an array-like argument (has a .shape attribute), "
-                "the shape of the dictionary should be specified with "
-                "(n_components, n_channels, *kernel_size)."
-            )
+            if not hasattr(D_init, "shape"):
+                raise TypeError(
+                    "If D_init is not an array-like argument (has a .shape attribute), "
+                    "the shape of the dictionary should be specified with "
+                    "(n_components, n_channels, *kernel_size)."
+                )
             n_components, n_channels, *kernel_size = D_init.shape
 
         kernel_size = (kernel_size,) if isinstance(kernel_size, int) else kernel_size
@@ -188,10 +189,11 @@ class RoseCDL(torch.nn.Module):
         if X.ndim == expected_dim - 1:
             X = X[:, None]
 
-        assert X.ndim == expected_dim, (
-            f"The input data X should be of dimension {expected_dim}, with shape "
-            f"(batch_size, n_channels, *support). Got X of shape {X.shape}"
-        )
+        if X.ndim != expected_dim:
+            raise ValueError(
+                f"The input data X should be of dimension {expected_dim}, with shape "
+                f"(batch_size, n_channels, *support). Got X of shape {X.shape}"
+            )
 
         if X.shape[1] != self.csc.n_channels:
             raise ValueError(
@@ -199,10 +201,14 @@ class RoseCDL(torch.nn.Module):
                 f"RoseCDL. Got {X.shape[1]=}, while we expected {self.csc.n_channels}"
             )
 
-        if any(supp < 3 * ks for supp, ks in zip(X.shape[2:], self.csc.kernel_size, strict=False)):
+        if any(
+            supp < 3 * ks
+            for supp, ks in zip(X.shape[2:], self.csc.kernel_size, strict=False)
+        ):
             warnings.warn(
                 "The support of the signal is smaller than 3 times the kernel size. "
-                "This may lead to poor performance."
+                "This may lead to poor performance.",
+                stacklevel=2,
             )
 
         return X
