@@ -184,10 +184,7 @@ def get_activations2(
             range(n_times_valid), size=(n_atoms, n_acti), replace=overlap
         )
         for k_idx, start in enumerate(starts):
-            if constant_amplitude:
-                randnum = 1.0
-            else:
-                randnum = rng.uniform()
+            randnum = 1.0 if constant_amplitude else rng.uniform()
             z[k_idx, i, starts[k_idx]] = randnum
 
     return z

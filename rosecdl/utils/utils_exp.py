@@ -316,11 +316,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
     for i in range(n_atoms):
         for j in range(n_channels):
             if D_true is not None:
-                if i == 0 and j == (n_channels - 1):
-                    # Only add legend for top right subplot
-                    label = "D_true"
-                else:
-                    label = None
+                label = "D_true" if i == 0 and j == (n_channels - 1) else None
                 axs[i, j].plot(
                     D_true[i, j, :],
                     color="black",
@@ -328,11 +324,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
                     label="D_true",
                 )
             for d, label in zip(dicts, labels, strict=False):
-                if i == 0 and j == (n_channels - 1):
-                    # Only add legend for top right subplot
-                    label = label
-                else:
-                    label = None
+                label = label if i == 0 and j == (n_channels - 1) else None
                 axs[i, j].plot(d[i, j, :], label=label, alpha=0.7)
 
             axs[i, j].set_title(f"Atom {i + 1}, Channel {j + 1}")
