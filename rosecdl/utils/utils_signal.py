@@ -515,22 +515,13 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
     for i in range(n_atoms):
         for j in range(n_channels):
             if D_true is not None:
-                if i == 0 and j == (n_channels - 1):
-                    # Only add legend for top right subplot
-                    label = "D_true"
-                else:
-                    label = None
+                label = "D_true" if i == 0 and j == (n_channels - 1) else None
                 axs[i, j].plot(
                     D_true[i, j, :], color="black", linestyle="--", label="D_true"
                 )
             for d, label in zip(dicts, labels, strict=False):
-                if i == 0 and j == (n_channels - 1):
-                    # Only add legend for top right subplot
-                    label = label
-                else:
-                    label = None
+                label = label if i == 0 and j == (n_channels - 1) else None
                 axs[i, j].plot(d[i, j, :], label=label, alpha=0.7)
-
             axs[i, j].set_title(f"Atom {i + 1}, Channel {j + 1}")
             if i == n_atoms - 1:
                 axs[i, j].set_xlabel("Time")
@@ -611,12 +602,7 @@ def create_gif_from_dict_lists(
 
     if sort_dicts:
         array_Ds_sorted = []
-        if D_true is not None:
-            D_ref = D_true
-        else:
-            # If no reference is given, take the final dictionary of the first list
-            D_ref = array_Ds[0][-1]
-
+        D_ref = D_true if D_true is not None else array_Ds[0][-1]
         for this_list_D in array_Ds:
             _, permutation = sort_atoms(this_list_D[-1], D_ref, return_permutation=True)
             this_list_D_sorted = [D[permutation] for D in this_list_D]
@@ -1116,10 +1102,7 @@ def plot_signal(*list_X, X_true=None, labels=None, label_true="Original"):
             n_trials, n_channels, figsize=(10, 2 * n_trials), sharex=True, sharey=True
         )
 
-    if n_signals == 1 and X_true is None:
-        alpha = 1
-    else:
-        alpha = 0.6
+    alpha = 1 if n_signals == 1 and X_true is None else 0.6
 
     for i in tqdm(range(n_trials)):
         for j in range(n_channels):
