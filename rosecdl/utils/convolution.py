@@ -1,6 +1,98 @@
 import numpy as np
+import torch
+from torch.nn.functional import pad
 
 from rosecdl.utils.dictionary import get_D_shape
+
+
+def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
+    """Convolution using FFT.
+
+    This function computes what deep learning calls "convolution".
+    The name of this operation in signal processing terms is "cross-correlation".
+
+    Args:
+        x: Signal. Shape (batch_size, n_channels, *signal_size).
+        D: Convolutional dictionary. Shape (n_atoms, n_channels, *kernel_size).
+
+    Returns:
+        A tensor of shape (batch_size, n_atoms, *valid_support), where each dimension
+        of valid_support  is given by:
+            valid_support[i] = signal_size[i] - kernel_size[i] + 1.
+
+    """
+    output_slice = [
+        slice(None),
+        slice(None),
+        *[
+            slice(0, dim - k_dim + 1)
+            for dim, k_dim in zip(x.shape[2:], D.shape[2:], strict=True)
+        ],
+    ]
+    dict_padding = [
+        item
+        for dim, k_dim in reversed(list(zip(x.shape[2:], D.shape[2:], strict=True)))
+        for item in (0, dim - k_dim)
+    ]
+
+    signal = x.unsqueeze(1)  # Add an "output_channels" dimension.
+
+    dictionary = pad(D, dict_padding)
+    dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
+
+    output_last_dim = dictionary.shape[-1]
+    parity_padding_for_rfftn = (0, output_last_dim % 2)
+    signal = pad(signal, parity_padding_for_rfftn)
+    dictionary = pad(dictionary, parity_padding_for_rfftn)
+
+    fourier_signal = torch.fft.rfftn(signal, dim=tuple(range(3, signal.ndim)))
+    fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, signal.ndim)))
+    fourier_dict.imag *= -1
+
+    fourier_output = fourier_dict * fourier_signal
+
+    result = torch.fft.irfftn(fourier_output, dim=tuple(range(3, signal.ndim)))
+    return result.sum(dim=2)[output_slice]
+
+
+def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
+    """Transposed Convolution using FFT.
+
+    This function computes what deep learning calls "transposed convolution".
+    The name of this operation in signal processing terms is "convolution".
+
+    Args:
+        z: Activation vector. Shape (batch_size, n_atoms, *valid_support).
+        D: Convolutional dictionary. Shape (n_atoms, n_channels, *kernel_size).
+
+    Returns:
+        A tensor of shape (batch_size, n_channels, *signal_size).
+
+    """
+    activation_padding = [
+        item for k_dim in reversed(D.shape[2:]) for item in (0, k_dim - 1)
+    ]
+    dict_padding = [item for dim in reversed(z.shape[2:]) for item in (0, dim - 1)]
+
+    activation = pad(z, activation_padding)
+    activation = activation.unsqueeze(2)  # Add an "output_channels" dimension.
+
+    dictionary = pad(D, dict_padding)
+    dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
+
+    output_last_dim = dictionary.shape[-1]
+    parity_padding_for_rfftn = (0, output_last_dim % 2)
+    activation = pad(activation, parity_padding_for_rfftn)
+    dictionary = pad(dictionary, parity_padding_for_rfftn)
+
+    fourier_activation = torch.fft.rfftn(
+        activation, dim=tuple(range(3, activation.ndim))
+    )
+    fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, dictionary.ndim)))
+
+    fourier_output = (fourier_dict * fourier_activation).sum(dim=1)
+    result = torch.fft.irfftn(fourier_output, dim=tuple(range(2, fourier_output.ndim)))
+    return result[..., :output_last_dim]
 
 
 def _sparse_convolve(z_i, ds):

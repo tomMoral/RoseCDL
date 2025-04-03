@@ -23,7 +23,6 @@ description = "RObust and ScalablE Convolution Dictionary Learning"
 readme = "README.md"
 
 dependencies = [
-    "fft-conv-pytorch",
     "imageio",
     "matplotlib",
     "numpy",
@@ -90,13 +89,25 @@ docstring-code-line-length = "dynamic"
 
 select = ["ALL"]
 ignore = [
+    "ANN",
     "COM812",
     "D100",
+    "D102",
     "D104",
     "D203",
     "D213",
+    "EM",
+    "FBT",
+    "FIX",
+    "N802",
+    "N803",
+    "N806",
+    "PLR0913",
     "PLR2004",
     "RUF012",
+    "T201",
+    "TD",
+    "TRY003",
 ]
 fixable = ["ALL"]
 unfixable = []
