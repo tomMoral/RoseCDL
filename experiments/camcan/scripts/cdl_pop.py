@@ -1,5 +1,4 @@
-"""
-For a subject, what is the loss obtained with the global population dict, the
+"""For a subject, what is the loss obtained with the global population dict, the
 dict of their age category (and the other categories), the dict of a subject of
 their age category (and from the other catagories), compared to the one obtained
 with their own dict.
@@ -16,7 +15,7 @@ from joblib import Parallel, delayed
 from experiments.scripts.utils import (
     get_D_sub,
     get_lambda_global,
-    get_subject_z_and_cost
+    get_subject_z_and_cost,
 )
 
 BASE_PATH = Path("/storage/store2/work/bmalezie")

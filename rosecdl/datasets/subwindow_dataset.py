@@ -25,6 +25,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
     device, dtype: str, optional
         Device and data type for the data. If None, the data will be converted to
         torch.tensor with default values.
+
     """
 
     def __init__(self, data, sample_window=None, overlap=True, device=None, dtype=None):
@@ -55,16 +56,16 @@ class SubwindowsDataset(torch.utils.data.Dataset):
 
         # make sure the sample window is smaller than the data
         self.sample_window = tuple(
-            min(w, ds) for w, ds in zip(sample_window, data.shape[2:])
+            min(w, ds) for w, ds in zip(sample_window, data.shape[2:], strict=False)
         )
         # compute the number of windows. Even when overlap is True, only consider
         # the same number of windows per epoch as if overlap was False.
         self.n_windows = tuple(
-            n // sw for n, sw in zip(data.shape[2:], self.sample_window)
+            n // sw for n, sw in zip(data.shape[2:], self.sample_window, strict=False)
         )
         if overlap:
             self._shape_windows = tuple(
-                ds - sw + 1 for ds, sw in zip(data.shape[2:], self.sample_window)
+                ds - sw + 1 for ds, sw in zip(data.shape[2:], self.sample_window, strict=False)
             )
         else:
             self._shape_windows = self.n_windows
@@ -81,7 +82,7 @@ class SubwindowsDataset(torch.utils.data.Dataset):
         idx_samp, *idx_windows = np.unravel_index(idx, self._shape_windows)
         slice_window = [
             slice(i, i + sw) if self.overlap else slice(i * sw, i * sw + sw)
-            for i, sw in zip(idx_windows, self.sample_window)
+            for i, sw in zip(idx_windows, self.sample_window, strict=False)
         ]
 
         return (

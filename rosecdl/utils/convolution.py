@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch.nn.functional import pad
+import torch.nn.functional as F
 
 from rosecdl.utils.dictionary import get_D_shape
 
@@ -37,13 +37,13 @@ def fft_conv(x: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
 
     signal = x.unsqueeze(1)  # Add an "output_channels" dimension.
 
-    dictionary = pad(D, dict_padding)
+    dictionary = F.pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
     output_last_dim = dictionary.shape[-1]
     parity_padding_for_rfftn = (0, output_last_dim % 2)
-    signal = pad(signal, parity_padding_for_rfftn)
-    dictionary = pad(dictionary, parity_padding_for_rfftn)
+    signal = F.pad(signal, parity_padding_for_rfftn)
+    dictionary = F.pad(dictionary, parity_padding_for_rfftn)
 
     fourier_signal = torch.fft.rfftn(signal, dim=tuple(range(3, signal.ndim)))
     fourier_dict = torch.fft.rfftn(dictionary, dim=tuple(range(3, signal.ndim)))
@@ -74,16 +74,16 @@ def fft_conv_transpose(z: torch.Tensor, D: torch.Tensor) -> torch.Tensor:
     ]
     dict_padding = [item for dim in reversed(z.shape[2:]) for item in (0, dim - 1)]
 
-    activation = pad(z, activation_padding)
+    activation = F.pad(z, activation_padding)
     activation = activation.unsqueeze(2)  # Add an "output_channels" dimension.
 
-    dictionary = pad(D, dict_padding)
+    dictionary = F.pad(D, dict_padding)
     dictionary = dictionary.unsqueeze(0)  # Add a batch dimension.
 
     output_last_dim = dictionary.shape[-1]
     parity_padding_for_rfftn = (0, output_last_dim % 2)
-    activation = pad(activation, parity_padding_for_rfftn)
-    dictionary = pad(dictionary, parity_padding_for_rfftn)
+    activation = F.pad(activation, parity_padding_for_rfftn)
+    dictionary = F.pad(dictionary, parity_padding_for_rfftn)
 
     fourier_activation = torch.fft.rfftn(
         activation, dim=tuple(range(3, activation.ndim))
@@ -101,7 +101,7 @@ def _sparse_convolve(z_i, ds):
     n_atoms, n_times_valid = z_i.shape
     n_times = n_times_valid + n_times_atom - 1
     Xi = np.zeros(n_times)
-    for zik, dk in zip(z_i, ds):
+    for zik, dk in zip(z_i, ds, strict=False):
         for nnz in np.where(zik != 0)[0]:
             Xi[nnz : nnz + n_times_atom] += zik[nnz] * dk
     return Xi
@@ -109,7 +109,7 @@ def _sparse_convolve(z_i, ds):
 
 def _dense_convolve(z_i, ds):
     """Convolve z_i[k] and ds[k] for each atom k, and return the sum."""
-    return sum([np.convolve(zik, dk) for zik, dk in zip(z_i, ds)], 0)
+    return sum([np.convolve(zik, dk) for zik, dk in zip(z_i, ds, strict=False)], 0)
 
 
 def _choose_convolve(z_i, ds):
@@ -126,8 +126,7 @@ def _choose_convolve(z_i, ds):
 
     if np.sum(z_i != 0) < 0.01 * z_i.size:
         return _sparse_convolve(z_i, ds)
-    else:
-        return _dense_convolve(z_i, ds)
+    return _dense_convolve(z_i, ds)
 
 
 def _sparse_convolve_multi(z_i, ds):
@@ -136,7 +135,7 @@ def _sparse_convolve_multi(z_i, ds):
     n_atoms, n_times_valid = z_i.shape
     n_times = n_times_valid + n_times_atom - 1
     Xi = np.zeros(shape=(n_channels, n_times))
-    for zik, dk in zip(z_i, ds):
+    for zik, dk in zip(z_i, ds, strict=False):
         for nnz in np.where(zik != 0)[0]:
             Xi[:, nnz : nnz + n_times_atom] += zik[nnz] * dk
     return Xi
@@ -151,7 +150,7 @@ def _sparse_convolve_multi_uv(z_i, uv, n_channels):
     n_times = n_times_valid + n_times_atom - 1
 
     Xi = np.zeros(shape=(n_channels, n_times))
-    for zik, uk, vk in zip(z_i, u, v):
+    for zik, uk, vk in zip(z_i, u, v, strict=False):
         zik_vk = np.zeros(n_times)
         for nnz in np.where(zik != 0)[0]:
             zik_vk[nnz : nnz + n_times_atom] += zik[nnz] * vk
@@ -164,7 +163,11 @@ def _sparse_convolve_multi_uv(z_i, uv, n_channels):
 def _dense_convolve_multi(z_i, ds):
     """Convolve z_i[k] and ds[k] for each atom k, and return the sum."""
     return np.sum(
-        [[np.convolve(zik, dkp) for dkp in dk] for zik, dk in zip(z_i, ds)], 0
+        [
+            [np.convolve(zik, dkp) for dkp in dk]
+            for zik, dk in zip(z_i, ds, strict=False)
+        ],
+        0,
     )
 
 
@@ -177,7 +180,7 @@ def _dense_convolve_multi_uv(z_i, uv, n_channels):
     n_times = n_times_valid + n_times_atom - 1
 
     Xi = np.zeros((n_channels, n_times))
-    for zik, uk, vk in zip(z_i, u, v):
+    for zik, uk, vk in zip(z_i, u, v, strict=False):
         zik_vk = np.convolve(zik, vk)
         Xi += zik_vk[None, :] * uk[:, None]
 
@@ -203,14 +206,11 @@ def _choose_convolve_multi(z_i, D=None, n_channels=None):
     if np.sum(z_i != 0) < 0.01 * z_i.size:
         if D.ndim == 2:
             return _sparse_convolve_multi_uv(z_i, D, n_channels)
-        else:
-            return _sparse_convolve_multi(z_i, D)
+        return _sparse_convolve_multi(z_i, D)
 
-    else:
-        if D.ndim == 2:
-            return _dense_convolve_multi_uv(z_i, D, n_channels)
-        else:
-            return _dense_convolve_multi(z_i, D)
+    if D.ndim == 2:
+        return _dense_convolve_multi_uv(z_i, D, n_channels)
+    return _dense_convolve_multi(z_i, D)
 
 
 def construct_X(z, ds):
@@ -226,6 +226,7 @@ def construct_X(z, ds):
     Returns
     -------
     X : array, shape (n_trials, n_times)
+
     """
     assert z.shape[0] == ds.shape[0]
     n_atoms, n_trials, n_times_valid = z.shape
@@ -257,6 +258,7 @@ def construct_X_multi(z, D=None, n_channels=None):
     Returns
     -------
     X : array, shape (n_trials, n_channels, n_times)
+
     """
     n_trials, n_atoms, n_times_valid = z.shape
     assert n_atoms == D.shape[0]

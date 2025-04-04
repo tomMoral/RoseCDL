@@ -34,6 +34,7 @@ def create_dataloader(
     -------
     torch.utils.data.DataLoader
         Torch DataLoader
+
     """
     generator = get_torch_generator(random_state)
     if isinstance(data, np.ndarray | torch.Tensor):
@@ -56,7 +57,7 @@ def create_dataloader(
         dataset = MEGPopDataset(
             data,
             sample_window=sample_window,
-            n_samples=kwargs_dataset.get("n_samples", None),
+            n_samples=kwargs_dataset.get("n_samples"),
             device=device,
             dtype=dtype,
         )

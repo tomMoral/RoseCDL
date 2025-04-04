@@ -1,4 +1,5 @@
 from itertools import cycle
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,8 +7,9 @@ from scipy.signal import sawtooth
 
 
 class Wave:
-    """
-    Base class for generating waves. Subclasses should implement the `generate` method.
+    """Base class for generating waves.
+
+    Subclasses should implement the `generate` method.
 
     Parameters
     ----------
@@ -31,7 +33,8 @@ class Wave:
     -------
     generate()
         Generate the wave.
-    """
+
+    """  # noqa: E501
 
     def __init__(self, n_points, frequency=1, positive_only=False):
         self.n_points = n_points
@@ -42,10 +45,7 @@ class Wave:
         pass  # This method should be overridden by subclasses
 
     def plot(self):
-        """
-        Plot the wave.
-        """
-
+        """Plot the wave."""
         wave = self.generate()
         plt.plot(wave)
         plt.xlabel("Time")
@@ -55,6 +55,8 @@ class Wave:
 
 
 class SinWave(Wave):
+    """Sine wave."""
+
     def generate(self):
         # Generate a sinusoidal wave of period `n_points / frequency`
         x = np.linspace(0, 2 * np.pi * self.frequency, self.n_points)
@@ -66,6 +68,8 @@ class SinWave(Wave):
 
 
 class SquareWave(Wave):
+    """Square wave."""
+
     def generate(self):
         # Generate a square wave of period `n_points / frequency`
         wave = np.sign(
@@ -81,6 +85,8 @@ class SquareWave(Wave):
 
 
 class SawtoothWave(Wave):
+    """Sawtooth wave."""
+
     def generate(self):
         # Generate a sawtooth wave of period `n_points / frequency`
         wave = (
@@ -96,8 +102,11 @@ class SawtoothWave(Wave):
 
 
 class GaussianWave(Wave):
+    """Gaussian wave."""
+
     def generate(self):
-        # Generate a Gaussian wave. This wave is produced by summing multiple Gaussian functions with their means spaced equally across the wave.
+        # Generate a Gaussian wave. This wave is produced by summing multiple Gaussian
+        # functions with their means spaced equally across the wave.
         # The number of Gaussians summed is equal to the frequency.
         gaussians = []
         variance = self.n_points / self.frequency
@@ -113,6 +122,8 @@ class GaussianWave(Wave):
 
 
 class TriangleWave(Wave):
+    """Triangle wave."""
+
     def generate(self):
         # Generate a triangle wave of period `n_points / frequency`
         t = np.linspace(0, 1, self.n_points)
@@ -121,14 +132,14 @@ class TriangleWave(Wave):
             - 1
         )
         if self.positive_only:
-            # Ensure that the wave is positive, resulting in a wave that rises from 0, peaks to 1, and falls back to 0.
+            # Ensure that the wave is positive, resulting in a wave that rises from 0,
+            # peaks to 1, and falls back to 0.
             wave = np.maximum(wave, 0)
         return wave
 
 
 class WaveFactory:
-    """
-    A factory class for generating wave objects of various types.
+    """A factory class for generating wave objects of various types.
 
     This class provides a method to generate wave objects of various types. The types of waves that can be generated
     are defined in the wave_classes attribute, which is a dictionary mapping from string names to wave classes.
@@ -158,7 +169,8 @@ class WaveFactory:
         Create a wave of the specified type.
     next_wave(n_points, frequency=None, positive_only=False)
         Create a wave of the next type in the cycle, with an incrementing frequency.
-    """
+
+    """  # noqa: E501
 
     def __init__(self, start_freq=1, shapes=None):
         self.wave_classes = {
@@ -174,14 +186,14 @@ class WaveFactory:
             for shape in shapes:
                 if shape not in self.wave_classes:
                     raise ValueError(
-                        f"Invalid shape: '{shape}'. Valid shapes are: {list(self.wave_classes.keys())}"
+                        f"Invalid shape: '{shape}'. "
+                        f"Valid shapes are: {list(self.wave_classes.keys())}"
                     )
         self.wave_cycle = cycle(shapes)
-        self.current_frequencies = {wave_type: start_freq for wave_type in shapes}
+        self.current_frequencies = dict.fromkeys(shapes, start_freq)
 
     def create_wave(self, wave_type, n_points, frequency=1, positive_only=False):
-        """
-        Create a wave of the specified type.
+        """Create a wave of the specified type.
 
         Parameters
         ----------
@@ -198,16 +210,17 @@ class WaveFactory:
         -------
         wave : Wave
             The generated wave object.
+
         """
         if wave_type not in self.wave_classes:
             raise ValueError(
-                f"Invalid wave_type: '{wave_type}'. Valid types are: {list(self.wave_classes.keys())}"
+                f"Invalid wave_type: '{wave_type}'. "
+                f"Valid types are: {list(self.wave_classes.keys())}"
             )
         return self.wave_classes[wave_type](n_points, frequency, positive_only)
 
     def next_wave(self, n_points, frequency=None, positive_only=False):
-        """
-        Create a wave of the next type in the cycle, with an incrementing frequency.
+        """Create a wave of the next type in the cycle, with an incrementing frequency.
 
         Parameters
         ----------
@@ -222,7 +235,8 @@ class WaveFactory:
         -------
         wave : Wave
             The generated wave object.
-        """
+
+        """  # noqa: E501
         wave_type = next(self.wave_cycle)
         if (
             frequency is None
@@ -234,11 +248,8 @@ class WaveFactory:
         return self.create_wave(wave_type, n_points, frequency, positive_only)
 
 
-def plot_shapes(
-    shapes=["sin", "gaussian"], max_frequency=5, n_points=500, positive_only=True
-):
-    """
-    Generate and plot a set of waves with varying shapes and frequencies.
+def plot_shapes(shapes=None, max_frequency=5, n_points=500, positive_only=True):
+    """Generate and plot a set of waves with varying shapes and frequencies.
 
     This function generates and plots waves for a given set of shapes and frequencies up to the max_frequency.
     The purpose is to visualize the different shapes and frequencies that can be generated.
@@ -254,14 +265,16 @@ def plot_shapes(
         The number of points in the wave.
     positive_only : bool, optional (default=True)
         If True, the function will ensure that only positive values are generated.
-    """
 
+    """  # noqa: E501
+    if shapes is None:
+        shapes = ["sin", "gaussian"]
     # Validate inputs
     factory = WaveFactory()
     if max_frequency < 1:
         raise ValueError("max_frequency must be at least 1")
     if not isinstance(positive_only, bool):
-        raise ValueError("positive_only must be a boolean value")
+        raise TypeError("positive_only must be a boolean value")
 
     # Generate and plot waves
 
@@ -289,8 +302,6 @@ def plot_shapes(
 
 
 if __name__ == "__main__":
-    import os
-
     import matplotlib.pyplot as plt
 
     for positive_only in [True, False]:
@@ -301,6 +312,6 @@ if __name__ == "__main__":
         # save fig in the same directory as the script and show it
         fig_name = "positive_" if positive_only else "complete_"
         fig_name += "wave_shapes.png"
-        fig.savefig(os.path.join(os.path.dirname(__file__), fig_name))
+        fig.savefig(Path.parent(__file__) / fig_name)
         plt.show()
         plt.close()

@@ -3,6 +3,7 @@ from tqdm import tqdm
 
 
 def train_loop(dataloader, csc, loss_fn, optimizer, max_batch=None, scheduler=None):
+    """Run one training epoch."""
     avg_loss = 0
     count = 0
     for batch, X in enumerate(dataloader):
@@ -60,17 +61,26 @@ def train(
         Train dataset
     optimizer : torch.optim.Optimizer
         Torch optimizer
+    loss_fn : rosecdl.loss.OutlierLoss
+        Loss function
     scheduler : torch.optim.lr_scheduler._LRScheduler, optional
         Learning step size scheduler, by default None
     epochs : int, optional
         Number of epochs, by default 10
     max_batch : int, optional
         Maximum number of minibatches per epoch, by default None
+    callbacks : list
+        List of functions called after each epoch.
+    stopping_criterion : bool
+        Whether to allow for early stopping
+    tol : float
+        Threshold for early stopping
 
     Returns
     -------
     list, list
         Train losses, test losses
+
     """
     print("TRAINING STARTED")
 

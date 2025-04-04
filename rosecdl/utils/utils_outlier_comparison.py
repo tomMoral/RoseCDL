@@ -34,7 +34,9 @@ def remove_outliers_before_cdl(
         opening_window: whether to open the window
         union_channels: whether to use the union of the channels
         fill_by_channel: whether to replace outlier by the mean of the signal without outliers
-                         by channels or globally
+            by channels or globally
+        return_outliers_mask: whether to return the outlier mask
+
     """
     # Check data type
     if isinstance(data, torch.Tensor):

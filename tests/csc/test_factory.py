@@ -4,7 +4,7 @@ from rosecdl.csc.factory import csc_factory
 
 
 @pytest.mark.parametrize(
-    "kernel_size, rank1, expected_cls",
+    ("kernel_size", "rank1", "expected_cls"),
     [
         ((10,), False, "CSC1d"),
         ((10,), True, "Rank1CSC1d"),
@@ -12,7 +12,6 @@ from rosecdl.csc.factory import csc_factory
     ],
 )
 def test_csc_factory(kernel_size, rank1, expected_cls):
-
     base_dict = {
         "lmbd": 0.1,
         "n_components": 4,

@@ -58,6 +58,7 @@ def simulate_1d(
         Dictionary of atoms used to generate data.
     z : ndarray of shape (n_atoms, n_trials, n_times - n_times_atom + 1)
         Activation coefficients.
+
     """
     rng = check_random_state(random_state)
 
@@ -77,9 +78,9 @@ def simulate_1d(
         n_atoms, n_times_atom = ds.shape
 
     # Validate number of atoms
-    assert (
-        n_atoms <= ds.shape[0]
-    ), f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
+    assert n_atoms <= ds.shape[0], (
+        f"ds must be has at least {n_atoms} atoms, got {ds.shape[0]}"
+    )
     n_times_atom == ds.shape[1]
 
     # Randomly select subset of atoms if needed
@@ -133,7 +134,7 @@ def simulate_1d(
 
 
 def cycler(n_atoms, n_times_atom, shapes):
-    """Helper to generate atom parameters"""
+    """Helper to generate atom parameters."""
     idx = 0
     for n_cycles in range(1, n_times_atom // 2):
         for shape in shapes:
@@ -169,6 +170,7 @@ def get_activations2(
         Percentage of possible atom support taken
     overlap : bool
         If True, allow atoms overlap
+
     """
     starts = list()
     n_atoms, n_trials, n_times_valid = shape_z
@@ -182,10 +184,7 @@ def get_activations2(
             range(n_times_valid), size=(n_atoms, n_acti), replace=overlap
         )
         for k_idx, start in enumerate(starts):
-            if constant_amplitude:
-                randnum = 1.0
-            else:
-                randnum = rng.uniform()
+            randnum = 1.0 if constant_amplitude else rng.uniform()
             z[k_idx, i, starts[k_idx]] = randnum
 
     return z
@@ -206,6 +205,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
         Number of cycles/repetitions in the atom
     random_state : RandomState
         Random number generator for gaussian atoms
+
     """
     if shape == "triangle":
         ds = list()
@@ -217,7 +217,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
     elif shape == "square":
         ds = list()
         for idx in range(n_cycles):
-            ds.append(0.5 * np.ones((n_times_atom // (2 * n_cycles))))
+            ds.append(0.5 * np.ones(n_times_atom // (2 * n_cycles)))
             ds.append(-ds[-1])
         d = np.hstack(ds)
         d = np.pad(d, (0, n_times_atom - d.shape[0]), "constant")
@@ -231,7 +231,7 @@ def get_atoms(shape, n_times_atom, zero_mean=True, n_cycles=1, random_state=None
         xx = np.linspace(0, n_times_atom, n_times_atom)
         means = np.linspace(0, n_times_atom, num=(n_cycles + 1), endpoint=False)[1:]
         weights = rng.choice([-3, -2, -1, 1, 2, 3], size=n_cycles, replace=True)
-        for m, w in zip(means, weights):
+        for m, w in zip(means, weights, strict=False):
             d += w * norm.pdf(xx, loc=m, scale=1)
 
     if zero_mean:

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.nn.functional as F  # noqa: N812
+import torch.nn.functional as F
 
 from rosecdl.utils.utils import get_torch_generator
 
@@ -34,16 +34,12 @@ def check_threshold(threshold: float | torch.Tensor | None) -> None:
                 raise ValueError(msg)
         elif not isinstance(threshold, float | int):
             msg = f"threshold should be a float or None but is {type(threshold)}"
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)
 
 
 def get_threshold(
-    data: torch.Tensor | np.ndarray,
-    method: str = "quantile",
-    alpha: float = 0.05
-    ) -> float:
+    data: torch.Tensor | np.ndarray, method: str = "quantile", alpha: float = 0.05
+) -> float:
     """Compute the outlier detection threshold.
 
     Parameters
@@ -131,9 +127,7 @@ def get_threshold(
             f"Invalid method: {method}, must be one of 'quantile', "
             "'iqr', 'zscore', or 'mad'"
         )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
     threshold = threshold.item()
     check_threshold(threshold)
@@ -158,10 +152,8 @@ def gaussian_kernel_2d(size: int, sigma: float) -> torch.Tensor:
 
 
 def apply_moving_average(
-    data: torch.Tensor,
-    window_size: int = 15,
-    method: str ="average"
-    ) -> torch.Tensor:
+    data: torch.Tensor, window_size: int = 15, method: str = "average"
+) -> torch.Tensor:
     """Apply moving average to 1D or 2D data.
 
     Parameters
@@ -232,9 +224,7 @@ def apply_moving_average(
     elif method == "gaussian":
         sigma = window_size / 3
         kernel = gaussian_kernel_2d(window_size, sigma).to(data.device)
-        se = kernel.view(1, 1, window_size, window_size).repeat(
-            data.size(1), 1, 1, 1
-        )
+        se = kernel.view(1, 1, window_size, window_size).repeat(data.size(1), 1, 1, 1)
         result = F.conv2d(data, se, padding=window_size // 2, groups=data.size(1))
 
     else:  # method == "max"
@@ -383,9 +373,7 @@ def get_outlier_mask(
             f"Shape mismatch: outliers_mask.shape: {outliers_mask.shape}, "
             f"data.shape: {data.shape}"
         )
-        raise ValueError(
-            msg
-        )
+        raise ValueError(msg)
 
     return outliers_mask
 
@@ -503,7 +491,7 @@ def add_outliers_2d(
         # Not using torch.rand_like because of generator
         X_outliers += noise * torch.randn(
             X_outliers.shape, device=X.device, generator=generator
-            )
+        )
 
     while ratio_contam < contamination:
         if patch_size is None:

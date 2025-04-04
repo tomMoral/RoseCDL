@@ -1,6 +1,6 @@
 import torch
+import torch.nn.functional as F
 from torch import fft, nn
-from torch.nn.functional import conv1d, conv_transpose1d, relu
 
 from rosecdl.csc.base import ConvolutionalSparseCoder
 from rosecdl.utils.convolution import fft_conv, fft_conv_transpose
@@ -12,8 +12,8 @@ class CSC1d(ConvolutionalSparseCoder):
 
     def set_conv_methods(self) -> None:
         if self.conv_algo == "classical":
-            self.conv = conv1d
-            self.convt = conv_transpose1d
+            self.conv = F.conv1d
+            self.convt = F.conv_transpose1d
         elif self.conv_algo == "fft":
             self.conv = fft_conv
             self.convt = fft_conv_transpose
@@ -31,7 +31,7 @@ class CSC1d(ConvolutionalSparseCoder):
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as _D_hat is a nn.Parameter
-                self._D_hat.data = relu(self._D_hat.data)
+                self._D_hat.data = F.relu(self._D_hat.data)
 
             if self.do_window:
                 norm_atoms = torch.linalg.vector_norm(
@@ -79,8 +79,8 @@ class Rank1CSC1d(CSC1d):
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as u, v are nn.Parameter
-                self.u.data = relu(self.u.data)
-                self.v.data = relu(self.v.data)
+                self.u.data = F.relu(self.u.data)
+                self.v.data = F.relu(self.v.data)
 
             if self.do_window:
                 norm_col_v = torch.linalg.vector_norm(
@@ -131,4 +131,5 @@ class Rank1CSC1d(CSC1d):
         self.v = nn.Parameter(v.clone().detach().to(self.dtype).to(self.device))
         self.normalize_atoms()
 
+        self.n_components, self.n_channels, *self.kernel_size = self.D_hat_.shape
         self.n_components, self.n_channels, *self.kernel_size = self.D_hat_.shape

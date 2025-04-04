@@ -6,7 +6,7 @@ from rosecdl.rosecdl import RoseCDL
 
 
 @pytest.mark.parametrize(
-    "kernel_size, support",
+    ("kernel_size", "support"),
     [
         (32, (100,)),  # 1D
         ((8, 9), (40, 64)),  # 2D

@@ -20,8 +20,11 @@ def get_kernel_size(X, z):
     kernel_size : tuple
         The kernel's size corresponding for each dimension to
         full_support - valid_support + 1.
+
     """
-    return tuple(full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:]))
+    return tuple(
+        full - valid + 1 for full, valid in zip(X.shape[2:], z.shape[2:], strict=False)
+    )
 
 
 def reduce_loss(loss, reduction):
@@ -33,12 +36,13 @@ def reduce_loss(loss, reduction):
         The loss tensor to reduce.
     reduction : str
         The reduction method. Can be "none", "mean", "sum".
+
     """
     if reduction == "mean":
         return loss.mean()
-    elif reduction == "sum":
+    if reduction == "sum":
         return loss.sum()
-    elif reduction != "none":
+    if reduction != "none":
         raise ValueError(f"reduction={reduction} is not valid.")
     return loss
 
@@ -52,7 +56,7 @@ class _ReconstructionLoss(_Loss):
 
         Parameters
         ----------
-        X : array, shape (batch_size, n_channels, *support)
+        dataloader : array, shape (batch_size, n_channels, *support)
             The signal tensor.
         D : array, shape (n_atoms, n_channels, *kernel_size)
             The dictionary tensor.
@@ -61,6 +65,7 @@ class _ReconstructionLoss(_Loss):
         -------
         lambda_max : float
             The maximum value of the regularization parameter.
+
         """
         conv = F.conv1d if D.ndim == 3 else F.conv2d
         with torch.no_grad():
@@ -79,29 +84,10 @@ class _ReconstructionLoss(_Loss):
                 lmbd_max = conv_res.max()
         return lmbd_max
 
-        # # TODO: this should reuse get_threshold
-        # if self.loss_fn.method == "quantile":
-        #     assert self.loss_fn.alpha <= 1 and self.loss_fn.alpha >= 0
-        #     return np.quantile(conv_res, axis=(1, 2), q=self.loss_fn.alpha)[:, None]
-        # elif self.loss_fn.method == "iqr":
-        #     assert self.loss_fn.alpha >= 1
-        #     q1, q3 = np.quantile(conv_res, axis=(1, 2), q=[0.25, 0.75])
-        #     res = q3 + 1.5 * (q3 - q1)
-        #     return res[:, None]
-        # elif self.loss_fn.method == "zscore":
-        #     assert self.loss_fn.alpha >= 1
-        #     res = np.mean(conv_res, axis=(1, 2)) + self.loss_fn.alpha * np.std(conv_res, axis=(1, 2))
-        #     return res[:, None]
-        # elif self.loss_fn.method == "mad":
-        #     assert self.loss_fn.alpha >= 1
-        #     median = np.median(conv_res, axis=(1, 2))
-        #     mad = np.median(np.abs(conv_res - median[:, None, None]), axis=(1, 2))
-        #     constant = 0.6745
-        #     res = median + self.loss_fn.alpha * mad / constant
-        #     return res[:, None]
-
 
 class OutlierLoss(_ReconstructionLoss):
+    """Base class for outlier detection loss."""
+
     def __init__(
         self,
         loss_fn,
@@ -138,10 +124,12 @@ class OutlierLoss(_ReconstructionLoss):
             Whether to apply morphological opening when calculating thresholds
         union_channels : bool, default=True
             Whether to detect outliers jointly across channels
+
         Attributes
         ----------
         _threshold : float
             Current outlier detection threshold (None until computed)
+
         """
         super().__init__()
 
@@ -204,6 +192,7 @@ class OutlierLoss(_ReconstructionLoss):
         -------
         err : torch.Tensor, shape (n_batch, n_channels, *patch_support)
             The reconstruction error per patch, maintaining channel dimension.
+
         """
         kernel_size = get_kernel_size(X_hat, z_hat)
 
@@ -218,9 +207,7 @@ class OutlierLoss(_ReconstructionLoss):
         # Extend on right to get patches aligned with coefficient z
         pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks - 1))
         diff = F.pad(diff, pad_size, "constant", 0)
-        diff = avg_pool(diff, kernel_size, stride=1)
-
-        return diff
+        return avg_pool(diff, kernel_size, stride=1)
 
     def compute_outlier_threshold(self, model, dataloader):
         with torch.no_grad():
@@ -241,7 +228,19 @@ class OutlierLoss(_ReconstructionLoss):
 
 
 class LassoLoss(_ReconstructionLoss):
-    def __init__(self, lmbd, reduction="mean", data_fit=torch.nn.MSELoss()):
+    """Lasso loss."""
+
+    def __init__(self, lmbd, reduction="mean", data_fit=None):
+        """Initialize the object.
+
+        Args:
+            lmbd: regularization parameter.
+            reduction: reduction method. options are the same as for torch losses.
+            data_fit (torch loss): default = MSE loss.
+
+        """
+        if data_fit is None:
+            data_fit = torch.nn.MSELoss()
         super().__init__(reduction=reduction)
         self.data_fit = data_fit
         self.lmbd = lmbd
@@ -260,6 +259,4 @@ class LassoLoss(_ReconstructionLoss):
             z_hat = F.pad(z_hat.abs().sum(dim=1, keepdim=True), pad_size, "constant", 0)
             loss += self.lmbd * z_hat
 
-        loss = reduce_loss(loss, self.reduction)
-
-        return loss
+        return reduce_loss(loss, self.reduction)

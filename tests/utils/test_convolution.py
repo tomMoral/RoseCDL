@@ -1,6 +1,6 @@
 import pytest
 import torch
-from torch.nn.functional import conv1d, conv2d, conv_transpose1d, conv_transpose2d
+import torch.nn.functional as F
 
 from rosecdl.utils.convolution import fft_conv, fft_conv_transpose
 
@@ -19,7 +19,7 @@ def test_fft_conv1d(batch_size, n_channels, signal_size, n_atoms, kernel_size, s
     D = torch.rand(n_atoms, n_channels, kernel_size, generator=rng)
 
     fft_res = fft_conv(x, D)
-    torch_res = conv1d(x, D)
+    torch_res = F.conv1d(x, D)
 
     assert torch.allclose(fft_res, torch_res)
 
@@ -40,7 +40,7 @@ def test_fft_conv_transpose1d(
     D = torch.rand(n_atoms, n_channels, kernel_size, generator=rng)
 
     fft_res = fft_conv_transpose(z, D)
-    torch_res = conv_transpose1d(z, D)
+    torch_res = F.conv_transpose1d(z, D)
 
     atol = 1e-6 * torch.abs(torch_res).max()
 
@@ -63,7 +63,7 @@ def test_fft_conv2d_batch(
     D = torch.rand(n_atoms, n_channels, *kernel_size, generator=rng)
 
     fft_res = fft_conv(x, D)
-    torch_res = conv2d(x, D)
+    torch_res = F.conv2d(x, D)
 
     assert torch.allclose(fft_res, torch_res)
 
@@ -93,7 +93,7 @@ def test_fft_conv2d_shapes(
     D = torch.rand(n_atoms, n_channels, kernel_rows, kernel_cols, generator=rng)
 
     fft_res = fft_conv(x, D)
-    torch_res = conv2d(x, D)
+    torch_res = F.conv2d(x, D)
 
     assert torch.allclose(fft_res, torch_res)
 
@@ -114,7 +114,7 @@ def test_fft_conv_transpose2d_batch(
     D = torch.rand(n_atoms, n_channels, *kernel_size, generator=rng)
 
     fft_res = fft_conv_transpose(z, D)
-    torch_res = conv_transpose2d(z, D)
+    torch_res = F.conv_transpose2d(z, D)
 
     atol = 1e-6 * torch.abs(torch_res).max()
 
@@ -146,8 +146,9 @@ def test_fft_conv_transpose2d_shapes(
     D = torch.rand(n_atoms, n_channels, kernel_rows, kernel_cols, generator=rng)
 
     fft_res = fft_conv_transpose(z, D)
-    torch_res = conv_transpose2d(z, D)
+    torch_res = F.conv_transpose2d(z, D)
 
     atol = 1e-6 * torch.abs(torch_res).max()
 
+    assert torch.allclose(fft_res, torch_res, atol=atol)
     assert torch.allclose(fft_res, torch_res, atol=atol)

@@ -51,11 +51,10 @@ def get_lambda_global(
     list_subjects_path, n_atoms, n_times_atom, q=0.95, reg=0.3, method=np.median
 ):
     """For a list of subject, compute their lambda, and return a global value
-    (median, mean, etc.)
+    (median, mean, etc.).
 
     Parameters
     ----------
-
     list_subjects_path : list of paths
 
     method : callable
@@ -65,7 +64,6 @@ def get_lambda_global(
 
     Returns
     -------
-
     lambda_global : float
 
     list_lmbd : list
@@ -114,8 +112,7 @@ def get_lambda_global(
 
 
 def get_D_sub(subject_path, n_atoms=40, n_times_atom=150, lmbd=0.1):
-    """Get subject's self dictionary using Windowing-CDL"""
-
+    """Get subject's self dictionary using Windowing-CDL."""
     X = np.load(subject_path)
     X /= X.std()
     if X.ndim == 2:
@@ -192,8 +189,8 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
         z_hat : 2d-array shape (n_atoms, n_times)
         n_acti : 1d-array of length n_atoms
             number of non-null activations for each atom
-    """
 
+    """
     subject_id = subject_path.name.split(".")[0]
 
     X = np.load(subject_path)
@@ -223,15 +220,13 @@ def get_subject_z_and_cost(subject_path, uv_hat_, reg=0.1, tt_max=None):
 
 
 def get_camcan_info(subject_id, return_raw=False):
-    """
-
-    Parameters
+    """Parameters
     ----------
 
     Returns
     -------
-    """
 
+    """
     # paths to CamCAN files for Inria Saclay users
     DATA_DIR = Path("/storage/store/data/")
     BIDS_root = DATA_DIR / "camcan/BIDSsep/smt/"

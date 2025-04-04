@@ -12,16 +12,18 @@ from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_sco
 
 
 def multi_channel_pearson_coef(atom, pat):
-    """
-    Compute the multi-channel pearson coefficient per patch between an atom and
+    """Compute the multi-channel pearson coefficient per patch between an atom and
     a reference pattern.
 
-    Parameters:
+    Parameters
+    ----------
         atom, pat : np.ndarray
             ND array of shape (n_channels, *atom_support).
 
-    Returns:
+    Returns
+    -------
         np.ndarray : The pearson coefficient per patch.
+
     """
     patch = np.ones(np.minimum(atom.shape[1:], pat.shape[1:]))
     N = atom.shape[0] * np.prod(patch.shape)
@@ -29,7 +31,7 @@ def multi_channel_pearson_coef(atom, pat):
         np.sum(
             [
                 signal.correlate(atom_c, pat_c, mode="same")
-                for atom_c, pat_c in zip(atom, pat)
+                for atom_c, pat_c in zip(atom, pat, strict=False)
             ],
             axis=0,
         )
@@ -73,10 +75,10 @@ def multi_channel_pearson_coef(atom, pat):
 
 
 def evaluate_D_hat(patterns, D_hat):
-    """
-    Evaluate the learned dictionary D_hat with respect to a set of patterns.
+    """Evaluate the learned dictionary D_hat with respect to a set of patterns.
 
-    Parameters:
+    Parameters
+    ----------
         patterns : np.ndarray
             The set of patterns, either:
             - 4D array (n_patterns, n_channels, height, width) for 2D images
@@ -84,10 +86,11 @@ def evaluate_D_hat(patterns, D_hat):
         D_hat : np.ndarray
             The learned dictionary, same shape as patterns
 
-    Returns:
+    Returns
+    -------
         float : The evaluation score (mean correlation of best assignments).
-    """
 
+    """
     corr = np.array(
         [
             [multi_channel_pearson_coef(dk, pat).max() for dk in D_hat]
@@ -112,26 +115,27 @@ def save_json(data, file_path):
 
 
 def load_json(file_path):
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         return json.load(f)
 
 
 def check_and_initialize(
     exp_dir, simulation_params, rosecdl_params, results_file_name="df_results"
 ):
-    """
-    Checks if previous simulation parameters exist and initializes the environment accordingly.
+    """Checks if previous simulation parameters exist and initializes the environment accordingly.
 
-    Parameters:
+    Parameters
+    ----------
     - exp_dir (Path): Directory where experiment results are stored.
     - simulation_params (dict): Current simulation parameters.
     - rosecdl_params (dict): Current rosecdl parameters.
     - results_file_name (str): Name of the CSV file to store results.
 
-    Returns:
+    Returns
+    -------
     - df_results (DataFrame): DataFrame to hold results, either loaded from file or initialized as empty.
-    """
 
+    """
     # Define paths based on exp_dir
     simulation_path = exp_dir / "simulation_params.json"
     rosecdl_path = exp_dir / "rosecdl_params.json"
@@ -181,10 +185,7 @@ def get_method_name(method_spec: dict[str or float]) -> str:
 def get_outliers_metric(
     true_outliers_mask, rosecdl, X, dice_score_epsilon: float = 1e-7, crop=False,
 ):
-    """
-
-    rosecdl: RoseCDL instance
-    """
+    """rosecdl: RoseCDL instance."""
     # Converting true_outliers_mask to numpy array if not already
     if isinstance(true_outliers_mask, torch.Tensor):
         true_outliers_mask = true_outliers_mask.detach().cpu().numpy()
@@ -256,8 +257,7 @@ def get_outliers_metric(
 
 
 def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True):
-    """
-    Plot one or more dictionaries, with the option of overlaying a ground truth dictionary.
+    """Plot one or more dictionaries, with the option of overlaying a ground truth dictionary.
 
     Parameters
     ----------
@@ -278,6 +278,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
     -------
     fig : matplotlib.figure.Figure
         The created figure object.
+
     """
     if not dicts:
         raise ValueError("At least one dictionary should be provided.")
@@ -315,23 +316,15 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
     for i in range(n_atoms):
         for j in range(n_channels):
             if D_true is not None:
-                if i == 0 and j == (n_channels - 1):
-                    # Only add legend for top right subplot
-                    label = "D_true"
-                else:
-                    label = None
+                label = "D_true" if i == 0 and j == (n_channels - 1) else None
                 axs[i, j].plot(
                     D_true[i, j, :],
                     color="black",
                     linestyle="--",
                     label="D_true",
                 )
-            for d, label in zip(dicts, labels):
-                if i == 0 and j == (n_channels - 1):
-                    # Only add legend for top right subplot
-                    label = label
-                else:
-                    label = None
+            for d, label in zip(dicts, labels, strict=False):
+                label = label if i == 0 and j == (n_channels - 1) else None
                 axs[i, j].plot(d[i, j, :], label=label, alpha=0.7)
 
             axs[i, j].set_title(f"Atom {i + 1}, Channel {j + 1}")
@@ -349,8 +342,7 @@ def plot_dicts(*dicts, D_true=None, labels=None, sup_title=None, sort_dicts=True
 
 
 def sort_list_D(*list_D, D_ref=None):
-    """
-    Sort atoms in a list of dictionaries, optionally using a reference
+    """Sort atoms in a list of dictionaries, optionally using a reference
     dictionary (D_hat).
 
     Parameters
@@ -364,8 +356,8 @@ def sort_list_D(*list_D, D_ref=None):
     -------
     list_D_sorted : list of ndarray
         List of sorted dictionaries.
-    """
 
+    """
     # If D_hat is provided, sort atoms in each dictionary in the list
     if D_ref is not None:
         return [sort_atoms(this_D, D_ref) for this_D in list_D]
@@ -379,8 +371,7 @@ def sort_list_D(*list_D, D_ref=None):
 
 
 def sort_atoms(D, D_ref=None, return_permutation=False):
-    """
-    Sort the atoms in D_hat based on their correlation with the atoms in D.
+    """Sort the atoms in D_hat based on their correlation with the atoms in D.
 
     Parameters
     ----------
@@ -399,8 +390,8 @@ def sort_atoms(D, D_ref=None, return_permutation=False):
     -----
     The correlation between two atoms is computed by flattening their 2D
     representations into 1D arrays and computing the correlation coefficient.
-    """
 
+    """
     if D_ref is None:
         if return_permutation:
             return D, None
