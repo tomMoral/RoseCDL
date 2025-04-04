@@ -1,5 +1,5 @@
 import torch
-import torch.nn.functional as f
+import torch.nn.functional as F
 from torch import fft
 
 from rosecdl.csc.base import ConvolutionalSparseCoder
@@ -12,8 +12,8 @@ class CSC2d(ConvolutionalSparseCoder):
 
     def set_conv_methods(self) -> None:
         if self.conv_algo == "classical":
-            self.conv = f.conv2d
-            self.convt = f.conv_transpose2d
+            self.conv = F.conv2d
+            self.convt = F.conv_transpose2d
         elif self.conv_algo == "fft":
             self.conv = fft_conv
             self.convt = fft_conv_transpose
@@ -31,7 +31,7 @@ class CSC2d(ConvolutionalSparseCoder):
         with torch.no_grad():
             if self.positive_D:
                 # Work on data as _D_hat is a nn.Parameter
-                self._D_hat.data = f.relu(self._D_hat.data)
+                self._D_hat.data = F.relu(self._D_hat.data)
             norm_atoms = torch.linalg.vector_norm(
                 self._D_hat, ord=2, dim=(1, 2, 3), keepdim=True
             )
