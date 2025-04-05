@@ -29,7 +29,7 @@ class TestSubwindowsDataset:
         dataset = SubwindowsDataset(data, sample_window=sample_window)
 
         n_windows = np.prod(
-            tuple(s - sw + 1 for s, sw in zip(support, sample_window))
+            tuple(s - sw + 1 for s, sw in zip(support, sample_window, strict=True))
             if sample_window is not None
             else 1
         )

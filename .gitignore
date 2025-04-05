@@ -10,6 +10,7 @@ __pycache__/
 *.ipynb
 *.npy
 *.pickle
+*.parquet
 experiments/physionet/apnea-ecg
 experiments/figures
 *joblib/
@@ -153,3 +154,4 @@ output/*
 .DS_Store
 
 .vscode/
+

@@ -46,7 +46,7 @@ class Solver(BaseSolver):
         self.has_outliers = has_outliers
 
         self.z_shape = tuple(
-            xs - ds + 1 for xs, ds in zip(X.shape[2:], D_init.shape[2:])
+            xs - ds + 1 for xs, ds in zip(X.shape[2:], D_init.shape[2:], strict=False)
         )
         self.z_shape = (X.shape[0], D_init.shape[0], *self.z_shape)
 

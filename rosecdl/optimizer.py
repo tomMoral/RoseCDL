@@ -2,6 +2,8 @@ import torch
 
 
 class SLS(torch.optim.Optimizer):
+    """Stochastic Line Search (SLS) Optimizer."""
+
     def __init__(
         self,
         params,

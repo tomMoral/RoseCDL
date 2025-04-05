@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def check_random_state(seed):
+def check_random_state(seed: int | np.random.RandomState | None):
     """Turn seed into a np.random.RandomState instance.
 
     If seed is None, return the RandomState singleton used by np.random.
@@ -16,5 +16,5 @@ def check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "%r cannot be used to seed a numpy.random.RandomState" " instance" % seed
+        f"{seed} cannot be used to seed a numpy.random.RandomState instance"
     )

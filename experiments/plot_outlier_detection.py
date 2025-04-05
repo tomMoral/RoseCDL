@@ -229,7 +229,7 @@ metrics = df_final_metric["Metric"].unique()
 fig, axes = plt.subplots(nrows=len(metrics), figsize=(8, 12), sharex=True)
 
 # Create a boxplot for each metric
-for ax, metric in zip(axes, metrics):
+for ax, metric in zip(axes, metrics, strict=False):
     sns.set(style="whitegrid", context="paper", font_scale=1.1)
     sns.set_style("whitegrid")
     sns.boxplot(
@@ -327,7 +327,7 @@ n_rows, n_cols = math.ceil(len(metrics) / 2), 2
 fig, axes = plt.subplots(2, 2, figsize=(15, 15))
 axes = axes.flatten()  # Flatten the axes array for easy indexing
 # Plot each metric in a subplot
-for ax, this_metric in zip(axes, metrics):
+for ax, this_metric in zip(axes, metrics, strict=False):
     sns.lineplot(
         data=df_scores[df_scores["Method"] != "No detection"],
         x="Iteration",

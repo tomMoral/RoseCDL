@@ -10,7 +10,7 @@ from experiments.scripts.utils import (
     get_camcan_info,
     get_D_sub,
     get_lambda_global,
-    get_subject_z_and_cost
+    get_subject_z_and_cost,
 )
 from experiments.scripts.utils_plot import plot_z_boxplot
 

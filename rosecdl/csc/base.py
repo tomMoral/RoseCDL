@@ -24,6 +24,7 @@ class ConvolutionalSparseCoder(nn.Module):
         positive_z: bool = True,
         n_iterations: int = 30,
         deepcdl: bool = False,
+        conv_algo: str = "fft",
         random_state: int | None = None,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
@@ -42,6 +43,8 @@ class ConvolutionalSparseCoder(nn.Module):
                 to have positive values,
             n_iterations: number of approximate sparse coding iteration,
             deepcdl: True if unrolled sparse coding, else False,
+            conv_algo: Algorithm used for the convolutions. Can be either "classical"
+                or "fft".
             random_state: seed for dictionary initialization and atom resampling,
             device: device where the parameters are stored,
             dtype: data type of the parameters.
@@ -52,6 +55,9 @@ class ConvolutionalSparseCoder(nn.Module):
         self.n_channels = n_channels
         self.kernel_size = kernel_size
         self.do_window = window
+
+        self.conv_algo = conv_algo
+        self.set_conv_methods()
 
         self.deepcdl = deepcdl
         self.n_iterations = n_iterations
@@ -87,6 +93,10 @@ class ConvolutionalSparseCoder(nn.Module):
         self._resampled_atoms = []
 
         self.to(device=device, dtype=dtype)
+
+    @abstractmethod
+    def set_conv_methods(self) -> None:
+        """Set the functions that will be used to compute (transpose) convolutions."""
 
     @abstractmethod
     def tukey_window(self) -> torch.Tensor:
@@ -182,7 +192,7 @@ class ConvolutionalSparseCoder(nn.Module):
 
     def init_z(self, x):
         support_shape = tuple(
-            fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size)
+            fs - ks + 1 for fs, ks in zip(x.shape[2:], self.kernel_size, strict=False)
         )
         return torch.zeros(
             (x.shape[0], self.n_components, *support_shape),
@@ -195,8 +205,10 @@ class ConvolutionalSparseCoder(nn.Module):
 
         Parameters
         ----------
-        x : torch.Tensor, shape (number of samples, channels, time)
+        x : torch.Tensor, shape (num_samples, num_channels, *signal_size)
             Data to be processed by (F)ISTA
+        D : torch.Tensor, shape (num_atoms, num_channels, *kernel_size)
+            Convolutional dictionary
 
         Returns
         -------
@@ -204,6 +216,7 @@ class ConvolutionalSparseCoder(nn.Module):
             (number of data, n_components,
             time - kernel_size + 1)
             Approximation of the sparse code associated to y
+
         """
         # Compute current dictionary
         if D is None:
@@ -243,14 +256,16 @@ class ConvolutionalSparseCoder(nn.Module):
             Lipschitz constant for the data-fit term
         n_iter : int
             Number of iterations
+
         """
         z = zO
         w = z.clone()
         beta = 1
-        for i in range(n_iter):
+        for _ in range(n_iter):
             w_new = self.prox(z - self.grad_loss(x, z, D) / L, lmbd / L)
             beta_new = (1 + np.sqrt(1 + 4 * beta**2)) / 2
             z_new = w_new + (beta - 1) / beta_new * (w_new - w)
             z, w, beta = z_new, w_new, beta_new
 
+        return w_new
         return w_new

@@ -1,5 +1,4 @@
-"""
-For a set a subjects, compute the recovery cost of one's dictionary on
+"""For a set a subjects, compute the recovery cost of one's dictionary on
 another's signal, and save the matrix as a dataframe.
 """
 

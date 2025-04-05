@@ -32,8 +32,8 @@ group_id = args.group
 for group_id in ["a", "b", "c", "x"]:
     print("Group id:", group_id)
     # population
-    os.system("python run_pop_cdl.py --group {}".format(group_id))
-    os.system("python get_pop_recovery.py --group {}".format(group_id))
+    os.system(f"python run_pop_cdl.py --group {group_id}")
+    os.system(f"python get_pop_recovery.py --group {group_id}")
     for fit in ["N", "A"]:
         if fit == "A" and group_id in ["C", "X"]:
             continue
@@ -41,18 +41,14 @@ for group_id in ["a", "b", "c", "x"]:
         # individual
         os.system(
             "python run_apnea.py "
-            "--group {} --n_atoms {} --n_times_atom {} --n_iter {} --fit {}".format(
-                group_id, args.n_atoms, args.n_times_atom, args.n_iter, fit
-            )
+            f"--group {group_id} --n_atoms {args.n_atoms} --n_times_atom {args.n_times_atom} --n_iter {args.n_iter} --fit {fit}"
         )
         os.system(
-            "python plot_group_atoms.py --group {} --fit {}".format(group_id, fit)
+            f"python plot_group_atoms.py --group {group_id} --fit {fit}"
         )
-        os.system("python get_recovery.py --group {} --fit {}".format(group_id, fit))
+        os.system(f"python get_recovery.py --group {group_id} --fit {fit}")
         # final plot
         os.system(
             "python plot_recovery.py "
-            "--group {} --fit {}  --type {} --add_number".format(
-                group_id, fit, args.type
-            )
+            f"--group {group_id} --fit {fit}  --type {args.type} --add_number"
         )
