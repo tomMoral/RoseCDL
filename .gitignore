@@ -6,6 +6,7 @@ __pycache__/
 *.png
 *.npy
 *.csv
+*.parquet
 *.ipynb
 *.npy
 *.pickle
@@ -151,3 +152,6 @@ output/*
 *.npz
 
 .DS_Store
+
+.vscode/
+
