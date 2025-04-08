@@ -96,7 +96,7 @@ def run_one(
     lmbd_max = get_lambda_max(data, init_dict).max()
 
     test_simulation_params = simulation_params.copy()
-    test_simulation_params["seed "] = seed + 1
+    test_simulation_params["rng "] = simulation_params["rng"] + 1
     test_data, test_z, test_dict, test_init_dict, test_info_contam = (
         generate_experiment(
             test_simulation_params,
