@@ -95,6 +95,15 @@ def run_one(
     )
     lmbd_max = get_lambda_max(data, init_dict).max()
 
+    test_simulation_params = simulation_params.copy()
+    test_simulation_params["seed "] = seed + 1
+    test_data, test_z, test_dict, test_init_dict, test_info_contam = (
+        generate_experiment(
+            test_simulation_params,
+            return_info_contam=True,
+        )
+    )
+
     cdl_params = cdl_params.copy()
     if cdl_package == "alphacsc":
         cdl_params["reg"] *= lmbd_max
@@ -132,10 +141,20 @@ def run_one(
             model_dict = model.D_hat_
 
         recovery_score = evaluate_D_hat(true_dict, model_dict)
+
+        # Train loss
         z0 = z_hat = update_z_multi(
             data, model_dict.astype(np.float64), lmbd, z0=z0, solver="lgcd"
         )[0]
         loss_true = compute_X_and_objective_multi(data, z_hat, model_dict, lmbd)
+
+        # Test loss using the learned dictionary
+        test_z_hat = update_z_multi(
+            test_data, model_dict.astype(np.float64), lmbd, z0=None, solver="lgcd"
+        )[0]
+        test_loss_true = compute_X_and_objective_multi(
+            test_data, test_z_hat, model_dict, lmbd
+        )
         results.append(
             {
                 "name": cdl_package,
@@ -144,9 +163,11 @@ def run_one(
                 "epoch": epoch,
                 "loss": loss,
                 "loss_true": loss_true,
+                "test_loss_true": test_loss_true,
                 "time": runtime,
             }
         )
+
         t_start = time.perf_counter()
 
     # Run the experiment
@@ -328,27 +349,21 @@ if __name__ == "__main__":
     df_results = pd.DataFrame(results)
     df_results.to_csv(exp_dir / "df_results.csv", index=False)
 
-    # Add a first point at epoch 0 with loss equal to the first loss of alphacsc
-    first = df_results[df_results.name == "alphacsc"].iloc[0]
+    # Adding the first loss evaluation of alphacsc to the other methods
+    # This is done to have all the methods starting at the same time and epoch
+    epoch0alphacsc = df_results[
+        (df_results["name"] == "alphacsc") & (df_results["epoch"] == 0)
+    ]
+    for name in df_results["name"].unique():
+        if name == "alphacsc":
+            continue
+        epoch0alphacsc.loc[:, "name"] = name
+        df_results.loc[df_results["name"] == name, "epoch"] += 1
+        df_results = pd.concat([df_results, epoch0alphacsc], ignore_index=True)
 
-    # Create a starting point for each model (except alphacsc) with the same initial loss
-    for name in df_results.name.unique():
-        if name != "alphacsc":  # Skip alphacsc as it already has a first point
-            new_row = {
-                'name': name,
-                'recovery_score': None,
-                'seed': None,
-                'epoch': 0,
-                'loss': None,
-                'loss_true': first['loss_true'],
-                'time': 0  # Start at time 0
-            }
-            df_results = pd.concat([pd.DataFrame([new_row]), df_results], ignore_index=True)
-
-    # Plot loss for the different methods
+    # Plotting train loss for the different methods
     plt.figure(figsize=(10, 6))
     ax = plt.gca()
-
     for name in df_results.name.unique():
         # Group by name and epoch, then calculate median and quantiles
         name_data = df_results[df_results.name == name].groupby("epoch")
@@ -358,33 +373,73 @@ if __name__ == "__main__":
         median_curve["time"] = median_curve["time"].cumsum()
         median_curve["loss_true"] = median_curve["loss_true"] - df_results["loss_true"].min() + 1e1
 
-        # Calculate the quantile curves
-        q_low = name_data[["time", "loss_true"]].quantile(0.2)
-        q_high = name_data[["time", "loss_true"]].quantile(0.8)
-        q_low["time"] = q_low["time"].cumsum()
-        q_high["time"] = q_high["time"].cumsum()
-        q_low["loss_true"] = q_low["loss_true"] - df_results["loss_true"].min() + 1e1
-        q_high["loss_true"] = q_high["loss_true"] - df_results["loss_true"].min() + 1e1
+        # Calculate the 0.2 and 0.8 quantiles
+        q02_curve = name_data[["time", "loss_true"]].quantile(0.2)
+        q02_curve["time"] = q02_curve["time"].cumsum()
+        q02_curve["loss_true"] = q02_curve["loss_true"] - df_results["loss_true"].min() + 1e1
 
-        # Plot the median curve
+        q8_curve = name_data[["time", "loss_true"]].quantile(0.8)
+        q8_curve["time"] = q8_curve["time"].cumsum()
+        q8_curve["loss_true"] = q8_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+
         line, = ax.plot(median_curve["time"], median_curve["loss_true"], label=name)
         color = line.get_color()
-
-        # Add the fill between for confidence interval
-        ax.fill_between(
-            median_curve.index,
-            q_low["loss_true"],
-            q_high["loss_true"],
-            alpha=0.2,
-            color=color
-        )
-
+        ax.fill_between(median_curve["time"], q02_curve["loss_true"], q8_curve["loss_true"], color=color, alpha=0.2)
     plt.xscale("log")
     plt.yscale("log")
     plt.xlabel("Time (s)")
-    plt.ylabel("Train Loss (normalized)")
+    plt.ylabel("Train Loss")
     plt.title("Speed of convergence of the different methods")
     plt.legend()
     plt.tight_layout()
     plt.savefig(exp_dir / "loss_true.png")
+    plt.show()
+
+    # Test loss for the different methods
+    plt.figure(figsize=(10, 6))
+    ax = plt.gca()
+
+    for name in df_results.name.unique():
+        # Group by name and epoch, then calculate median and quantiles
+        name_data = df_results[df_results.name == name].groupby("epoch")
+
+        # Calculate the median curve
+        median_curve = name_data[["time", "test_loss_true"]].median()
+        median_curve["time"] = median_curve["time"].cumsum()
+        median_curve["test_loss_true"] = (
+            median_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
+        )
+
+        # Calculate the 0.2 and 0.8 quantiles
+        q02_curve = name_data[["time", "test_loss_true"]].quantile(0.2)
+        q02_curve["time"] = q02_curve["time"].cumsum()
+        q02_curve["test_loss_true"] = (
+            q02_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
+        )
+
+        q8_curve = name_data[["time", "test_loss_true"]].quantile(0.8)
+        q8_curve["time"] = q8_curve["time"].cumsum()
+        q8_curve["test_loss_true"] = (
+            q8_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
+        )
+
+        (line,) = ax.plot(
+            median_curve["time"], median_curve["test_loss_true"], label=name
+        )
+        color = line.get_color()
+        ax.fill_between(
+            median_curve["time"],
+            q02_curve["test_loss_true"],
+            q8_curve["test_loss_true"],
+            color=color,
+            alpha=0.2,
+        )
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Test Loss")
+    plt.title("Test performance of the different methods")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(exp_dir / "test_loss_true.png")
     plt.show()
