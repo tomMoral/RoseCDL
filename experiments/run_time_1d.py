@@ -95,14 +95,10 @@ def run_one(
     )
     lmbd_max = get_lambda_max(data, init_dict).max()
 
-    test_simulation_params = simulation_params.copy()
-    test_simulation_params["rng "] = simulation_params["rng"] + 1
-    test_data, test_z, test_dict, test_init_dict, test_info_contam = (
-        generate_experiment(
-            test_simulation_params,
-            return_info_contam=True,
-        )
-    )
+    # Split the data into training and test sets
+    n_trials = data.shape[0]
+    test_data = data[: n_trials // 2]
+    data = data[n_trials // 2 :]
 
     cdl_params = cdl_params.copy()
     if cdl_package == "alphacsc":
@@ -279,7 +275,7 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 10,
+        "n_trials": 2*10,
         "n_channels": 2,
         "n_times": 1000 if args.debug else 5000,
         "n_atoms": 2,
@@ -293,7 +289,6 @@ if __name__ == "__main__":
         "init_z": "constant",
         "init_z_kwargs": {"value": 1},
         "noise_std": 0.01,
-        "rng": None,
         "sparsity": 20,
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
