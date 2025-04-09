@@ -204,8 +204,10 @@ class OutlierLoss(_ReconstructionLoss):
 
         avg_pool = F.avg_pool1d if X.ndim == 3 else F.avg_pool2d
 
-        # Extend on right to get patches aligned with coefficient z
-        pad_size = tuple(v for ks in kernel_size[::-1] for v in (0, ks - 1))
+        # Extend on both sides to get patches aligned with coefficient z
+        pad_size = tuple(
+            v for ks in kernel_size[::-1] for v in (ks // 2, (ks - 1) // 2)
+        )
         diff = F.pad(diff, pad_size, "constant", 0)
         return avg_pool(diff, kernel_size, stride=1)
 
