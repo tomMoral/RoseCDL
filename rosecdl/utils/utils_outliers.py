@@ -274,7 +274,7 @@ def apply_opening(outliers_mask: torch.Tensor, window_size: int = 15) -> torch.T
             window_size = window_size[0]
         # Create 1D structuring element
         se = torch.ones(mask.size(1), 1, window_size, device=mask.device)
-        padded_mask = F.pad(mask, (0, window_size - 1), "constant", 0)
+        padded_mask = F.pad(mask, (window_size // 2, (window_size - 1) // 2), "constant", 0)
         # Apply convolution
         convolved = F.conv1d(padded_mask, se, padding=0, groups=mask.size(1))
 
@@ -287,7 +287,15 @@ def apply_opening(outliers_mask: torch.Tensor, window_size: int = 15) -> torch.T
         )
         # Pad to avoid boundary effects
         padded_mask = F.pad(
-            mask, (window_size[1] - 1, 0, window_size[0] - 1, 0), "constant", 0
+            mask,
+            (
+            window_size[1] // 2,
+            (window_size[1] - 1) // 2,
+            window_size[0] // 2,
+            (window_size[0] - 1) // 2,
+            ),
+            "constant",
+            0,
         )
         # Apply convolution
         convolved = F.conv2d(padded_mask, se, padding=0, groups=mask.size(1))
