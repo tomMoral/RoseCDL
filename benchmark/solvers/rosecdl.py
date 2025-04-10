@@ -13,6 +13,11 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
     name = "RoseCDL"
 
+    requirements = [
+        "pip:torch",
+        "pip:git+https://github.com/tomMoral/RoseCDL.git"
+    ]
+
     parameters = {
         # sample_window is defined as a multiple of the atom_support
         "mini_batch_size": [1],
@@ -25,6 +30,16 @@ class Solver(BaseSolver):
             {"method": "iqr", "alpha": 1.5},
             {"method": "mad", "alpha": 3.5},
             {"method": "zscore", "alpha": 1.5},
+        ],
+    }
+
+    test_parameters = {
+        "mini_batch_size": [1],
+        "sample_window": [10],
+        "n_csc_iterations": [10],
+        "random_state": [None],
+        "outliers_kwargs": [
+            None,
         ],
     }
 
@@ -82,7 +97,7 @@ class Solver(BaseSolver):
         self.model_kwargs = dict(
             lmbd=self.reg,
             scale_lmbd=True,
-            D_init=self.D_init,
+            D_init=torch.tensor(self.D_init),
             window=self.window,
             rank1=rank1,
             outliers_kwargs=self.outliers_kwargs,

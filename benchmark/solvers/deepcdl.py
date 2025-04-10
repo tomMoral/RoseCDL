@@ -17,6 +17,11 @@ class Solver(BaseSolver):
     # Name to select the solver in the CLI and to display the results.
     name = "DeepCDL"
 
+    requirements = [
+        "pip:torch",
+        "pip:git+https://github.com/tomMoral/RoseCDL.git"
+    ]
+
     # List of parameters for the solver. The benchmark will consider
     # the cross product for each key in the dictionary.
     # All parameters 'p' defined here are available as 'self.p'.
@@ -25,6 +30,13 @@ class Solver(BaseSolver):
         "mini_batch_size": [1],
         "sample_window": [10, 20, 50],
         "n_csc_iterations": [50],
+        "random_state": [None],
+    }
+
+    test_parameters = {
+        "mini_batch_size": [1],
+        "sample_window": [10],
+        "n_csc_iterations": [10],
         "random_state": [None],
     }
 
@@ -65,7 +77,7 @@ class Solver(BaseSolver):
         self.model_kwargs = dict(
             lmbd=self.reg,
             scale_lmbd=True,
-            D_init=self.D_init,
+            D_init=torch.tensor(self.D_init),
             window=self.window,
             rank1=rank1,
             outliers_kwargs=None,
