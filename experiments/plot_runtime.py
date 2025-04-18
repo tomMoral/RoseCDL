@@ -2,6 +2,8 @@ import argparse
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import interp1d  # Add interp1d import
 
 # Set global parameters for NeurIPS style plots
 plt.rcParams.update({
@@ -16,90 +18,133 @@ plt.rcParams.update({
 })
 
 def plot_losses(df_results: pd.DataFrame, output_dir: Path) -> None:
-    """Plot train and test losses for different methods.
+    """Plot train and test losses for different methods after interpolating
+       onto a common time grid using scipy.interpolate.interp1d.
 
     Args:
         df_results: DataFrame containing the results
         output_dir: Directory to save the plots
     """
-    # Plotting train loss for the different methods
+    # Ensure data is sorted for cumulative sum and interpolation
+    df_results = df_results.sort_values(by=['name', 'seed', 'epoch'])
+
+    # Precompute cumulative time and adjusted losses
+    df_results['cum_time'] = df_results.groupby(['name', 'seed'])['time'].cumsum()
+    min_loss_true = df_results["loss_true"].min()
+    min_test_loss_true = df_results["test_loss_true"].min()
+    # Add a small epsilon to avoid issues with log scale if min loss is 0
+    epsilon = 1e-1
+    df_results['loss_true_adj'] = df_results['loss_true'] - min_loss_true + epsilon
+    df_results['test_loss_true_adj'] = df_results['test_loss_true'] - min_test_loss_true + epsilon
+
+    # Determine global time range and create a common logarithmic time grid
+    # Ensure min_time is strictly positive for logspace
+    min_time = max(df_results[df_results['cum_time'] > 0]['cum_time'].min(), 1e-4)
+    max_time = df_results['cum_time'].max()
+    n_grid_points = 200  # Number of points for interpolation grid
+    time_grid = np.logspace(np.log10(min_time), np.log10(max_time), n_grid_points)
+
+    # --- Plotting Train Loss ---
     plt.figure(figsize=(3.5, 2.2))
-    ax = plt.gca()
+    ax_train = plt.gca()
+    all_interp_train_losses = {}
+
     for name in df_results.name.unique():
-        # Group by name and epoch, then calculate median and quantiles
-        name_data = df_results[df_results.name == name].groupby("epoch")
+        interp_train_losses_name = []
+        df_name = df_results[df_results.name == name]
+        for seed in df_name.seed.unique():
+            df_run = df_name[df_name.seed == seed].copy()
+            # Ensure time is monotonically increasing for interpolation
+            df_run = df_run.drop_duplicates(subset=['cum_time'], keep='first')
+            run_cum_time = df_run['cum_time'].values
+            run_loss_true = df_run['loss_true_adj'].values
 
-        # Calculate the median curve
-        median_curve = name_data[["time", "loss_true"]].median()
-        median_curve["time"] = median_curve["time"].cumsum()
-        median_curve["loss_true"] = median_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+            # Skip runs with insufficient points for interpolation
+            if len(run_cum_time) < 2:
+                continue
 
-        # Calculate the 0.2 and 0.8 quantiles
-        q02_curve = name_data[["time", "loss_true"]].quantile(0.2)
-        q02_curve["time"] = q02_curve["time"].cumsum()
-        q02_curve["loss_true"] = q02_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+            # Create interpolation function using interp1d
+            # Use first and last values as fill values for points outside the run's time range
+            f_train = interp1d(run_cum_time, run_loss_true, kind='linear',
+                               bounds_error=False,
+                               fill_value=(run_loss_true[0], run_loss_true[-1]))
 
-        q8_curve = name_data[["time", "loss_true"]].quantile(0.8)
-        q8_curve["time"] = q8_curve["time"].cumsum()
-        q8_curve["loss_true"] = q8_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+            # Interpolate onto the common time grid
+            interp_train = f_train(time_grid)
+            interp_train_losses_name.append(interp_train)
 
-        line, = ax.plot(median_curve["time"], median_curve["loss_true"], label=name)
-        color = line.get_color()
-        ax.fill_between(median_curve["time"], q02_curve["loss_true"], q8_curve["loss_true"], color=color, alpha=0.2)
-    plt.xscale("log")
-    plt.yscale("log")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Train Loss")
-    plt.legend()
+        # Store all interpolated curves for the method
+        all_interp_train_losses[name] = np.array(interp_train_losses_name)
+
+        # Calculate median and quantiles across seeds
+        if all_interp_train_losses[name].shape[0] > 0:  # Check if there are runs for this name
+            median_curve = np.median(all_interp_train_losses[name], axis=0)
+            q02_curve = np.quantile(all_interp_train_losses[name], 0.2, axis=0)
+            q8_curve = np.quantile(all_interp_train_losses[name], 0.8, axis=0)
+
+            # Plot median curve and shaded quantile region
+            line, = ax_train.plot(time_grid, median_curve, label=name)
+            color = line.get_color()
+            ax_train.fill_between(time_grid, q02_curve, q8_curve, color=color, alpha=0.2)
+
+    ax_train.set_xscale("log")
+    ax_train.set_yscale("log")
+    ax_train.set_xlabel("Time (s)")
+    ax_train.set_ylabel(f"Train Loss")
+    ax_train.legend()
     plt.tight_layout()
-    plt.savefig(output_dir / "new_loss_true.pdf", format="pdf")
+    plt.savefig(output_dir / "interp1d_loss_true.pdf", format="pdf")  # Updated filename
     plt.close()
 
-    # Test loss for the different methods
+    # --- Plotting Test Loss ---
     plt.figure(figsize=(3.5, 2.2))
-    ax = plt.gca()
+    ax_test = plt.gca()
+    all_interp_test_losses = {}
+
     for name in df_results.name.unique():
-        # Group by name and epoch, then calculate median and quantiles
-        name_data = df_results[df_results.name == name].groupby("epoch")
+        interp_test_losses_name = []
+        df_name = df_results[df_results.name == name]
+        for seed in df_name.seed.unique():
+            df_run = df_name[df_name.seed == seed].copy()
+            # Ensure time is monotonically increasing for interpolation
+            df_run = df_run.drop_duplicates(subset=['cum_time'], keep='first')
+            run_cum_time = df_run['cum_time'].values
+            run_test_loss_true = df_run['test_loss_true_adj'].values
 
-        # Calculate the median curve
-        median_curve = name_data[["time", "test_loss_true"]].median()
-        median_curve["time"] = median_curve["time"].cumsum()
-        median_curve["test_loss_true"] = (
-            median_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
-        )
+            # Skip runs with insufficient points for interpolation
+            if len(run_cum_time) < 2:
+                continue
 
-        # Calculate the 0.2 and 0.8 quantiles
-        q02_curve = name_data[["time", "test_loss_true"]].quantile(0.2)
-        q02_curve["time"] = q02_curve["time"].cumsum()
-        q02_curve["test_loss_true"] = (
-            q02_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
-        )
+            # Create interpolation function using interp1d
+            f_test = interp1d(run_cum_time, run_test_loss_true, kind='linear',
+                              bounds_error=False,
+                              fill_value=(run_test_loss_true[0], run_test_loss_true[-1]))
 
-        q8_curve = name_data[["time", "test_loss_true"]].quantile(0.8)
-        q8_curve["time"] = q8_curve["time"].cumsum()
-        q8_curve["test_loss_true"] = (
-            q8_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
-        )
+            # Interpolate onto the common time grid
+            interp_test = f_test(time_grid)
+            interp_test_losses_name.append(interp_test)
 
-        line, = ax.plot(
-            median_curve["time"], median_curve["test_loss_true"], label=name
-        )
-        color = line.get_color()
-        ax.fill_between(
-            median_curve["time"],
-            q02_curve["test_loss_true"],
-            q8_curve["test_loss_true"],
-            color=color,
-            alpha=0.2,
-        )
-    plt.xscale("log")
-    plt.yscale("log")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Test Loss")
-    plt.legend()
+        # Store all interpolated curves for the method
+        all_interp_test_losses[name] = np.array(interp_test_losses_name)
+
+        # Calculate median and quantiles across seeds
+        if all_interp_test_losses[name].shape[0] > 0:  # Check if there are runs for this name
+            median_curve = np.median(all_interp_test_losses[name], axis=0)
+            q02_curve = np.quantile(all_interp_test_losses[name], 0.2, axis=0)
+            q8_curve = np.quantile(all_interp_test_losses[name], 0.8, axis=0)
+
+            # Plot median curve and shaded quantile region
+            line, = ax_test.plot(time_grid, median_curve, label=name)
+            color = line.get_color()
+            ax_test.fill_between(time_grid, q02_curve, q8_curve, color=color, alpha=0.2)
+
+    ax_test.set_xscale("log")
+    ax_test.set_yscale("log")
+    ax_test.set_xlabel("Time (s)")
+    ax_test.set_ylabel(f"Test Loss")
+    ax_test.legend()
     plt.tight_layout()
-    plt.savefig(output_dir / "new_test_loss_true.pdf", format="pdf")
+    plt.savefig(output_dir / "interp1d_test_loss_true.pdf", format="pdf")  # Updated filename
     plt.close()
 
 
@@ -118,17 +163,30 @@ if __name__ == "__main__":
     results_dir = Path(args.results_dir)
     df_results = pd.read_csv(results_dir / "df_results.csv")
 
-    df_results.loc[(df_results["name"] == "alphacsc") & (df_results["epoch"] == 0), 'time'] *= 10
+    # --- Data Preprocessing ---
 
-    # Adding the first loss evaluation of alphacsc to the other methods
+    # Adjust time for alphacsc epoch 0
+    df_results.loc[(df_results["name"] == "alphacsc") & (df_results["epoch"] == 0), 'time'] = 1e-1
+
+    # Add the first loss evaluation of alphacsc to the other methods for fair comparison start
     epoch0alphacsc = df_results[
         (df_results["name"] == "alphacsc") & (df_results["epoch"] == 0)
-    ]
-    for name in df_results["name"].unique():
+    ].copy()  # Use copy to avoid SettingWithCopyWarning
+
+    all_dfs = [df_results]
+    original_names = df_results["name"].unique()
+    for name in original_names:
         if name == "alphacsc":
             continue
-        epoch0alphacsc.loc[:, "name"] = name
+        # Create copies for each other method
+        epoch0_copy = epoch0alphacsc.copy()
+        epoch0_copy["name"] = name
+        # Adjust epoch for existing data of this method
         df_results.loc[df_results["name"] == name, "epoch"] += 1
-        df_results = pd.concat([df_results, epoch0alphacsc], ignore_index=True)
+        all_dfs.append(epoch0_copy)
 
+    # Concatenate original data (with adjusted epochs) and the added epoch 0 data
+    df_results = pd.concat(all_dfs, ignore_index=True)
+
+    # --- Plotting ---
     plot_losses(df_results, results_dir)

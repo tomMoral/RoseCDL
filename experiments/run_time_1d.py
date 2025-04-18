@@ -275,9 +275,9 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 2*10,
+        "n_trials": 2*20,
         "n_channels": 2,
-        "n_times": 1000 if args.debug else 5000,
+        "n_times": 1_000 if args.debug else 10_000,
         "n_atoms": 2,
         "n_times_atom": 64,
         "n_atoms_extra": 2,  # extra atoms in the learned dictionary
@@ -285,9 +285,9 @@ if __name__ == "__main__":
         "window": True,
         "contamination_params": None,
         "init_d": "shapes",
-        "init_d_kwargs": {"shapes": ["sin", "gaussian", "triangle"]},
+        "init_d_kwargs": {"shapes": ["sin", "gaussian"]},
         "init_z": "constant",
-        "init_z_kwargs": {"value": 1},
+        "init_z_kwargs": {"low": 0, "high": 1},
         "noise_std": 0.01,
         "sparsity": 20,
     }
@@ -305,7 +305,7 @@ if __name__ == "__main__":
             "sample_window": 1000,
             "optimizer": "linesearch",
             "n_iterations": 5 if args.debug else 50,
-            "window": True,
+            "window": False,
             "device": DEVICE,
         },
         "alphacsc": {
@@ -315,7 +315,8 @@ if __name__ == "__main__":
             "solver_z": "lgcd",
             "rank1": False,
             "window": True,
-            "verbose": 0,
+            "verbose": 1,
+            "eps": 1e-6,
         },
         "sporco": {
             "lmbda": reg,
