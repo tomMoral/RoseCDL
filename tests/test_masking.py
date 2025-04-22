@@ -18,7 +18,8 @@ def test_get_outlier_mask_1d():
     mask = get_outlier_mask(err, threshold=0.8, opening_window=opening_window)
     expected_mask = torch.zeros(1, 1, len_sig)
     masked_times = slice(
-        start_outlier - opening_window + 1, start_outlier + len_outlier + 1
+        max(0, start_outlier - (opening_window // 2)),
+        start_outlier + len_outlier + (opening_window) // 2 + 1,
     )
     expected_mask[0, 0, masked_times] = 1
     assert torch.all(mask == expected_mask)
