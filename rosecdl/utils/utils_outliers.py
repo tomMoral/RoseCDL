@@ -256,7 +256,7 @@ def apply_opening(outliers_mask: torch.Tensor, window_size: int = 15) -> torch.T
 
     """
     # Input validation
-    if not isinstance(window_size, int) or window_size <= 0:
+    if not isinstance(window_size, int | tuple) or window_size <= 0:
         return outliers_mask
 
     ndim = outliers_mask.ndim
@@ -269,36 +269,18 @@ def apply_opening(outliers_mask: torch.Tensor, window_size: int = 15) -> torch.T
     # Convert to float for convolution
     mask = outliers_mask.float()
 
-    if ndim == 3:  # 1D case
-        if isinstance(window_size, tuple):
-            window_size = window_size[0]
-        # Create 1D structuring element
-        se = torch.ones(mask.size(1), 1, window_size, device=mask.device)
-        padded_mask = F.pad(mask, (window_size // 2, (window_size - 1) // 2), "constant", 0)
-        # Apply convolution
-        convolved = F.conv1d(padded_mask, se, padding=0, groups=mask.size(1))
+    conv = F.conv1d if ndim == 3 else F.conv2d
 
-    else:  # 2D case
-        if isinstance(window_size, int):
+    if isinstance(window_size, int):
+        if ndim == 3:
+            window_size = (window_size,)
+        else:
             window_size = (window_size, window_size)
-        # Create 2D square structuring element
-        se = torch.ones(
-            mask.size(1), 1, window_size[0], window_size[1], device=mask.device
-        )
-        # Pad to avoid boundary effects
-        padded_mask = F.pad(
-            mask,
-            (
-            window_size[1] // 2,
-            (window_size[1] - 1) // 2,
-            window_size[0] // 2,
-            (window_size[0] - 1) // 2,
-            ),
-            "constant",
-            0,
-        )
-        # Apply convolution
-        convolved = F.conv2d(padded_mask, se, padding=0, groups=mask.size(1))
+
+    se = torch.ones(mask.size(1), 1, *window_size, device=mask.device)
+    pad_size = tuple(v for ks in window_size[::-1] for v in (ks // 2, (ks - 1) // 2))
+    padded_mask = F.pad(mask, pad_size, "constant", 0)
+    convolved = conv(padded_mask, se, padding=0, groups=mask.size(1))
 
     # Threshold to get binary mask
     result = (convolved > 0).bool()
