@@ -116,15 +116,18 @@ def run_one(
 
     # Setup the callback
     global t_start, z0
-    results, z0, t_start = [], None, time.perf_counter()
+    results, t_start = [], time.perf_counter()
+    z0_dict = {"train": None, "test": None}
 
     def callback_fn(model, *args) -> None:
         global t_start, z0
         runtime = time.perf_counter() - t_start
 
         if cdl_package == "sporco":
+            logger.info("Sporco callback")
             # Sporco returns the dimension of the dictionary in a different order
             model_dict = model.getdict()[:, :, 0, :].transpose(2, 1, 0).copy()
+            model_dict /= np.linalg.norm(model_dict, axis=(1, 2), keepdims=True)
             epoch, loss = len(results), None
         elif cdl_package == "alphacsc":
             pobj = args[0]
@@ -139,18 +142,20 @@ def run_one(
         recovery_score = evaluate_D_hat(true_dict, model_dict)
 
         # Train loss
-        z0 = z_hat = update_z_multi(
-            data, model_dict.astype(np.float64), lmbd, z0=z0, solver="lgcd"
+        z_hat = update_z_multi(
+            data, model_dict.astype(np.float64), lmbd, z0=z0_dict["train"], solver="lgcd"
         )[0]
         loss_true = compute_X_and_objective_multi(data, z_hat, model_dict, lmbd)
+        z0_dict["train"] = z_hat
 
         # Test loss using the learned dictionary
         test_z_hat = update_z_multi(
-            test_data, model_dict.astype(np.float64), lmbd, z0=None, solver="lgcd"
+            test_data, model_dict.astype(np.float64), lmbd, z0=z0_dict["test"], solver="lgcd"
         )[0]
         test_loss_true = compute_X_and_objective_multi(
             test_data, test_z_hat, model_dict, lmbd
         )
+        z0_dict["test"] = test_z_hat
         results.append(
             {
                 "name": cdl_package,
@@ -193,6 +198,9 @@ def run_one(
     elif cdl_package == "sporco":
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
 
+        opt_cbpdn["Verbose"] = False
+        opt_cbpdn["AuxVarObj"] = False
+
         opt = cbpdndl.ConvBPDNDictLearn.Options(
             {
                 "Verbose": False,
@@ -206,7 +214,7 @@ def run_one(
         sporco_params = {
             "D0": init_dict.transpose(2, 1, 0).copy(),
             "S": data.transpose(2, 1, 0).copy(),
-            "lmbda": cdl_params["lmbda"],
+            "lmbda": lmbd,
             "opt": opt,
             "dmethod": "cns",
             "dimN": 1,
@@ -218,6 +226,27 @@ def run_one(
         msg = f"Unknown CDL package {cdl_package}"
         raise ValueError(msg)
 
+    plot = True
+    if plot:
+        # plot the learned dictionary
+        if cdl_package in ["rosecdl", "deepcdl"]:
+            model_dict = cdl.D_hat_
+        elif cdl_package == "alphacsc":
+            model_dict = cdl.D_hat
+        else:
+            model_dict = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0).copy()
+        model_dict /= np.linalg.norm(model_dict, axis=(1, 2), keepdims=True)
+
+        # Plot the learned dictionary
+        fig, ax = plt.subplots(
+            nrows=model_dict.shape[0], ncols=1, figsize=(10, 2 * model_dict.shape[0])
+        )
+        for i in range(model_dict.shape[0]):
+            ax[i].plot(model_dict[i, 0, :])
+        plt.tight_layout()
+        plt.savefig(
+            Path(f"{exp_dir}/learned_dict_{cdl_package}_{seed}_{i}.png"), dpi=300, bbox_inches="tight"
+        )
     return results
 
 
@@ -275,11 +304,11 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 2*20,
-        "n_channels": 2,
+        "n_trials": 2*6,
+        "n_channels": 1,
         "n_times": 1_000 if args.debug else 10_000,
         "n_atoms": 2,
-        "n_times_atom": 64,
+        "n_times_atom": 128,
         "n_atoms_extra": 2,  # extra atoms in the learned dictionary
         "D_init": "random",
         "window": True,
@@ -287,14 +316,16 @@ if __name__ == "__main__":
         "init_d": "shapes",
         "init_d_kwargs": {"shapes": ["sin", "gaussian"]},
         "init_z": "constant",
-        "init_z_kwargs": {"low": 0, "high": 1},
+        "init_z_kwargs": {"value": 1},
         "noise_std": 0.01,
-        "sparsity": 20,
+        "sparsity": None,
     }
     simulation_params["n_patterns_per_atom"] = simulation_params["n_channels"]
+    simulation_params["sparsity"] = 20 * (simulation_params["n_times"] // 5_000)
 
     # Define base CDL parameters
-    cdl_packages = ["alphacsc", "deepcdl", "rosecdl", "sporco"]
+    # cdl_packages = ["alphacsc", "deepcdl", "rosecdl", "sporco"]
+    cdl_packages = ["rosecdl", "sporco"]
     cdl_configs = {
         "rosecdl": {
             "lmbd": reg,
@@ -302,7 +333,7 @@ if __name__ == "__main__":
             "epochs": 5 if args.debug else 30,
             "max_batch": None,
             "mini_batch_size": 10,
-            "sample_window": 1000,
+            "sample_window": 960,
             "optimizer": "linesearch",
             "n_iterations": 5 if args.debug else 50,
             "window": False,
@@ -320,7 +351,7 @@ if __name__ == "__main__":
         },
         "sporco": {
             "lmbda": reg,
-            "n_iter": 5 if args.debug else 30,
+            "n_iter": 5 if args.debug else 20,
         },
     }
     cdl_configs["deepcdl"] = cdl_configs["rosecdl"].copy()
