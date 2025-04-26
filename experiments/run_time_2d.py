@@ -98,8 +98,10 @@ def run_one(
     if data.ndim == 2:
         data = data[None, None, ...]
 
-    data = data[:, :, :500, :500]
-    data = torch.tensor(data, device=cdl_params["device"])
+    idx = np.random.default_rng(seed).integers(0, data.shape[2]-900, size=1)
+    idyx = np.random.default_rng(seed).integers(0, data.shape[3]-900, size=1)
+    data = data[:, :, idx[0]:idx[0]+900, idyx[0]:idyx[0]+900]
+
 
     # rng = np.random.default_rng(seed)
     # init_dict = rng.standard_normal(
@@ -110,19 +112,13 @@ def run_one(
     #     )
     # )
 
-    init_dict = np.random.randn(6, 1, 35, 30)
-
-
-    init_dict = torch.tensor(init_dict, device=cdl_params["device"])
-
-    # data = torch.tensor(data)
-    # init_dict = torch.tensor(init_dict)
-
-    # dummy_loss = _ReconstructionLoss()
-    # lmbd_max = dummy_loss.get_lambda_max(data, init_dict)
+    init_dict = np.random.default_rng(seed).standard_normal((6, 1, 35, 30))
+    eval_data = torch.tensor(data, device=cdl_params["device"])
 
     cdl_params = cdl_params.copy()
     if cdl_package in ["rosecdl", "deepcdl"]:
+        init_dict = torch.tensor(init_dict, device=cdl_params["device"])
+        data = torch.tensor(data, device=cdl_params["device"])
         # cdl_params["lmbd"] *= lmbd_max
         lmbd = cdl_params["lmbd"]
     elif cdl_package == "sporco":
@@ -140,10 +136,13 @@ def run_one(
     # Alphacsc compute_objective alternative for 2D
     evaluation_model = RoseCDL(
         lmbd=lmbd,
-        D_init=init_dict,
+        D_init=init_dict if cdl_package in ["rosecdl", "deepcdl"] else torch.tensor(
+            init_dict, device=cdl_params["device"]
+        ),
         window=False,
         outliers_kwargs=None,
         device=cdl_params["device"],
+        n_iterations=5,
     )
 
     def callback_fn(model, *args) -> None:
@@ -162,17 +161,15 @@ def run_one(
             model_dict = model.D_hat_
             model_dict = torch.tensor(model_dict, device=cdl_params["device"])
 
-        # eval_data = torch.tensor(data, device=cdl_params["device"])
-
         xh, zh = evaluation_model.csc(
-            x=torch.tensor(data, device=cdl_params["device"]),
+            x=eval_data,
             D=model_dict,
         )
 
         loss_true = evaluation_model.loss_fn(
             xh,
             zh,
-            torch.tensor(data, device=cdl_params["device"]),
+            eval_data,
         )
         loss_true = loss_true.item()
 
