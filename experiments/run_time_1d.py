@@ -198,6 +198,7 @@ def run_one(
     elif cdl_package == "sporco":
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
 
+        opt_cbpdn["NonNegCoef"] = True
         opt_cbpdn["Verbose"] = False
         opt_cbpdn["AuxVarObj"] = False
 
