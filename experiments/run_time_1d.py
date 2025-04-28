@@ -55,6 +55,7 @@ def generate_run_config_list(
                 "cdl_package": package,
                 "cdl_params": cdl_configs[package],
                 "seed": s,
+                "master_seed": seed,
                 "i": i,
             }
             for i, s in enumerate(list_seeds)
@@ -68,6 +69,7 @@ def run_one(
     cdl_package: str,
     cdl_params: dict[str, str or float],
     seed: int,
+    master_seed: int,
     i: int,
 ) -> list:
     """Run the experiment for a given CDL package and outlier detection method.
@@ -161,6 +163,7 @@ def run_one(
                 "name": cdl_package,
                 "recovery_score": recovery_score,
                 "seed": seed,
+                "master_seed": master_seed,
                 "epoch": epoch,
                 "loss": loss,
                 "loss_true": loss_true,
@@ -233,7 +236,7 @@ def run_one(
         if cdl_package in ["rosecdl", "deepcdl"]:
             model_dict = cdl.D_hat_
         elif cdl_package == "alphacsc":
-            model_dict = cdl.D_hat
+            model_dict = cdl.D_hat_
         else:
             model_dict = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0).copy()
         model_dict /= np.linalg.norm(model_dict, axis=(1, 2), keepdims=True)
@@ -305,9 +308,9 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 2*6,
+        "n_trials": 2*12,
         "n_channels": 1,
-        "n_times": 1_000 if args.debug else 10_000,
+        "n_times": 5_000 if args.debug else 30_000,
         "n_atoms": 2,
         "n_times_atom": 128,
         "n_atoms_extra": 2,  # extra atoms in the learned dictionary
@@ -325,8 +328,8 @@ if __name__ == "__main__":
     simulation_params["sparsity"] = 20 * (simulation_params["n_times"] // 5_000)
 
     # Define base CDL parameters
-    # cdl_packages = ["alphacsc", "deepcdl", "rosecdl", "sporco"]
-    cdl_packages = ["rosecdl", "sporco"]
+    cdl_packages = ["deepcdl", "rosecdl"]
+    #cdl_packages = ["alphacsc", "sporco"]
     cdl_configs = {
         "rosecdl": {
             "lmbd": reg,
@@ -352,7 +355,7 @@ if __name__ == "__main__":
         },
         "sporco": {
             "lmbda": reg,
-            "n_iter": 5 if args.debug else 20,
+            "n_iter": 5 if args.debug else 100,
         },
     }
     cdl_configs["deepcdl"] = cdl_configs["rosecdl"].copy()
