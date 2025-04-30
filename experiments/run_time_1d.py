@@ -233,9 +233,7 @@ def run_one(
     plot = True
     if plot:
         # plot the learned dictionary
-        if cdl_package in ["rosecdl", "deepcdl"]:
-            model_dict = cdl.D_hat_
-        elif cdl_package == "alphacsc":
+        if cdl_package in ["rosecdl", "deepcdl", "alphacsc"]:
             model_dict = cdl.D_hat_
         else:
             model_dict = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0).copy()
@@ -249,7 +247,9 @@ def run_one(
             ax[i].plot(model_dict[i, 0, :])
         plt.tight_layout()
         plt.savefig(
-            Path(f"{exp_dir}/learned_dict_{cdl_package}_{seed}_{i}.png"), dpi=300, bbox_inches="tight"
+            Path(f"{exp_dir}/learned_dict_{cdl_package}_{seed}_{i}.png"),
+            dpi=300,
+            bbox_inches="tight",
         )
     return results
 
@@ -290,9 +290,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--debug", action="store_true", help="Run the script in debug mode"
     )
+    parser.add_argument(
+        "--solver",
+        type=str,
+        nargs="+",  # Allow multiple solver names
+        help="Filter by specific solver names",
+        default=None,
+    )
     args = parser.parse_args()
 
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
     logger.info("Device: %s", DEVICE)
 
     seed = args.seed
@@ -308,7 +315,7 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 2*12,
+        "n_trials": 2*6,
         "n_channels": 1,
         "n_times": 5_000 if args.debug else 30_000,
         "n_atoms": 2,
@@ -328,8 +335,9 @@ if __name__ == "__main__":
     simulation_params["sparsity"] = 20 * (simulation_params["n_times"] // 5_000)
 
     # Define base CDL parameters
-    cdl_packages = ["deepcdl", "rosecdl"]
-    #cdl_packages = ["alphacsc", "sporco"]
+    cdl_packages = ["alphacsc", "sporco", "rosecdl", "deepcdl"]
+    if args.solver is not None:
+        cdl_packages = args.solver
     cdl_configs = {
         "rosecdl": {
             "lmbd": reg,
@@ -351,11 +359,11 @@ if __name__ == "__main__":
             "rank1": False,
             "window": True,
             "verbose": 1,
-            "eps": 1e-6,
+            "eps": 1e-8,
         },
         "sporco": {
             "lmbda": reg,
-            "n_iter": 5 if args.debug else 100,
+            "n_iter": 5 if args.debug else 50,
         },
     }
     cdl_configs["deepcdl"] = cdl_configs["rosecdl"].copy()
@@ -368,6 +376,15 @@ if __name__ == "__main__":
         seed=seed,
     )
 
+    # Logging using cdl_package and seed
+    logger.info("Run configurations:")
+    for run_config in run_configs:
+        logger.info(
+            "cdl_package: %s, seed: %d",
+            run_config["cdl_package"],
+            run_config["seed"],
+        )
+
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
         delayed(run_one)(simulation_params=simulation_params, **run_config)
         for run_config in run_configs
@@ -378,8 +395,7 @@ if __name__ == "__main__":
 
     # Save results
     df_results = pd.DataFrame(results)
-    df_results.to_csv(exp_dir / "df_results.csv", index=False)
-
+    df_results.to_csv(exp_dir / f"df_results_{args.solver}.csv", index=False)
     # Adding the first loss evaluation of alphacsc to the other methods
     # This is done to have all the methods starting at the same time and epoch
     epoch0alphacsc = df_results[
@@ -402,20 +418,32 @@ if __name__ == "__main__":
         # Calculate the median curve
         median_curve = name_data[["time", "loss_true"]].median()
         median_curve["time"] = median_curve["time"].cumsum()
-        median_curve["loss_true"] = median_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+        median_curve["loss_true"] = (
+            median_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+        )
 
         # Calculate the 0.2 and 0.8 quantiles
         q02_curve = name_data[["time", "loss_true"]].quantile(0.2)
         q02_curve["time"] = q02_curve["time"].cumsum()
-        q02_curve["loss_true"] = q02_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+        q02_curve["loss_true"] = (
+            q02_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+        )
 
         q8_curve = name_data[["time", "loss_true"]].quantile(0.8)
         q8_curve["time"] = q8_curve["time"].cumsum()
-        q8_curve["loss_true"] = q8_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+        q8_curve["loss_true"] = (
+            q8_curve["loss_true"] - df_results["loss_true"].min() + 1e1
+        )
 
         line, = ax.plot(median_curve["time"], median_curve["loss_true"], label=name)
         color = line.get_color()
-        ax.fill_between(median_curve["time"], q02_curve["loss_true"], q8_curve["loss_true"], color=color, alpha=0.2)
+        ax.fill_between(
+            median_curve["time"],
+            q02_curve["loss_true"],
+            q8_curve["loss_true"],
+            color=color,
+            alpha=0.2,
+        )
     plt.xscale("log")
     plt.yscale("log")
     plt.xlabel("Time (s)")
