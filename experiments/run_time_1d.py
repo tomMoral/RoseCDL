@@ -79,6 +79,7 @@ def run_one(
         cdl_params (dict): Parameters for the CDL algorithm.
         seed (int): Random seed.
         i (int): Counting index of the run.
+        master_seed (int): Master seed for reproducibility.
 
     """
     logger.info(
@@ -298,9 +299,15 @@ if __name__ == "__main__":
         help="Filter by specific solver names",
         default=None,
     )
+    parser.add_argument(
+        "--gpu",
+        type=str,
+        default="cuda",
+        help="GPU to use for the experiment (default: cuda)",
+    )
     args = parser.parse_args()
 
-    DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
+    DEVICE = args.gpu if torch.cuda.is_available() else "cpu"
     logger.info("Device: %s", DEVICE)
 
     seed = args.seed
