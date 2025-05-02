@@ -8,14 +8,13 @@ import pandas as pd
 import torch
 from alphacsc import BatchCDL
 from alphacsc.loss_and_gradient import compute_X_and_objective_multi
-from alphacsc.update_z_multi import update_z_multi
 from alphacsc.utils.dictionary import get_lambda_max
 from joblib import Memory, Parallel, delayed
 from sporco.dictlrn import cbpdndl
 from tqdm import tqdm
 
 from rosecdl.rosecdl import RoseCDL
-from rosecdl.utils.utils_exp import evaluate_D_hat
+from rosecdl.utils.utils_exp import evaluate_D_hat, fista
 from rosecdl.utils.utils_signal import generate_experiment
 
 mem = Memory(location="__cache__", verbose=0)
@@ -117,12 +116,11 @@ def run_one(
         raise ValueError(msg)
 
     # Setup the callback
-    global t_start, z0
     results, t_start = [], time.perf_counter()
     z0_dict = {"train": None, "test": None}
 
     def callback_fn(model, *args) -> None:
-        global t_start, z0
+        nonlocal t_start
         runtime = time.perf_counter() - t_start
 
         if cdl_package == "sporco":
@@ -144,20 +142,23 @@ def run_one(
         recovery_score = evaluate_D_hat(true_dict, model_dict)
 
         # Train loss
-        z_hat = update_z_multi(
-            data, model_dict.astype(np.float64), lmbd, z0=z0_dict["train"], solver="lgcd"
-        )[0]
-        loss_true = compute_X_and_objective_multi(data, z_hat, model_dict, lmbd)
+        z_hat = fista(
+            data, torch.tensor(model_dict), lmbd, zO=z0_dict["train"], n_iter=200
+        )
+        loss_true = compute_X_and_objective_multi(
+            data, np.array(z_hat), model_dict, lmbd
+        )
         z0_dict["train"] = z_hat
 
         # Test loss using the learned dictionary
-        test_z_hat = update_z_multi(
-            test_data, model_dict.astype(np.float64), lmbd, z0=z0_dict["test"], solver="lgcd"
-        )[0]
+        test_z_hat = fista(
+            test_data, torch.tensor(model_dict), lmbd, zO=z0_dict["test"], n_iter=200
+        )
         test_loss_true = compute_X_and_objective_multi(
-            test_data, test_z_hat, model_dict, lmbd
+            test_data, np.array(test_z_hat), model_dict, lmbd
         )
         z0_dict["test"] = test_z_hat
+
         results.append(
             {
                 "name": cdl_package,
@@ -299,7 +300,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
+    DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
     logger.info("Device: %s", DEVICE)
 
     seed = args.seed
@@ -315,8 +316,8 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 2*6,
-        "n_channels": 1,
+        "n_trials": 2*10,
+        "n_channels": 2,
         "n_times": 5_000 if args.debug else 30_000,
         "n_atoms": 2,
         "n_times_atom": 128,
@@ -344,8 +345,8 @@ if __name__ == "__main__":
             "scale_lmbd": False,
             "epochs": 5 if args.debug else 30,
             "max_batch": None,
-            "mini_batch_size": 10,
-            "sample_window": 960,
+            "mini_batch_size": 100,
+            "sample_window": 10_000,
             "optimizer": "linesearch",
             "n_iterations": 5 if args.debug else 50,
             "window": False,
@@ -360,6 +361,7 @@ if __name__ == "__main__":
             "window": True,
             "verbose": 1,
             "eps": 1e-8,
+            "n_jobs": 10,
         },
         "sporco": {
             "lmbda": reg,

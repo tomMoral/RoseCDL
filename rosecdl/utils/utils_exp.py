@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
+from torch import fft
+from rosecdl.utils.convolution import fft_conv, fft_conv_transpose
 from scipy import signal
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
@@ -183,7 +186,11 @@ def get_method_name(method_spec: dict[str or float]) -> str:
 
 
 def get_outliers_metric(
-    true_outliers_mask, rosecdl, X, dice_score_epsilon: float = 1e-7, crop=False,
+    true_outliers_mask,
+    rosecdl,
+    X,
+    dice_score_epsilon: float = 1e-7,
+    crop=False,
 ):
     """rosecdl: RoseCDL instance."""
     # Converting true_outliers_mask to numpy array if not already
@@ -425,3 +432,59 @@ def sort_atoms(D, D_ref=None, return_permutation=False):
         return D_sorted, best_match
 
     return D_sorted
+
+
+def fista(x, D, lmbd, zO, n_iter):
+    """FISTA algorithm.
+
+    Parameters
+    ----------
+    zO : torch.Tensor, shape (number of samples, n_components, time)
+        Initialisation of the sparse code
+    x : torch.Tensor, shape (number of samples, channels, time)
+        Data to be processed by (F)ISTA
+    D : torch.Tensor, shape (n_components, channels, kernel_size)
+        Dictionary
+    lmbd : float
+        Regularization parameter
+    n_iter : int
+        Number of iterations
+
+    """
+
+    def prox(x, lmbd):
+        return F.relu(x - lmbd)
+
+    conv = fft_conv
+    convt = fft_conv_transpose
+
+    def grad_loss(x, z, D):
+        return conv((convt(z, D) - x), D)
+
+    def compute_lipschitz(D) -> float:
+        with torch.no_grad():
+            fourier_dico = fft.fft(D, dim=2)
+            lipschitz = (
+                torch.max(torch.real(fourier_dico * torch.conj(fourier_dico)), dim=2)[0]
+                .sum()
+                .item()
+            )
+            if lipschitz == 0:
+                lipschitz = 1
+            return lipschitz
+
+    L = compute_lipschitz(D)
+
+    if zO is None:
+        shape = (x.shape[0], D.shape[0], x.shape[2] - D.shape[2] + 1)
+        zO = torch.zeros(shape, device=x.device)
+    z = zO
+    w = z.clone()
+    beta = 1
+    for _ in range(n_iter):
+        w_new = prox(z - grad_loss(x, z, D) / L, lmbd / L)
+        beta_new = (1 + np.sqrt(1 + 4 * beta**2)) / 2
+        z_new = w_new + (beta - 1) / beta_new * (w_new - w)
+        z, w, beta = z_new, w_new, beta_new
+
+    return w_new
