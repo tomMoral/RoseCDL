@@ -224,6 +224,7 @@ def run_one(
             "opt": opt,
             "dmethod": "cns",
             "dimN": 1,
+            "xmethod": None,
         }
 
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
@@ -323,7 +324,7 @@ if __name__ == "__main__":
 
     # Base simulation parameters
     simulation_params = {
-        "n_trials": 2*10,
+        "n_trials": 2*20,
         "n_channels": 2,
         "n_times": 5_000 if args.debug else 30_000,
         "n_atoms": 2,
@@ -364,15 +365,19 @@ if __name__ == "__main__":
             "lmbd_max": "fixed",
             "n_iter": 5 if args.debug else 30,
             "solver_z": "lgcd",
+            "solver_d_kwargs": {},
+            "unbiased_z_hat": False,
+            "solver_d": "auto",
             "rank1": False,
             "window": True,
+            "uv_constraint": "auto",
             "verbose": 1,
-            "eps": 1e-8,
+            "eps": 1e-12,
             "n_jobs": 10,
         },
         "sporco": {
             "lmbda": reg,
-            "n_iter": 5 if args.debug else 50,
+            "n_iter": 5 if args.debug else 100,
         },
     }
     cdl_configs["deepcdl"] = cdl_configs["rosecdl"].copy()
