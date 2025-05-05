@@ -155,9 +155,36 @@ class OutlierLoss(_ReconstructionLoss):
             self.loss_fn(X_hat, z_hat, X)[~outliers_mask], self.reduction
         )
 
-    def get_outliers_mask(self, X_hat, z_hat, X, opening=None):
+    def get_outliers_mask(self, X_hat, z_hat, X, opening=None, crop=False):
         kernel_size = get_kernel_size(X_hat, z_hat)
         opening = self.opening_window if opening is None else opening
+
+        if crop:
+            if len(kernel_size) == 1:
+                X_hat = X_hat[:, :, kernel_size[0] : -kernel_size[0]]
+                z_hat = z_hat[:, :, kernel_size[0] : -kernel_size[0]]
+                X = X[:, :, kernel_size[0] : -kernel_size[0]]
+            elif len(kernel_size) == 2:
+                X_hat = X_hat[
+                    :,
+                    :,
+                    kernel_size[0] : -kernel_size[0],
+                    kernel_size[1] : -kernel_size[1],
+                ]
+                z_hat = z_hat[
+                    :,
+                    :,
+                    kernel_size[0] : -kernel_size[0],
+                    kernel_size[1] : -kernel_size[1],
+                ]
+                X = X[
+                    :,
+                    :,
+                    kernel_size[0] : -kernel_size[0],
+                    kernel_size[1] : -kernel_size[1],
+                ]
+            else:
+                raise ValueError("Unsupported number of dimensions for kernel size.")
 
         # Compute error vector, keep it 3D
         err = self.compute_patch_error(X_hat, z_hat, X)
@@ -172,7 +199,7 @@ class OutlierLoss(_ReconstructionLoss):
             data=err,
             threshold=threshold,
             moving_average=self.moving_average,
-            opening_window=kernel_size if opening else None,
+            opening_window=opening if opening else None,
             union_channels=self.union_channels,
         )
 
