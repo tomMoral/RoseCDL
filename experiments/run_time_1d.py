@@ -134,7 +134,7 @@ def run_one(
             pobj = args[0]
             # alphacsc adds the loss twice in pobj per epoch, after updating z and D
             # Divide by two the epoch number
-            loss, epoch = -1 if len(pobj) == 0 else pobj[-1], len(pobj) // 2
+            epoch, loss = len(pobj) // 2, None if len(pobj) == 0 else pobj[-1]
             model_dict = model.D_hat
         else:
             epoch, loss = args
