@@ -128,37 +128,69 @@ def run_one(
         nonlocal mask
         xh, zh = model.csc(data)
 
-        model_mask = model.loss_fn.get_outliers_mask(
-            xh, zh, data, opening=outlier_detection_method["opening_window"]
+        model_mask_2715 = model.loss_fn.get_outliers_mask(
+            xh, zh, data, opening=(27, 15), crop=True
+        )
+        model_mask_2010 = model.loss_fn.get_outliers_mask(
+            xh, zh, data, opening=(20, 10), crop=True
         )
 
-        if isinstance(model_mask, torch.Tensor):
-            model_mask = model_mask.cpu().numpy()
+        if isinstance(model_mask_2715, torch.Tensor):
+            model_mask_2715 = model_mask_2715.cpu().numpy()
+            model_mask_2010 = model_mask_2010.cpu().numpy()
         if isinstance(mask, torch.Tensor):
             mask = mask.cpu().numpy()
 
-        model_mask = model_mask.astype(np.int32)
+        model_mask_2715 = model_mask_2715.astype(np.int32)
         mask = mask.astype(np.int32)
 
-        precision = precision_score(
-            mask.flatten(),
-            model_mask.flatten(),
+        # Cropping the gt mask to match the model mask
+        kernel_size = model.csc.kernel_size
+        callback_mask = mask[
+            :, :, kernel_size[0] : -kernel_size[0], kernel_size[1] : -kernel_size[1]
+        ]
+
+        # Compute metrics for model_mask_2715
+        precision_2715 = precision_score(
+            callback_mask[0, 0].flatten(),
+            model_mask_2715[0, 0].flatten(),
             zero_division=0,
         )
-        recall = recall_score(
-            mask.flatten(),
-            model_mask.flatten(),
+        recall_2715 = recall_score(
+            callback_mask[0, 0].flatten(),
+            model_mask_2715[0, 0].flatten(),
             zero_division=0,
         )
-        f1 = f1_score(
-            mask.flatten(),
-            model_mask.flatten(),
+        f1_2715 = f1_score(
+            callback_mask[0, 0].flatten(),
+            model_mask_2715[0, 0].flatten(),
+            zero_division=0,
+        )
+        iou_2715 = jaccard_score(
+            callback_mask.flatten(),
+            model_mask_2715.flatten(),
             zero_division=0,
         )
 
-        iou = jaccard_score(
-            mask.flatten(),
-            model_mask.flatten(),
+        # Compute metrics for model_mask_2010
+        precision_2010 = precision_score(
+            callback_mask.flatten(),
+            model_mask_2010.flatten(),
+            zero_division=0,
+        )
+        recall_2010 = recall_score(
+            callback_mask.flatten(),
+            model_mask_2010.flatten(),
+            zero_division=0,
+        )
+        f1_2010 = f1_score(
+            callback_mask.flatten(),
+            model_mask_2010.flatten(),
+            zero_division=0,
+        )
+        iou_2010 = jaccard_score(
+            callback_mask.flatten(),
+            model_mask_2010.flatten(),
             zero_division=0,
         )
 
@@ -171,10 +203,14 @@ def run_one(
                 "epoch": epoch,
                 "loss": loss,
                 "lmbd": lmbd,
-                "precision": precision,
-                "recall": recall,
-                "f1": f1,
-                "iou": iou,
+                "precision_2715": precision_2715,
+                "recall_2715": recall_2715,
+                "f1_2715": f1_2715,
+                "iou_2715": iou_2715,
+                "precision_2010": precision_2010,
+                "recall_2010": recall_2010,
+                "f1_2010": f1_2010,
+                "iou_2010": iou_2010,
                 **outlier_detection_method,
             }
         )
@@ -188,6 +224,62 @@ def run_one(
     logger.info("Finished training")
 
     return results
+
+
+def plot_metric_results(
+    df_method, metric_base, method_name, alpha, epochs, exp_dir
+):
+    """Plot median and quantiles for a given metric (both _2715 and _2010 variants)."""
+    fig, ax = plt.subplots()
+    colors = {"2715": "blue", "2010": "green"}
+    metric_title = metric_base.replace("_", " ").title()
+    if metric_base == "iou":
+        metric_title = "IoU (Jaccard)"
+
+    for suffix, color in colors.items():
+        metric_col = f"{metric_base}_{suffix}"
+        if metric_col not in df_method.columns:
+            logger.warning(
+                "Metric column '%s' not found for method %s. Skipping plot segment.",
+                metric_col,
+                method_name,
+            )
+            continue
+
+        quantiles = (
+            df_method.groupby("epoch")[metric_col]
+            .quantile([0.2, 0.5, 0.8])
+            .unstack()
+        )
+        q20 = quantiles[0.2]
+        median = quantiles[0.5]
+        q80 = quantiles[0.8]
+
+        # Plot median and quantiles
+        ax.plot(
+            epochs,
+            median,
+            label=f"Median {metric_title} ({suffix.replace('_', ', ')})",
+            color=color,
+            linewidth=2,
+        )
+        ax.fill_between(
+            epochs,
+            q20,
+            q80,
+            color=color,
+            alpha=0.2,
+            label=f"20%-80% Quantile Range ({suffix.replace('_', ', ')})",
+        )
+
+    ax.set_title(f"{metric_title} - {method_name} (alpha={alpha})")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel(f"{metric_title} Score")
+    ax.legend()
+    plot_filename = exp_dir / f"{method_name}_alpha{alpha}_{metric_base}_score.png"
+    plt.savefig(plot_filename)
+    plt.close(fig)
+    logger.info("Saved %s plot to %s", metric_title, plot_filename)
 
 
 if __name__ == "__main__":
@@ -232,7 +324,7 @@ if __name__ == "__main__":
         args.n_jobs = 1
 
     DEVICE = "cuda" if cuda.is_available() else "cpu"
-    logger.info("Using device: %d", DEVICE)
+    logger.info("Using device: %s", DEVICE)
     logger.info("Running %d parallel jobs", args.jobs)
     logger.info("Running %d runs", args.n_runs)
 
@@ -274,10 +366,10 @@ if __name__ == "__main__":
         if args.debug
         else [
             {"method": "mad", "alpha": 3.5},
-            {"method": "zscore", "alpha": 1.5},
-            {"method": "iqr", "alpha": 1.5},
-            {"method": "quantile", "alpha": 0.05},
-            {"method": "quantile", "alpha": 0.1},
+            # {"method": "zscore", "alpha": 1.5},
+            # {"method": "iqr", "alpha": 1.5},
+            # {"method": "quantile", "alpha": 0.05},
+            # {"method": "quantile", "alpha": 0.1},
         ]
     )
     for i in range(len(outlier_detection_methods)):
@@ -310,12 +402,15 @@ if __name__ == "__main__":
     logger.info("Results saved to %s", exp_dir / "results.csv")
 
     # Plot results
-    for method in outlier_detection_methods:
-        method_name = method["method"]
-        # Filter results for the current method, and alpha
+    metrics_to_plot = ["f1", "precision", "recall", "iou"]
+
+    for method_config in outlier_detection_methods:
+        method_name = method_config["method"]
+        alpha = method_config.get("alpha", "N/A")
+        # Filter results for the current method and alpha
         query_parts = [f"`method` == '{method_name}'"]
-        if "alpha" in method:
-            query_parts.append(f"`alpha` == {method['alpha']}")
+        if "alpha" in method_config:
+            query_parts.append(f"`alpha` == {alpha}")
         query = " & ".join(query_parts)
         method_results = df_results.query(query)
 
@@ -328,134 +423,14 @@ if __name__ == "__main__":
         epochs = method_results["epoch"].unique()
         epochs.sort()
 
-        # Calculate quantiles and median for F1 Score
-        f1_quantiles = (
-            method_results.groupby("epoch")["f1"].quantile([0.2, 0.5, 0.8]).unstack()
-        )
-        f1_q20 = f1_quantiles[0.2]
-        f1_median = f1_quantiles[0.5]
-        f1_q80 = f1_quantiles[0.8]
+        for metric in metrics_to_plot:
+            plot_metric_results(
+                df_method=method_results,
+                metric_base=metric,
+                method_name=method_name,
+                alpha=alpha,
+                epochs=epochs,
+                exp_dir=exp_dir,
+            )
 
-        fig, ax = plt.subplots()
-        # Plot median and quantiles
-        ax.plot(epochs, f1_median, label="Median F1", color="blue", linewidth=2)
-        ax.fill_between(
-            epochs,
-            f1_q20,
-            f1_q80,
-            color="blue",
-            alpha=0.2,
-            label="20%-80% Quantile Range",
-        )
-
-        ax.set_title(f"F1 Score - {method_name} (alpha={method.get('alpha', 'N/A')})")
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("F1 Score")
-        ax.legend()
-        plt.savefig(
-            exp_dir / f"{method_name}_alpha{method.get('alpha', 'N/A')}_f1_score.png"
-        )
-        plt.close(fig)
-        logger.info("Saved F1 plot for %s", method_name)
-
-        # Calculate quantiles and median for Precision
-        precision_quantiles = (
-            method_results.groupby("epoch")["precision"]
-            .quantile([0.2, 0.5, 0.8])
-            .unstack()
-        )
-        precision_q20 = precision_quantiles[0.2]
-        precision_median = precision_quantiles[0.5]
-        precision_q80 = precision_quantiles[0.8]
-
-        fig, ax = plt.subplots()
-        # Plot median and quantiles
-        ax.plot(
-            epochs,
-            precision_median,
-            label="Median Precision",
-            color="green",
-            linewidth=2,
-        )
-        ax.fill_between(
-            epochs,
-            precision_q20,
-            precision_q80,
-            color="green",
-            alpha=0.2,
-            label="20%-80% Quantile Range",
-        )
-
-        ax.set_title(f"Precision - {method_name} (alpha={method.get('alpha', 'N/A')})")
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Precision")
-        ax.legend()
-        plt.savefig(
-            exp_dir / f"{method_name}_alpha{method.get('alpha', 'N/A')}_precision.png"
-        )
-        plt.close(fig)
-        logger.info("Saved Precision plot for %s", method_name)
-
-        # Calculate quantiles and median for Recall
-        recall_quantiles = (
-            method_results.groupby("epoch")["recall"]
-            .quantile([0.2, 0.5, 0.8])
-            .unstack()
-        )
-        recall_q20 = recall_quantiles[0.2]
-        recall_median = recall_quantiles[0.5]
-        recall_q80 = recall_quantiles[0.8]
-
-        fig, ax = plt.subplots()
-        # Plot median and quantiles
-        ax.plot(epochs, recall_median, label="Median Recall", color="red", linewidth=2)
-        ax.fill_between(
-            epochs,
-            recall_q20,
-            recall_q80,
-            color="red",
-            alpha=0.2,
-            label="20%-80% Quantile Range",
-        )
-
-        ax.set_title(f"Recall - {method_name} (alpha={method.get('alpha', 'N/A')})")
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Recall")
-        ax.legend()
-        plt.savefig(
-            exp_dir / f"{method_name}_alpha{method.get('alpha', 'N/A')}_recall.png"
-        )
-        plt.close(fig)
-        logger.info("Saved Recall plot for %s", method_name)
-
-        # Calculate quantiles and median for IoU
-        iou_quantiles = (
-            method_results.groupby("epoch")["iou"].quantile([0.2, 0.5, 0.8]).unstack()
-        )
-        iou_q20 = iou_quantiles[0.2]
-        iou_median = iou_quantiles[0.5]
-        iou_q80 = iou_quantiles[0.8]
-
-        fig, ax = plt.subplots()
-        # Plot median and quantiles
-        ax.plot(epochs, iou_median, label="Median IoU", color="purple", linewidth=2)
-        ax.fill_between(
-            epochs,
-            iou_q20,
-            iou_q80,
-            color="purple",
-            alpha=0.2,
-            label="20%-80% Quantile Range",
-        )
-
-        ax.set_title(
-            f"IoU (Jaccard) - {method_name} (alpha={method.get('alpha', 'N/A')})"
-        )
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("IoU Score")
-        ax.legend()
-        plt.savefig(
-            exp_dir / f"{method_name}_alpha{method.get('alpha', 'N/A')}_iou.png"
-        )
-        plt.close(fig)
-        logger.info("Saved IoU plot for %s", method_name)
+    logger.info("Finished generating plots.")
