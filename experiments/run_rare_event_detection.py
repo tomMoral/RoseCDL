@@ -114,6 +114,13 @@ def run_one(
         data = data[None, None, ...]
         mask = mask[None, None, ...]
 
+    # s1 = 990
+    # s2 = 550
+    # t1 = s1 + 900
+    # t2 = s2 + 900
+    # data = data[:, :, s1:t1, s2:t2]
+    # mask = mask[:, :, s1:t1, s2:t2]
+
     true_dict = true_dict[:, None, ...]
 
     init_dict = torch.randn(
@@ -128,20 +135,20 @@ def run_one(
         nonlocal mask
         xh, zh = model.csc(data)
 
-        model_mask_2715 = model.loss_fn.get_outliers_mask(
-            xh, zh, data, opening=(27, 15), crop=True
-        )
         model_mask_2010 = model.loss_fn.get_outliers_mask(
             xh, zh, data, opening=(20, 10), crop=True
         )
+        model_mask_1510 = model.loss_fn.get_outliers_mask(
+            xh, zh, data, opening=(15, 10), crop=True
+        )
 
-        if isinstance(model_mask_2715, torch.Tensor):
-            model_mask_2715 = model_mask_2715.cpu().numpy()
+        if isinstance(model_mask_2010, torch.Tensor):
             model_mask_2010 = model_mask_2010.cpu().numpy()
+            model_mask_1510 = model_mask_1510.cpu().numpy()
         if isinstance(mask, torch.Tensor):
             mask = mask.cpu().numpy()
 
-        model_mask_2715 = model_mask_2715.astype(np.int32)
+        model_mask_2010 = model_mask_2010.astype(np.int32)
         mask = mask.astype(np.int32)
 
         # Cropping the gt mask to match the model mask
@@ -150,42 +157,20 @@ def run_one(
             :, :, kernel_size[0] : -kernel_size[0], kernel_size[1] : -kernel_size[1]
         ]
 
-        # Compute metrics for model_mask_2715
-        precision_2715 = precision_score(
-            callback_mask[0, 0].flatten(),
-            model_mask_2715[0, 0].flatten(),
-            zero_division=0,
-        )
-        recall_2715 = recall_score(
-            callback_mask[0, 0].flatten(),
-            model_mask_2715[0, 0].flatten(),
-            zero_division=0,
-        )
-        f1_2715 = f1_score(
-            callback_mask[0, 0].flatten(),
-            model_mask_2715[0, 0].flatten(),
-            zero_division=0,
-        )
-        iou_2715 = jaccard_score(
-            callback_mask.flatten(),
-            model_mask_2715.flatten(),
-            zero_division=0,
-        )
-
         # Compute metrics for model_mask_2010
         precision_2010 = precision_score(
-            callback_mask.flatten(),
-            model_mask_2010.flatten(),
+            callback_mask[0, 0].flatten(),
+            model_mask_2010[0, 0].flatten(),
             zero_division=0,
         )
         recall_2010 = recall_score(
-            callback_mask.flatten(),
-            model_mask_2010.flatten(),
+            callback_mask[0, 0].flatten(),
+            model_mask_2010[0, 0].flatten(),
             zero_division=0,
         )
         f1_2010 = f1_score(
-            callback_mask.flatten(),
-            model_mask_2010.flatten(),
+            callback_mask[0, 0].flatten(),
+            model_mask_2010[0, 0].flatten(),
             zero_division=0,
         )
         iou_2010 = jaccard_score(
@@ -193,6 +178,82 @@ def run_one(
             model_mask_2010.flatten(),
             zero_division=0,
         )
+
+        # Compute metrics for model_mask_1510
+        precision_1510 = precision_score(
+            callback_mask.flatten(),
+            model_mask_1510.flatten(),
+            zero_division=0,
+        )
+        recall_1510 = recall_score(
+            callback_mask.flatten(),
+            model_mask_1510.flatten(),
+            zero_division=0,
+        )
+        f1_1510 = f1_score(
+            callback_mask.flatten(),
+            model_mask_1510.flatten(),
+            zero_division=0,
+        )
+        iou_1510 = jaccard_score(
+            callback_mask.flatten(),
+            model_mask_1510.flatten(),
+            zero_division=0,
+        )
+
+        logger.info(
+            "Epoch %d: loss=%.4f, lmbd=%.4f, precision_2010=%.4f, recall_2010=%.4f, f1_2010=%.4f, iou_2010=%.4f",
+            epoch,
+            loss,
+            lmbd,
+            precision_2010,
+            recall_2010,
+            f1_2010,
+            iou_2010,
+        )
+        logger.info(
+            "Epoch %d: precision_1510=%.4f, recall_1510=%.4f, f1_1510=%.4f, iou_1510=%.4f",
+            epoch,
+            precision_1510,
+            recall_1510,
+            f1_1510,
+            iou_1510,
+        )
+        logger.info(
+            "Number of outliers detected (2010): %d",
+            np.sum(model_mask_2010[0, 0]),
+        )
+        logger.info(
+            "Number of outliers detected (1510): %d",
+            np.sum(model_mask_1510[0, 0]),
+        )
+        logger.info(
+            "Number of true outliers: %d",
+            np.sum(callback_mask[0, 0]),
+        )
+
+        # plot the masks
+        plt.imshow(model_mask_2010[0, 0])
+        plt.imshow(callback_mask[0, 0], alpha=0.5, cmap="gray")
+        plt.title(f"Model Mask 2010 - Epoch {epoch}")
+        plt.axis("off")
+        plt.savefig(
+            f"model_mask_2010_epoch_{epoch}.png",
+            bbox_inches="tight",
+            pad_inches=0,
+        )
+        plt.close()
+
+        plt.imshow(model_mask_1510[0, 0])
+        plt.imshow(callback_mask[0, 0], alpha=0.5, cmap="gray")
+        plt.title(f"Model Mask 1510 - Epoch {epoch}")
+        plt.axis("off")
+        plt.savefig(
+            f"model_mask_1510_epoch_{epoch}.png",
+            bbox_inches="tight",
+            pad_inches=0,
+        )
+        plt.close()
 
         results.append(
             {
@@ -203,14 +264,14 @@ def run_one(
                 "epoch": epoch,
                 "loss": loss,
                 "lmbd": lmbd,
-                "precision_2715": precision_2715,
-                "recall_2715": recall_2715,
-                "f1_2715": f1_2715,
-                "iou_2715": iou_2715,
                 "precision_2010": precision_2010,
                 "recall_2010": recall_2010,
                 "f1_2010": f1_2010,
                 "iou_2010": iou_2010,
+                "precision_1510": precision_1510,
+                "recall_1510": recall_1510,
+                "f1_1510": f1_1510,
+                "iou_1510": iou_1510,
                 **outlier_detection_method,
             }
         )
@@ -223,15 +284,26 @@ def run_one(
     cdl.fit(data)
     logger.info("Finished training")
 
+    # Plot final dictionary
+    fig, ax = plt.subplots(1, len(cdl.D_hat_), figsize=(15, 5))
+    for i in range(len(cdl.D_hat_)):
+        ax[i].imshow(cdl.D_hat_[i, 0], cmap="gray")
+        ax[i].set_title(f"Dictionary Component {i}")
+        ax[i].axis("off")
+    plt.savefig(
+        "learned_dictionary.png",
+        bbox_inches="tight",
+        pad_inches=0,
+    )
+    plt.close()
+
     return results
 
 
-def plot_metric_results(
-    df_method, metric_base, method_name, alpha, epochs, exp_dir
-):
-    """Plot median and quantiles for a given metric (both _2715 and _2010 variants)."""
+def plot_metric_results(df_method, metric_base, method_name, alpha, epochs, exp_dir):
+    """Plot median and quantiles for a given metric (both _2010 and _1510 variants)."""
     fig, ax = plt.subplots()
-    colors = {"2715": "blue", "2010": "green"}
+    colors = {"2010": "blue", "1510": "green"}
     metric_title = metric_base.replace("_", " ").title()
     if metric_base == "iou":
         metric_title = "IoU (Jaccard)"
@@ -247,9 +319,7 @@ def plot_metric_results(
             continue
 
         quantiles = (
-            df_method.groupby("epoch")[metric_col]
-            .quantile([0.2, 0.5, 0.8])
-            .unstack()
+            df_method.groupby("epoch")[metric_col].quantile([0.2, 0.5, 0.8]).unstack()
         )
         q20 = quantiles[0.2]
         median = quantiles[0.5]
@@ -347,12 +417,12 @@ if __name__ == "__main__":
         "n_channels": 1,
         "lmbd": args.reg,
         "scale_lmbd": False,
-        "epochs": 5 if args.debug else 30,
+        "epochs": 10 if args.debug else 30,
         "max_batch": 50,
         "mini_batch_size": 10,
         "sample_window": 1000,
         "optimizer": "adam",
-        "n_iterations": 2 if args.debug else 40,
+        "n_iterations": 5 if args.debug else 65,
         "window": False,
         "device": DEVICE,
         "positive_D": True,
@@ -366,10 +436,9 @@ if __name__ == "__main__":
         if args.debug
         else [
             {"method": "mad", "alpha": 3.5},
-            # {"method": "zscore", "alpha": 1.5},
-            # {"method": "iqr", "alpha": 1.5},
-            # {"method": "quantile", "alpha": 0.05},
-            # {"method": "quantile", "alpha": 0.1},
+            {"method": "zscore", "alpha": 1.5},
+            {"method": "iqr", "alpha": 1.5},
+            {"method": "quantile", "alpha": 0.1},
         ]
     )
     for i in range(len(outlier_detection_methods)):
