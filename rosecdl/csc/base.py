@@ -268,4 +268,3 @@ class ConvolutionalSparseCoder(nn.Module):
             z, w, beta = z_new, w_new, beta_new
 
         return w_new
-        return w_new

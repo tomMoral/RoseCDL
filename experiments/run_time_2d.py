@@ -8,16 +8,13 @@ import pandas as pd
 import torch
 from joblib import Memory, Parallel, delayed
 from sporco.dictlrn import cbpdndl
+from torch.linalg import vector_norm
+from torch.nn import MSELoss
 from tqdm import tqdm
 
-from torch.nn import MSELoss
-from torch.linalg import vector_norm
-import torch
-
-from rosecdl.loss import _ReconstructionLoss
+from rosecdl.loss import LassoLoss, _ReconstructionLoss
 from rosecdl.rosecdl import RoseCDL
-from rosecdl.utils.utils_exp import evaluate_D_hat
-from rosecdl.loss import LassoLoss
+from rosecdl.utils.utils_exp import evaluate_D_hat, fista
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -98,10 +95,16 @@ def run_one(
     if data.ndim == 2:
         data = data[None, None, ...]
 
-    idx = np.random.default_rng(seed).integers(0, data.shape[2]-900, size=1)
-    idyx = np.random.default_rng(seed).integers(0, data.shape[3]-900, size=1)
-    data = data[:, :, idx[0]:idx[0]+900, idyx[0]:idyx[0]+900]
+    s1 = 990
+    s2 = 550
+    t1 = s1 + 900
+    t2 = s2 + 900
+    data = data[:, :, s1:t1, s2:t2]
 
+    plt.imshow(data[0, 0], cmap="gray")
+    plt.title("Data")
+    plt.savefig(exp_dir / f"data_{i}.png")
+    plt.close()
 
     # rng = np.random.default_rng(seed)
     # init_dict = rng.standard_normal(
@@ -113,7 +116,7 @@ def run_one(
     # )
 
     init_dict = np.random.default_rng(seed).standard_normal((6, 1, 35, 30))
-    eval_data = torch.tensor(data, device=cdl_params["device"])
+    data = torch.tensor(data, device=cdl_params["device"])
 
     cdl_params = cdl_params.copy()
     if cdl_package in ["rosecdl", "deepcdl"]:
@@ -129,24 +132,24 @@ def run_one(
         raise ValueError(msg)
 
     # Setup the callback
-    global t_start, z0
-    results, z0, t_start = [], None, time.perf_counter()
+    results, t_start = [], time.perf_counter()
+    z0_dict = {"train": None, "test": None}
 
     # Instantiating a new RoseCDL object for computing the loss
     # Alphacsc compute_objective alternative for 2D
-    evaluation_model = RoseCDL(
-        lmbd=lmbd,
-        D_init=init_dict if cdl_package in ["rosecdl", "deepcdl"] else torch.tensor(
-            init_dict, device=cdl_params["device"]
-        ),
-        window=False,
-        outliers_kwargs=None,
-        device=cdl_params["device"],
-        n_iterations=5,
-    )
+    # evaluation_model = RoseCDL(
+    #     lmbd=lmbd,
+    #     D_init=init_dict
+    #     if cdl_package in ["rosecdl", "deepcdl"]
+    #     else torch.tensor(init_dict, device=cdl_params["device"]),
+    #     window=False,
+    #     outliers_kwargs=None,
+    #     device=cdl_params["device"],
+    #     n_iterations=5,
+    # )
 
     def callback_fn(model, *args) -> None:
-        global t_start, z0
+        nonlocal t_start
         runtime = time.perf_counter() - t_start
 
         if cdl_package == "sporco":
@@ -161,17 +164,72 @@ def run_one(
             model_dict = model.D_hat_
             model_dict = torch.tensor(model_dict, device=cdl_params["device"])
 
-        xh, zh = evaluation_model.csc(
-            x=eval_data,
-            D=model_dict,
+        fig, ax = plt.subplots(1, len(model_dict), figsize=(15, 5))
+        for l, atom in enumerate(model_dict):
+            ax[l].imshow(atom[0].cpu().numpy(), cmap="gray")
+            ax[l].set_title(f"Atom {i + 1}")
+            ax[l].axis("off")
+        plt.savefig(exp_dir / f"dict_{epoch}.png")
+        plt.close(fig)
+
+        # xh, zh = evaluation_model.csc(
+        #     x=eval_data,
+        #     D=model_dict,
+        # )
+
+        zh = fista(
+            data.clone(),
+            model_dict,
+            lmbd,
+            zO=None,
+            n_iter=150,
+        )
+        z0_dict["train"] = zh.clone()
+
+        xh = torch.nn.functional.conv_transpose2d(zh.clone(), model_dict.clone())
+
+        logger.info(
+            "sum x = %s, sum zh = %s",
+            torch.sum(xh),
+            torch.sum(zh),
         )
 
-        loss_true = evaluation_model.loss_fn(
+
+
+        # plot xh and zh
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
+        plt.imshow(xh[0, 0].cpu().numpy(), cmap="gray")
+        plt.title("Reconstructed image")
+        plt.subplot(1, 2, 2)
+        plt.imshow(zh[0, 0].cpu().numpy(), cmap="gray")
+        plt.title("Sparse code")
+        plt.savefig(exp_dir / f"reconstructed_{epoch}.png")
+
+        # loss_true = evaluation_model.loss_fn(
+        #     xh,
+        #     zh,
+        #     eval_data,
+        # )
+
+        loss_true = LassoLoss(
+            lmbd=cdl_params["lmbd"],
+            reduction="mean",
+            data_fit=MSELoss(reduction="mean"),
+        )(
             xh,
             zh,
-            eval_data,
+            data,
         )
         loss_true = loss_true.item()
+
+        logger.info(
+            "Epoch %d, loss: %.4f, loss_true: %.4f, time: %.2fs",
+            epoch,
+            loss,
+            loss_true,
+            runtime,
+        )
 
         recovery_score = evaluate_D_hat(true_dict, model_dict.cpu().numpy())
         results.append(
@@ -300,14 +358,15 @@ if __name__ == "__main__":
     exp_dir.mkdir(exist_ok=True, parents=True)
 
     # Define base CDL parameters
-    cdl_packages = ["deepcdl", "rosecdl", "sporco"]
+    # cdl_packages = ["deepcdl", "rosecdl", "sporco"]
+    cdl_packages = ["rosecdl"]
     cdl_configs = {
         "rosecdl": {
             "kernel_size": (35, 30),
             "n_channels": 1,
             "n_components": 6,
             "lmbd": reg,
-            "scale_lmbd": False,
+            "scale_lmbd": True,
             "epochs": 5 if args.debug else 30,
             "max_batch": None,
             "mini_batch_size": 10,
