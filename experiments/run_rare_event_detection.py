@@ -114,13 +114,6 @@ def run_one(
         data = data[None, None, ...]
         mask = mask[None, None, ...]
 
-    # s1 = 990
-    # s2 = 550
-    # t1 = s1 + 900
-    # t2 = s2 + 900
-    # data = data[:, :, s1:t1, s2:t2]
-    # mask = mask[:, :, s1:t1, s2:t2]
-
     true_dict = true_dict[:, None, ...]
 
     init_dict = torch.randn(
@@ -202,7 +195,8 @@ def run_one(
         )
 
         logger.info(
-            "Epoch %d: loss=%.4f, lmbd=%.4f, precision_2010=%.4f, recall_2010=%.4f, f1_2010=%.4f, iou_2010=%.4f",
+            "Epoch %d: loss=%.4f, lmbd=%.4f, precision_2010=%.4f, "
+            "recall_2010=%.4f, f1_2010=%.4f, iou_2010=%.4f",
             epoch,
             loss,
             lmbd,
@@ -212,7 +206,8 @@ def run_one(
             iou_2010,
         )
         logger.info(
-            "Epoch %d: precision_1510=%.4f, recall_1510=%.4f, f1_1510=%.4f, iou_1510=%.4f",
+            "Epoch %d: precision_1510=%.4f, recall_1510=%.4f, "
+            "f1_1510=%.4f, iou_1510=%.4f",
             epoch,
             precision_1510,
             recall_1510,
@@ -429,18 +424,9 @@ if __name__ == "__main__":
         # Outlier_kwargs will be added in generate_run_config_list
     }
 
-    outlier_detection_methods = (
-        [
-            {"method": "mad", "alpha": 3.5},
-        ]
-        if args.debug
-        else [
-            {"method": "mad", "alpha": 3.5},
-            {"method": "zscore", "alpha": 1.5},
-            {"method": "iqr", "alpha": 1.5},
-            {"method": "quantile", "alpha": 0.1},
-        ]
-    )
+    outlier_detection_methods = [
+        {"method": "mad", "alpha": 3.5},
+    ]
     for i in range(len(outlier_detection_methods)):
         outlier_detection_methods[i]["opening_window"] = (27, 15)
 
