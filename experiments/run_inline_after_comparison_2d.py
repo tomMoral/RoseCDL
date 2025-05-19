@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 from joblib import Memory, Parallel, delayed
 from sklearn.metrics import f1_score, jaccard_score, precision_score, recall_score
+from sporco.dictlrn import cbpdndl
 from torch import cuda
 from torch.nn import MSELoss
 from tqdm import tqdm
@@ -62,6 +63,9 @@ def generate_run_config_list(
     run_config_list = []
     for package in cdl_packages:
         for timing in outlier_detection_timings:
+            if package == "sporco" and timing == "during":
+                # Skip the "during" timing for sporco
+                continue
             for method in outlier_detection_methods:
                 run_config_list.extend(
                     {
@@ -159,8 +163,8 @@ def run_one(
     logger.info("Data loaded successfully.")
     logger.info("True dictionary shape: %s", true_dict.shape)
 
-    data = data[:, :, :1500, :1500]
-    true_mask = true_mask[:, :, :1500, :1500]
+    data = data[:, :, 300:1800, 300:1800]
+    true_mask = true_mask[:, :, 300:1800, 300:1800]
     data = torch.tensor(data, device=cdl_params["device"])
 
     if i == 0:
@@ -174,15 +178,19 @@ def run_one(
         plt.close()
 
         # Plot true mask
-        plt.imshow(true_mask[0, 0], cmap="gray")
-        plt.axis("off")
+        fig, axes = plt.subplots(1, 2, figsize=(12, 10))
+        axes[0].imshow(true_mask[0, 0], cmap="gray")
+        axes[0].axis("off")
+        axes[1].imshow(data[0, 0].cpu().numpy(), cmap="gray")
+        axes[1].axis("off")
         logger.info("Saving true mask plot to %s", exp_dir / "mask_true.pdf")
-        plt.savefig(exp_dir / "mask_true.pdf")
+        plt.savefig(exp_dir / "true_mask_and_data.pdf")
         plt.close()
 
-        logger.info("Number of anomalies in the true mask: %d", np.sum(true_mask))
-        logger.info(
-            "Percentage of anomalies in the true mask: %.2f%%", np.mean(true_mask)
+        print("Number of anomalies in the true mask:", np.sum(true_mask))
+        print(
+            "Percentage of anomalies in the true mask:",
+            np.sum(true_mask) / true_mask.size,
         )
 
     # Process the outlier method's parameters and compute the summary name
@@ -200,31 +208,44 @@ def run_one(
         *cdl_configs["rosecdl"]["kernel_size"],
     )
 
-    evaluation_model = RoseCDL(**cdl_params, D_init=d_init, outliers_kwargs=None)
+    if cdl_package == "rosecdl":
+        eval_params = cdl_params.copy()
+    elif cdl_package == "sporco":
+        eval_params = cdl_params.copy()
+        eval_params = eval_params.pop("other_params")
 
+    evaluation_model = RoseCDL(**eval_params, D_init=d_init, outliers_kwargs=None)
+    eval_data = torch.tensor(data, device=eval_params["device"], dtype=torch.float32)
     results = []
 
-    def callback_fn(model: any, epoch: int, loss: float) -> None:
+    def callback_fn(model: any, *args) -> None:
         nonlocal true_mask, evaluation_model
         metrics = {}
         dice_score_epsilon = 1e-7
 
-        model_dict = torch.tensor(model.D_hat_, device=cdl_params["device"])
-        kernel_size = model.csc.kernel_size
+        if cdl_package == "rosecdl":
+            epoch, loss = args
+            model_dict = model.D_hat_
+        elif cdl_package == "sporco":
+            epoch, loss = len(results), None
+            model_dict = model.getdict()[:, :, 0, :, :].transpose(3, 2, 1, 0)
+
+        model_dict = torch.tensor(model_dict, device=cdl_params["device"])
+        kernel_size = eval_params["kernel_size"]
 
         if outlier_detection_timing == "during":
-            xh, zh = model.csc(data)
+            X_hat, z_hat = model.csc(eval_data)
             callback_mask = model.loss_fn.get_outliers_mask(
-                xh,
-                zh,
-                data,
+                X_hat,
+                z_hat,
+                eval_data,
                 opening=outlier_detection_method["opening_window"],
                 crop=True,
             )
         elif outlier_detection_timing == "after":
             # We reconstruct the data. We threshold on the reconstruction error
-            X_hat, z_hat = evaluation_model.csc(data, D=model_dict)
-            err = MSELoss(reduction="none")(X_hat, data).cpu().numpy()
+            X_hat, z_hat = evaluation_model.csc(eval_data, D=model_dict)
+            err = MSELoss(reduction="none")(X_hat, eval_data).cpu().numpy()
 
             err = err[
                 :, :, kernel_size[0] : -kernel_size[0], kernel_size[1] : -kernel_size[1]
@@ -252,7 +273,7 @@ def run_one(
             # Compute the outliers mask
             callback_mask = err > threshold
 
-        this_true_mask = true_mask
+        this_true_mask = true_mask.copy()
         this_true_mask = this_true_mask[
             :, :, kernel_size[0] : -kernel_size[0], kernel_size[1] : -kernel_size[1]
         ]
@@ -289,6 +310,7 @@ def run_one(
 
         results.append(
             {
+                "cdl_package": cdl_package,
                 "name": summary_name,
                 **outlier_detection_method,
                 **metrics,
@@ -307,6 +329,14 @@ def run_one(
         )
         plt.close()
 
+        plt.imshow(X_hat[0, 0].detach().cpu().numpy(), cmap="gray")
+        plt.axis("off")
+        plt.savefig(
+            exp_dir / f"reconstructed_{summary_name.replace(' ', '_')}_"
+            f"{outlier_detection_timing}.pdf"
+        )
+        plt.close()
+
     # Run the experiment
     if cdl_package == "rosecdl":
         cdl = RoseCDL(
@@ -318,19 +348,60 @@ def run_one(
         logger.info("Fitting RoseCDL model.")
         cdl.fit(data)
         logger.info("RoseCDL model fitting complete.")
+    elif cdl_package == "sporco":
+        opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
+
+        opt_cbpdn["NonNegCoef"] = True
+        opt_cbpdn["Verbose"] = False
+        opt_cbpdn["AuxVarObj"] = False
+
+        opt = cbpdndl.ConvBPDNDictLearn.Options(
+            {
+                "Verbose": False,
+                "MaxMainIter": cdl_params["n_iter"],
+                "CBPDN": opt_cbpdn,
+                "Callback": callback_fn,
+            },
+            dmethod="cns",
+        )
+        if isinstance(d_init, torch.Tensor):
+            d_init = d_init.cpu().numpy()
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+
+        sporco_params = {
+            "D0": d_init.transpose(3, 2, 1, 0).copy(),
+            "S": data.transpose(3, 2, 1, 0).copy(),
+            "lmbda": cdl_params["lmbda"],
+            "opt": opt,
+            "dmethod": "cns",
+            "dimN": 2,
+        }
+
+        cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
+        cdl.solve()
     else:
         msg = f"Unknown CDL package {cdl_package}"
         raise ValueError(msg)
 
+    if cdl_package == "sporco":
+        D_hat = cdl.getdict()[:, :, 0, :, :].transpose(3, 2, 1, 0)
+    elif cdl_package == "rosecdl":
+        D_hat = cdl.D_hat_
+
     if i == 0:
         # Plot result dictionary
-        fig, axes = plt.subplots(1, cdl.D_hat_.shape[0], figsize=(12, 10))
+        fig, axes = plt.subplots(1, D_hat.shape[0], figsize=(12, 10))
         for idx, ax in enumerate(axes):
-            ax.imshow(cdl.D_hat_[idx, 0], cmap="gray")
+            ax.imshow(D_hat[idx, 0], cmap="gray")
             ax.axis("off")
-        plot_path = exp_dir / f"D_hat_{summary_name.replace(' ', '_')}.pdf"
+        plot_path = (
+            exp_dir
+            / f"D_hat_{summary_name.replace(' ', '_')}_{outlier_detection_timing}.pdf"
+        )
         logger.info("Saving estimated dictionary plot to %s", plot_path)
         fig.savefig(plot_path)
+        plt.close()
 
     logger.info(
         "Finished run_one for cdl_package=%s, timing=%s, seed=%d. Results length: %d",
@@ -409,20 +480,37 @@ if __name__ == "__main__":
     cdl_packages = ["rosecdl"]
     cdl_configs = {
         "rosecdl": {
-            "kernel_size": (30, 30),
+            "kernel_size": (30, 22),
             "n_channels": 1,
-            "n_components": 5,
+            "n_components": 8,
             "lmbd": reg,
-            "scale_lmbd": False,
+            "scale_lmbd": True,
             "epochs": 10 if args.debug else 30,
             "max_batch": 20,
             "mini_batch_size": 10,
             "sample_window": 960,
             "optimizer": "adam",
-            "n_iterations": 40 if args.debug else 60,
+            "n_iterations": 40 if args.debug else 70,
             "window": False,
             "device": DEVICE,
             "positive_D": True,
+        },
+        "sporco": {
+            "other_params": {
+                "kernel_size": (30, 30),
+                "n_channels": 1,
+                "n_components": 6,
+                "lmbd": reg,
+                "scale_lmbd": False,
+                "epochs": 10 if args.debug else 50,
+                "n_iterations": 40 if args.debug else 60,
+                "window": False,
+                "device": DEVICE,
+                "positive_D": True,
+            },
+            "lmbda": 0.8,
+            "n_iter": 5 if args.debug else 200,
+            "device": DEVICE,
         },
     }
 
@@ -433,15 +521,9 @@ if __name__ == "__main__":
         ]
         if args.debug
         else [
-            # {"method": "quantile", "alpha": 0.1},
-            # {"method": "zscore", "alpha": 1.5},
+            {"method": "zscore", "alpha": 1.5},
             {"method": "mad", "alpha": 3.5},
             {"method": "mad", "alpha": 2.5},
-            {"method": "mad", "alpha": 1.5},
-            {"method": "mad", "alpha": 4.5},
-            {"method": "mad", "alpha": 5.5},
-
-
         ]
     )
     for i in range(len(outlier_detection_methods)):
@@ -490,12 +572,18 @@ if __name__ == "__main__":
 
     fig_box, ax_box = plt.subplots(figsize=(8, 6))
 
-    last_epoch = df_results["epoch"].max()
-    last_epoch_data = df_results[df_results["epoch"] == last_epoch]
+    # Get the last epoch for each cdl_package
+    last_epoch_data = df_results.loc[
+        df_results.groupby("cdl_package")["epoch"].transform("max")
+        == df_results["epoch"]
+    ]
 
-    grouped_data = last_epoch_data.groupby(["name", "timing"])
+    grouped_data = last_epoch_data.groupby(["cdl_package", "name", "timing"])
     boxplot_data = [group["f1"].to_numpy() for _, group in grouped_data]
-    tick_labels = [f"{name} ({timing})" for (name, timing), _ in grouped_data]
+    tick_labels = [
+        f"{cdl_package} - {name} ({timing})"
+        for (cdl_package, name, timing), _ in grouped_data
+    ]
 
     box_plot = ax_box.boxplot(boxplot_data, tick_labels=tick_labels, patch_artist=True)
 
