@@ -26,7 +26,7 @@ class Dataset(BaseDataset):
         contamination_params = (
             {
                 "n_atoms": 2 * size,
-                "sparsity": 3 * size,
+                "sparsity": int(3 * size),
                 "init_z": "constant",
                 "init_z_kwargs": {"value": 50},
             }
