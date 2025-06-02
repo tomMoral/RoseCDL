@@ -50,7 +50,7 @@ class Dataset(BaseDataset):
             "init_z_kwargs": {"value": 1},
             "noise_std": 0.01,
             "rng": self.random_state,
-            "sparsity": 20 * size,
+            "sparsity": float(20 * size) if 20 * size == 0 else 20 * size,
         }
         X, _, D, D_init, info_contam = generate_experiment(
             simulation_params=simulation_params,
