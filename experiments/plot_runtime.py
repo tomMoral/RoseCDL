@@ -4,7 +4,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d  # Add interp1d import
 
 # Set global parameters for NeurIPS style plots
 plt.rcParams.update(
@@ -82,7 +81,7 @@ def plot_losses(df_results: pd.DataFrame, output_dir: Path) -> None:
             f"({min_time=}, {max_time=}). Skipping plots."
         )
         return
-    n_grid_points = 200  # Number of points for interpolation grid
+    n_grid_points = 2000  # Number of points for interpolation grid
     time_grid = np.logspace(np.log10(min_time), np.log10(max_time), n_grid_points)
 
     # --- Plotting Train Loss ---
@@ -105,18 +104,36 @@ def plot_losses(df_results: pd.DataFrame, output_dir: Path) -> None:
             if len(run_cum_time) < 2:
                 continue
 
-            # Create interpolation function using interp1d
-            # Use first and last values as fill values for points outside time range
-            f_train = interp1d(
-                run_cum_time,
-                run_loss_true,
-                kind="linear",
-                bounds_error=False,
-                fill_value=(run_loss_true[0], run_loss_true[-1]),
-            )
+            # Ensure data is valid for log transformation and interpolation
+            valid_mask = (run_cum_time > 0) & (run_loss_true > 0)
+            if np.sum(valid_mask) < 2:  # Need at least two points for interpolation
+                continue
 
-            # Interpolate onto the common time grid
-            interp_train = f_train(time_grid)
+            current_times = run_cum_time[valid_mask]
+            current_losses = run_loss_true[valid_mask]
+
+            # Prepare data for log-log interpolation
+            log_current_times = np.log(current_times)
+            log_current_losses = np.log(current_losses)
+
+            # Sort by log_current_times as np.interp requires xp to be increasing
+            sort_indices = np.argsort(log_current_times)
+            sorted_log_times = log_current_times[sort_indices]
+            sorted_log_losses = log_current_losses[sort_indices]
+
+            # Ensure uniqueness of sorted_log_times for np.interp
+            unique_log_times, unique_indices = np.unique(
+                sorted_log_times, return_index=True
+            )
+            if len(unique_log_times) < 2:  # Need at least two unique time points
+                continue
+            unique_log_losses = sorted_log_losses[unique_indices]
+
+            # Perform interpolation in log-log scale
+            log_interp_values = np.interp(
+                np.log(time_grid), unique_log_times, unique_log_losses
+            )
+            interp_train = np.exp(log_interp_values)
             interp_train_losses_name.append(interp_train)
 
         # Store all interpolated curves for the method
@@ -149,7 +166,7 @@ def plot_losses(df_results: pd.DataFrame, output_dir: Path) -> None:
         ax_train.set_ylabel("Train Loss")
         ax_train.legend()
         plt.tight_layout()
-        plt.savefig(output_dir / "interp1d_loss_true.pdf", format="pdf")
+        plt.savefig(output_dir / "corrected_interp1d_loss_true.pdf", format="pdf")
     plt.close()
 
     # --- Plotting Test Loss ---
@@ -172,17 +189,36 @@ def plot_losses(df_results: pd.DataFrame, output_dir: Path) -> None:
             if len(run_cum_time) < 2:
                 continue
 
-            # Create interpolation function using interp1d
-            f_test = interp1d(
-                run_cum_time,
-                run_test_loss_true,
-                kind="linear",
-                bounds_error=False,
-                fill_value=(run_test_loss_true[0], run_test_loss_true[-1]),
-            )
+            # Ensure data is valid for log transformation and interpolation
+            valid_mask = (run_cum_time > 0) & (run_test_loss_true > 0)
+            if np.sum(valid_mask) < 2:  # Need at least two points for interpolation
+                continue
 
-            # Interpolate onto the common time grid
-            interp_test = f_test(time_grid)
+            current_times = run_cum_time[valid_mask]
+            current_losses = run_test_loss_true[valid_mask]
+
+            # Prepare data for log-log interpolation
+            log_current_times = np.log(current_times)
+            log_current_losses = np.log(current_losses)
+
+            # Sort by log_current_times as np.interp requires xp to be increasing
+            sort_indices = np.argsort(log_current_times)
+            sorted_log_times = log_current_times[sort_indices]
+            sorted_log_losses = log_current_losses[sort_indices]
+
+            # Ensure uniqueness of sorted_log_times for np.interp
+            unique_log_times, unique_indices = np.unique(
+                sorted_log_times, return_index=True
+            )
+            if len(unique_log_times) < 2:  # Need at least two unique time points
+                continue
+            unique_log_losses = sorted_log_losses[unique_indices]
+
+            # Perform interpolation in log-log scale
+            log_interp_values = np.interp(
+                np.log(time_grid), unique_log_times, unique_log_losses
+            )
+            interp_test = np.exp(log_interp_values)
             interp_test_losses_name.append(interp_test)
 
         # Store all interpolated curves for the method
@@ -210,7 +246,7 @@ def plot_losses(df_results: pd.DataFrame, output_dir: Path) -> None:
         ax_test.set_ylabel("Test Loss")
         ax_test.legend()
         plt.tight_layout()
-        plt.savefig(output_dir / "interp1d_test_loss_true.pdf", format="pdf")
+        plt.savefig(output_dir / "corrected_interp1d_test_loss_true.pdf", format="pdf")
     plt.close()
 
 
@@ -278,7 +314,9 @@ if __name__ == "__main__":
                 df_method = pd.read_csv(filepath)
                 df_method["name"] = method_name
                 all_dfs.append(df_method)
-            except Exception as e:
+            except pd.errors.EmptyDataError as e:
+                print(f"    Error loading or processing {filepath.name}: {e}")
+            except FileNotFoundError as e:
                 print(f"    Error loading or processing {filepath.name}: {e}")
 
         if not all_dfs:
