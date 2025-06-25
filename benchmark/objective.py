@@ -44,7 +44,7 @@ class Objective(BaseObjective):
         # API to pass data. This is customizable for each benchmark.
         self.D = D
         n_samples = len(X)
-        n_train = int(np.floor(n_samples * 0.8))
+        n_train = max(int(np.floor(n_samples * 0.8)), 1)  # Ensure at least one sample in train set
         self.X = X[:n_train]
         self.X_val = X[n_train:]
         self.D_init = D_init
