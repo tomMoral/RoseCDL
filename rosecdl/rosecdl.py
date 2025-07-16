@@ -272,3 +272,9 @@ class RoseCDL(torch.nn.Module):
         X = torch.tensor(X, device=self.device, dtype=self.dtype)
         X_hat, _ = self.csc(X)
         return X_hat.detach().cpu().numpy()
+
+    def get_outlier_mask(self, X):
+        """Get the outlier mask for the input data X."""
+        X = torch.tensor(X, device=self.device, dtype=self.dtype)
+        X_hat, z_hat = self.csc(X)
+        return self.loss_fn.get_outliers_mask(X_hat, z_hat, X).detach().cpu().numpy()
