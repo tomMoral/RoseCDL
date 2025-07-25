@@ -14,7 +14,7 @@ class Solver(BaseSolver):
     name = "Sporco"
 
     install_cmd = "conda"
-    requirements = ["pip:git+https://github.com/bwohlberg/sporco.git"]
+    requirements = ["pip::git+https://github.com/bwohlberg/sporco.git"]
 
     parameters = {
         "outliers_kwargs": [

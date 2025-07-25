@@ -22,7 +22,7 @@ class Solver(BaseSolver):
     name = "alphaCSC"
 
     install_cmd = "conda"
-    requirements = ["pip:alphacsc"]
+    requirements = ["pip::alphacsc"]
 
     parameters = {
         "type": ["batch", "online"],
