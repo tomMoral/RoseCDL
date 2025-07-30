@@ -1,5 +1,6 @@
 from benchopt import BaseSolver, safe_import_context
 from benchopt.stopping_criterion import SufficientProgressCriterion
+from benchopt.utils import profile
 
 # Protect the import with `safe_import_context()`. This allows:
 # - skipping import to speed up autocompletion in CLI.
@@ -65,8 +66,9 @@ class Solver(BaseSolver):
             n_times_atom=D_init.shape[2],
             D_init=D_init.copy(),
             reg=reg,
-            lmbd_max="scaled",
+            lmbd_max="fixed",
             solver_z="lgcd",
+            solver_z_kwargs={"tol": 1e-2},
             rank1=rank1,
             window=self.window,
             verbose=0,
@@ -82,7 +84,7 @@ class Solver(BaseSolver):
 
         def alphacsc_cb(z_encoder, _):
             self.D_hat = z_encoder.D_hat
-            cb()
+            return not cb()
 
         self.cdl.callback = alphacsc_cb
         self.cdl.fit(X)

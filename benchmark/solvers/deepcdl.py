@@ -64,7 +64,7 @@ class Solver(BaseSolver):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_kwargs = dict(
             lmbd=self.reg,
-            scale_lmbd=True,
+            scale_lmbd=False,
             D_init=self.D_init,
             window=self.window,
             rank1=rank1,

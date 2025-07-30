@@ -29,7 +29,7 @@ class Objective(BaseObjective):
 
     # Minimal version of benchopt required to run this benchmark.
     # Bump it up if the benchmark depends on a new feature of benchopt.
-    min_benchopt_version = "1.7"
+    min_benchopt_version = "1.6.1"
 
     install_cmd = "conda"
     requirements = ["pip::alphacsc", f"pip::-e {ROSECDL_DIR}"]
@@ -68,7 +68,7 @@ class Objective(BaseObjective):
             reg=self.scaled_reg,
             z0=z0,
             solver="lgcd",
-            solver_kwargs={"tol": 1e-3},
+            solver_kwargs={"tol": 1e-2},
             n_jobs=min(8, X.shape[0]),
         )
         X_hat = construct_X_multi(z_hat, D=D)
@@ -110,7 +110,7 @@ class Objective(BaseObjective):
         return dict(
             X=self.X,
             D_init=self.D_init,
-            reg=self.reg,
+            reg=self.scaled_reg,
             window=self.window,
             has_outliers=self.outliers is not None,
         )

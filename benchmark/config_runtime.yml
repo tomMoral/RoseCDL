@@ -1,23 +1,28 @@
 solver:
     - alphacsc:
-        type: batch
-    - sporco
+        type: [batch]
+        outliers_kwargs:
     - rosecdl:
+        outliers_kwargs:
         n_csc_iterations: 50
-        sample_window: [10, 20, 50]  # This is scaled with the atom size
-        mini_batch_size: [8, 16, 32]  # This is scaled with the atom size
-    - deepcdl:
-        n_csc_iterations: 50
-        sample_window: [10, 20, 50]  # This is scaled with the atom size
-        mini_batch_size: [8, 16, 32]  # This is scaled with the atom size
+        optimizer: [adam, linesearch]
+        sample_window,mini_batch_size: [
+            [10, 1000],
+            [20, 500],
+            [50, 200],
+            [100, 100]
+        ]
+objective:
+    convolutional dictionary learning:
+        reg: [0.1]
 dataset:
     - simulated:
-        n_samples: [10, 20, 50, 100]  # , 200, 500, 1000, 2000]
-        n_times: [5000, 10000, 20000]  # , 50000, 100000]
+        n_samples: [10]  # , 200, 500, 1000, 2000]
+        n_times: [10000, 30000, 100000]  # , 50000, 100000]
         n_atoms: 5  # We use n_atoms to generate data and add 5 for the CDL
         n_times_atom: 50
-        random_state: [42]  # [93845, 92384, 2389, 230984, 234890]
+        random_state: [938425, 923842, 29081990, 4112023, 8031989]
         contamination: False
 timeout: 1800
-max-runs: 5000
+max-runs: 100
 output: runtime_benchmark
