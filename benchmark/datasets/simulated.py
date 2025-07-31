@@ -51,7 +51,9 @@ class Dataset(BaseDataset):
             "init_z_kwargs": {"value": 1},
             "noise_std": self.noise_std,
             "rng": self.random_state,
-            "sparsity": int(20 * size),
+            # If larger than 5000, add 20 activation for every 5000 time steps
+            # otherwise, use 3% activation. 
+            "sparsity": 0.03 if 20 * size < 1 else int(20 * size),
         }
         X, _, D, D_init, info_contam = generate_experiment(
             simulation_params=simulation_params,
