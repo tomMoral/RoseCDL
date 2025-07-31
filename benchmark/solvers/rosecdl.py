@@ -12,7 +12,7 @@ class Solver(BaseSolver):
 
     parameters = {
         # sample_window is defined as a multiple of the atom_support
-        "mini_batch_size": [1],
+        "mini_batch_size": [10],
         "sample_window": [100, 50, 20, 10],
         "n_csc_iterations": [50],
         "random_state": [None],
@@ -65,6 +65,11 @@ class Solver(BaseSolver):
         self.window = window
         self.has_outliers = has_outliers
 
+        if not isinstance(self.X, torch.Tensor):
+            self.X = torch.tensor(self.X, dtype=torch.float32)
+        if not isinstance(self.D_init, torch.Tensor):
+            self.D_init = torch.tensor(self.D_init, dtype=torch.float32)
+
         # Infer dictionary size from D_init
         self.n_atoms = D_init.shape[0]
         self.n_channels = self.X.shape[1]
@@ -92,8 +97,6 @@ class Solver(BaseSolver):
         )
 
     def run(self, cb):
-        # This is the function that is called to evaluate the solver.
-        # It runs the algorithm for a given a number of iterations `n_iter`.
         self.model = RoseCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
         self.model.fit(self.X)

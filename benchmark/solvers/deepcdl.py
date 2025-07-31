@@ -51,6 +51,11 @@ class Solver(BaseSolver):
         self.window = window
         self.has_outliers = has_outliers
 
+        if not isinstance(self.X, torch.Tensor):
+            self.X = torch.tensor(self.X, dtype=torch.float32)
+        if not isinstance(self.D_init, torch.Tensor):
+            self.D_init = torch.tensor(self.D_init, dtype=torch.float32)
+
         # Infer dictionary size from D_init
         self.n_atoms = D_init.shape[0]
         self.n_channels = self.X.shape[1]
