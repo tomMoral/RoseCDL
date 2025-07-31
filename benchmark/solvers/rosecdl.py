@@ -1,9 +1,6 @@
 from benchopt import BaseSolver, safe_import_context
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
-# Protect the import with `safe_import_context()`. This allows:
-# - skipping import to speed up autocompletion in CLI.
-# - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
     import torch
 
@@ -16,22 +13,20 @@ class Solver(BaseSolver):
     parameters = {
         # sample_window is defined as a multiple of the atom_support
         "mini_batch_size": [1],
-        "sample_window": [10, 20, 50],
+        "sample_window": [100, 50, 20, 10],
         "n_csc_iterations": [50],
         "random_state": [None],
         "outliers_kwargs": [
             None,
-            {"method": "quantile", "alpha": 0.2},
-            {"method": "iqr", "alpha": 1.5},
             {"method": "mad", "alpha": 3.5},
-            {"method": "zscore", "alpha": 1.5},
         ],
+        "optimizer": ["adam", "linesearch"],
     }
 
     stopping_criterion = SufficientProgressCriterion(patience=15, strategy="callback")
 
     def get_next(self, stop_val):
-        return stop_val + 3
+        return stop_val + 50
 
     def skip(self, X, D_init, reg, window, has_outliers):
         if not has_outliers and self.outliers_kwargs is not None:
@@ -81,16 +76,16 @@ class Solver(BaseSolver):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_kwargs = dict(
             lmbd=self.reg,
-            scale_lmbd=True,
-            D_init=self.D_init,
-            window=self.window,
-            rank1=rank1,
-            outliers_kwargs=self.outliers_kwargs,
+            scale_lmbd=False,
             epochs=10000,
             max_batch=None,
             mini_batch_size=self.mini_batch_size,
             sample_window=sample_window,
-            optimizer="linesearch",
+            D_init=self.D_init,
+            window=self.window,
+            rank1=rank1,
+            outliers_kwargs=self.outliers_kwargs,
+            optimizer=self.optimizer,
             n_iterations=self.n_csc_iterations,
             random_state=self.random_state,
             device=self.device,
@@ -104,9 +99,6 @@ class Solver(BaseSolver):
         self.model.fit(self.X)
 
     def get_result(self):
-        # Return the result from one optimization run.
-        # The outputs of this function are the arguments of `Objective.compute`
-        # This defines the benchmark's API for solvers' results.
-        # it is customizable for each benchmark.
-        return {"D": self.model.D_hat_}
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()  # Ensure all operations are done before returning
         return {"D": self.model.D_hat_}

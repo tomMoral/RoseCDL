@@ -1,0 +1,34 @@
+# This experiment evaluates the runtime of RoseCDL with varying
+# window sizes, for both Adam and SLS optimizers, and with varying
+# regularisation and signal length.
+solver:
+    - alphacsc:
+        type: [batch]
+        outliers_kwargs:
+    - rosecdl:
+        outliers_kwargs:
+        n_csc_iterations: 50
+        optimizer: [adam, linesearch]
+        sample_window,mini_batch_size: [
+            [16, 1024],
+            [32, 512],
+            [64, 256],
+            [128, 128]
+        ]
+objective:
+    convolutional dictionary learning:
+        reg: [0.1, 0.3, 0.8]
+dataset:
+    - simulated:
+        n_samples: [10]
+        n_times: [16384, 46340, 131072]
+        # We use n_atoms to generate data and add 5 to run CDL,
+        # making it possible to recover them. So in total, RoseCDL
+        # runs with 10 atoms.
+        n_atoms: 5
+        n_times_atom: 64
+        random_state: [938425, 923842, 29081990, 4112023, 8031989]
+        contamination: False
+timeout: 1800
+max-runs: 100
+output: benchmark_runtime

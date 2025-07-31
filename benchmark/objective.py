@@ -25,14 +25,14 @@ class Objective(BaseObjective):
     name = "Convolutional Dictionary Learning"
 
     # URL of the main repo for this benchmark.
-    url = "https://github.com/tommoral/WinCDL"
+    url = "https://github.com/tommoral/RoseCDL"
 
     # Minimal version of benchopt required to run this benchmark.
     # Bump it up if the benchmark depends on a new feature of benchopt.
-    min_benchopt_version = "1.6"
+    min_benchopt_version = "1.6.1"
 
     install_cmd = "conda"
-    requirements = ["pip:alphacsc", f"pip:-e {ROSECDL_DIR}"]
+    requirements = ["pip::alphacsc", f"pip::-e {ROSECDL_DIR}"]
 
     parameters = {
         "reg": [1e-1, 3e-1, 8e-1],
@@ -44,10 +44,16 @@ class Objective(BaseObjective):
         # API to pass data. This is customizable for each benchmark.
         self.D = D
         n_samples = len(X)
-        n_train = int(np.floor(n_samples * 0.8))
-        self.X = X[:n_train]
-        self.X_val = X[n_train:]
-        self.D_init = D_init
+        if len(X) == 1:
+            T_train = int(X.shape[2] * 0.8)
+            self.X = X[:, :, :T_train]
+            self.X_val = X[:, :, T_train:]
+        else:
+            n_train = max(int(n_samples * 0.8), 1)
+            self.X = X[:n_train]
+            self.X_val = X[n_train:]
+
+        self.D_init = D_init.copy()
         self.outliers = outliers
         self.window = window
         self.scaled_reg = self.reg * get_lambda_max(X, D_init).max()
@@ -62,8 +68,8 @@ class Objective(BaseObjective):
             reg=self.scaled_reg,
             z0=z0,
             solver="lgcd",
-            solver_kwargs={"tol": 1e-3},
-            n_jobs=4,
+            solver_kwargs={"tol": 1e-2},
+            n_jobs=min(8, X.shape[0]),
         )
         X_hat = construct_X_multi(z_hat, D=D)
 
@@ -104,7 +110,7 @@ class Objective(BaseObjective):
         return dict(
             X=self.X,
             D_init=self.D_init,
-            reg=self.reg,
+            reg=self.scaled_reg,
             window=self.window,
             has_outliers=self.outliers is not None,
         )
