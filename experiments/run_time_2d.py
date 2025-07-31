@@ -2,22 +2,18 @@ import logging
 import time
 from pathlib import Path
 
+# seed 3398290419
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 from joblib import Memory, Parallel, delayed
 from sporco.dictlrn import cbpdndl
+from torch import cuda
 from tqdm import tqdm
 
-from torch.nn import MSELoss
-from torch.linalg import vector_norm
-import torch
-
-from rosecdl.loss import _ReconstructionLoss
 from rosecdl.rosecdl import RoseCDL
 from rosecdl.utils.utils_exp import evaluate_D_hat
-from rosecdl.loss import LassoLoss
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -38,11 +34,21 @@ def generate_run_config_list(
 ) -> list[dict[str, any]]:
     """Generate the list of configurations for the experiment.
 
-    Args:
-        cdl_packages (list): List of CDL packages to use.
-        cdl_configs (dict): Dictionary of CDL configurations.
-        n_runs (int): Number of runs to generate.
-        seed (int): Master seed for the experiment.
+    Parameters
+    ----------
+        cdl_packages : list[str]
+            List of CDL packages to use.
+        cdl_configs : dict[str, dict]
+            Dictionary of CDL configurations.
+        n_runs : int, optional
+            Number of runs to generate, by default 1.
+        seed : int | None, optional
+            Master seed for the experiment, by default None.
+
+    Returns
+    -------
+        list[dict[str, any]]
+            List of configurations for the experiment.
 
     """
     # Generate a list of seeds for reproducibility
@@ -54,7 +60,7 @@ def generate_run_config_list(
         run_config_list.extend(
             {
                 "cdl_package": package,
-                "cdl_params": cdl_configs[package],
+                "cdl_params": cdl_configs[package].copy(),
                 "seed": s,
                 "i": i,
             }
@@ -65,145 +71,144 @@ def generate_run_config_list(
 
 @mem.cache
 def run_one(
-    data_path: str,
     cdl_package: str,
-    cdl_params: dict[str, str or float],
+    cdl_params: dict,
     seed: int,
     i: int,
-) -> list:
-    """Run the experiment for a given CDL package and outlier detection method.
-
-    Args:
-        data_path (str): Path to the data file.
-        cdl_package (str): CDL package name: "rosecdl", "alphacsc" or "sporco".
-        cdl_params (dict): Parameters for the CDL algorithm.
-        seed (int): Random seed.
-        i (int): Counting index of the run.
-
-    """
-    logger.info(
-        "Running %s with seed %d (run %d)",
-        cdl_package,
-        seed,
-        i,
-    )
+    data_path: Path,
+    exp_dir: Path,
+    reg: float,
+) -> list[dict]:
+    """Run a single experiment configuration."""
+    logger.info("Running %s with seed %d, run %d", cdl_package, seed, i)
 
     data_params = np.load(data_path)
     data = data_params["X"]
     true_dict = data_params["D"]
-    true_dict = true_dict[:, None, ...]
 
-    # test_data = data_params["X_test"]
+    data = data[None, None, :, :]
+    true_dict = np.expand_dims(true_dict, axis=1)
 
-    if data.ndim == 2:
-        data = data[None, None, ...]
+    test_data = data[:, :, 100:1000, 100:1000]
+    data = data[:, :, :900, :900]
 
-    idx = np.random.default_rng(seed).integers(0, data.shape[2]-900, size=1)
-    idyx = np.random.default_rng(seed).integers(0, data.shape[3]-900, size=1)
-    data = data[:, :, idx[0]:idx[0]+900, idyx[0]:idyx[0]+900]
-
-
-    # rng = np.random.default_rng(seed)
-    # init_dict = rng.standard_normal(
-    #     (
-    #         cdl_params["n_components"],
-    #         cdl_params["n_channels"],
-    #         *cdl_params["kernel_size"],
-    #     )
-    # )
-
-    init_dict = np.random.default_rng(seed).standard_normal((6, 1, 35, 30))
-    eval_data = torch.tensor(data, device=cdl_params["device"])
-
-    cdl_params = cdl_params.copy()
-    if cdl_package in ["rosecdl", "deepcdl"]:
-        init_dict = torch.tensor(init_dict, device=cdl_params["device"])
-        data = torch.tensor(data, device=cdl_params["device"])
-        # cdl_params["lmbd"] *= lmbd_max
-        lmbd = cdl_params["lmbd"]
-    elif cdl_package == "sporco":
-        # cdl_params["lmbda"] *= lmbd_max
-        lmbd = cdl_params["lmbda"]
+    if cdl_package == "sporco":
+        other_params = cdl_params.pop("other_params")
+        other_params["lmbd"] = reg
     else:
-        msg = f"Unknown CDL package {cdl_package}"
-        raise ValueError(msg)
+        other_params = cdl_params.copy()
 
-    # Setup the callback
-    global t_start, z0
-    results, z0, t_start = [], None, time.perf_counter()
+    rng = np.random.default_rng(seed)
+    init_dict = rng.standard_normal(
+        size=(
+            other_params["n_components"],
+            other_params["n_channels"],
+            *other_params["kernel_size"],
+        )
+    ).astype(np.float32)
 
-    # Instantiating a new RoseCDL object for computing the loss
-    # Alphacsc compute_objective alternative for 2D
-    evaluation_model = RoseCDL(
-        lmbd=lmbd,
-        D_init=init_dict if cdl_package in ["rosecdl", "deepcdl"] else torch.tensor(
-            init_dict, device=cdl_params["device"]
-        ),
-        window=False,
-        outliers_kwargs=None,
-        device=cdl_params["device"],
-        n_iterations=5,
+    if cdl_package in ["rosecdl", "deepcdl"]:
+        init_dict = torch.tensor(init_dict, device=other_params["device"])
+        data = torch.tensor(data, device=other_params["device"])
+
+    evaluation_model = RoseCDL(**other_params, D_init=torch.tensor(init_dict))
+    eval_data = torch.tensor(data, device=other_params["device"], dtype=torch.float32)
+    test_data = torch.tensor(
+        test_data, device=other_params["device"], dtype=torch.float32
     )
 
-    def callback_fn(model, *args) -> None:
-        global t_start, z0
+    results = []
+
+    xh, zh = evaluation_model.csc(eval_data)
+    loss_true = evaluation_model.loss_fn(xh, zh, eval_data)
+    loss_true = loss_true.item()
+
+    txh, tzh = evaluation_model.csc(test_data)
+    test_loss_true = evaluation_model.loss_fn(txh, tzh, test_data)
+    test_loss_true = test_loss_true.item()
+
+    results.append(
+        {
+            "name": cdl_package,
+            "seed": seed,
+            "epoch": 0,
+            "loss": None,
+            "loss_true": loss_true,
+            "test_loss_true": test_loss_true,
+            "time": 2e-1,
+            "lmbd": reg,
+        }
+    )
+
+    t_start = time.perf_counter()
+
+    def callback_fn(model, *args):
+        nonlocal t_start, evaluation_model, eval_data, test_data
+
         runtime = time.perf_counter() - t_start
 
-        if cdl_package == "sporco":
-            # Sporco returns the dimension of the dictionary in a different order
-            model_dict = model.getdict()[:, :, 0, :, :].transpose(3, 2, 1, 0)
-            # model_dict /= model_dict.norm(dim=(1, 2, 3), keepdim=True)
-            model_dict = torch.tensor(model_dict, device=cdl_params["device"])
-            epoch, loss = len(results), None
-
-        else:
+        if cdl_package in ["rosecdl", "deepcdl"]:
             epoch, loss = args
-            model_dict = model.D_hat_
-            model_dict = torch.tensor(model_dict, device=cdl_params["device"])
+            model_dict = torch.tensor(model.D_hat_, device=model.device)
 
-        xh, zh = evaluation_model.csc(
-            x=eval_data,
-            D=model_dict,
-        )
+        else:  # Sporco
+            model_dict = model.getdict()[:, :, 0, :, :].transpose(3, 2, 1, 0)
+            model_dict = torch.tensor(
+                model_dict, device=other_params["device"], dtype=torch.float32
+            )
+            epoch, loss = len(results) - 1, None
 
-        loss_true = evaluation_model.loss_fn(
-            xh,
-            zh,
-            eval_data,
-        )
+        numpy_model_dict = model_dict.cpu().numpy()
+        numpy_model_dict = numpy_model_dict.astype(np.float32)
+        recovery_score = evaluate_D_hat(true_dict, numpy_model_dict)
+
+        xh, zh = evaluation_model.csc(eval_data, D=model_dict)
+
+        plt.figure()
+        plt.imshow(xh[0, 0].cpu().numpy(), cmap="gray")
+        plt.title(f"xh at epoch {epoch}")
+        plt.savefig(exp_dir / f"xh_epoch_{epoch}_run_{i}.png")
+        plt.close()
+
+        loss_true = evaluation_model.loss_fn(xh, zh, eval_data)
         loss_true = loss_true.item()
 
-        recovery_score = evaluate_D_hat(true_dict, model_dict.cpu().numpy())
+        txh, tzh = evaluation_model.csc(test_data, D=model_dict)
+        test_loss_true = evaluation_model.loss_fn(txh, tzh, test_data)
+        test_loss_true = test_loss_true.item()
+
         results.append(
             {
                 "name": cdl_package,
-                "recovery_score": recovery_score,
                 "seed": seed,
-                "epoch": epoch,
+                "epoch": epoch + 1,
+                "recovery_score": recovery_score,
                 "loss": loss,
                 "loss_true": loss_true,
-                "test_loss_true": -1,
+                "test_loss_true": test_loss_true,
                 "time": runtime,
+                "lmbd": reg,
             }
         )
+
         t_start = time.perf_counter()
 
-    # Run the experiment
     if cdl_package in ["rosecdl", "deepcdl"]:
-        if not isinstance(init_dict, torch.Tensor):
-            init_dict = torch.tensor(init_dict, device=cdl_params["device"])
         cdl = RoseCDL(
             **cdl_params,
-            D_init=init_dict,
+            D_init=torch.tensor(init_dict),
             callbacks=[callback_fn],
         )
-        # Setting up classical conv instead of fftconv for deepcdl
         if cdl_package == "deepcdl":
             cdl.csc.conv_algo = "classical"
             cdl.csc.set_conv_methods()
         cdl.fit(data)
     elif cdl_package == "sporco":
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
+
+        opt_cbpdn["NonNegCoef"] = True
+        opt_cbpdn["Verbose"] = False
+        opt_cbpdn["AuxVarObj"] = False
 
         opt = cbpdndl.ConvBPDNDictLearn.Options(
             {
@@ -231,9 +236,6 @@ def run_one(
 
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
         cdl.solve()
-    else:
-        msg = f"Unknown CDL package {cdl_package}"
-        raise ValueError(msg)
 
     return results
 
@@ -241,85 +243,101 @@ def run_one(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Run a comparison of the different methods for dictionary recovery"
+    prs = argparse.ArgumentParser("RoseCDL 2D runtime experiment")
+    prs.add_argument("data_path", type=Path, help="Path to the data file")
+    prs.add_argument(
+        "--n-jobs", "-j", type=int, default=1, help="Number of jobs to run in parallel"
     )
-    parser.add_argument(
-        "--data-path",
-        "-d",
-        type=str,
-        required=True,
-        help="Path to the data file",
+    prs.add_argument(
+        "--n-runs", "-n", type=int, default=1, help="Number of runs to perform"
     )
-    parser.add_argument(
-        "--n-jobs", "-j", type=int, default=1, help="Number of parallel jobs"
+    prs.add_argument(
+        "--seed", "-s", type=int, default=None, help="Seed for the experiment"
     )
-    parser.add_argument(
-        "--seed",
-        "-s",
-        type=int,
-        default=None,
-        help="Master seed for reproducible job",
-    )
-    parser.add_argument(
-        "--n-runs",
-        "-n",
-        type=int,
-        default=20,
-        help="Number of repetitions for the experiment",
-    )
-    parser.add_argument(
+    prs.add_argument(
         "--output",
         "-o",
-        type=str,
         default="results",
-        help="Output directory to store the results",
+        type=Path,
+        help="Output file for the results",
     )
-    parser.add_argument(
-        "--reg", type=float, default=0.8, help="Regularization parameter"
+    prs.add_argument(
+        "--solver",
+        type=str,
+        nargs="+",  # Allow multiple solver names
+        help="Filter by specific solver names",
+        default=None,
     )
-    parser.add_argument(
-        "--debug", action="store_true", help="Run the script in debug mode"
+    prs.add_argument(
+        "--gpu",
+        type=str,
+        default="cuda",
+        help="GPU to use for the experiment (default: cuda)",
     )
-    args = parser.parse_args()
+    prs.add_argument("--reg", type=float, default=0.8, help="Regularization parameter")
+    prs.add_argument("--debug", action="store_true", help="Debug mode")
+    args = prs.parse_args()
 
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    logger.info("Device: %s", DEVICE)
+    DEVICE = args.gpu if cuda.is_available() else "cpu"
+    logger.info("Using device: %s", DEVICE)
 
     seed = args.seed
     if seed is None:
-        seed = np.random.default_rng().integers(0, 2**32 - 1)
-    logger.info("Seed: %s", seed)
+        rng = np.random.default_rng()
+        seed = rng.integers(0, 2**32 - 1)
+    logger.info("Using seed: %d", seed)
 
-    n_runs = 1 if args.debug else args.n_runs
+    if args.debug:
+        logger.info("--- Running in debug mode ---")
+        n_runs = 1
+        n_jobs = 1
+    else:
+        n_runs = args.n_runs
+        n_jobs = args.n_jobs
+    logger.info("Running %d runs in parallel", n_runs)
+    logger.info("Using %d jobs", n_jobs)
     reg = args.reg
 
-    data_path = args.data_path
+    exp_dir = Path(args.output) / f"the_rosecdl_2d_runtime_{seed}"
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Experiment directory: %s", exp_dir)
 
-    exp_dir = Path(args.output) / f"2D_runtime_comparison_{reg}"
-    exp_dir.mkdir(exist_ok=True, parents=True)
-
-    # Define base CDL parameters
-    cdl_packages = ["deepcdl", "rosecdl", "sporco"]
+    cdl_packages = ["rosecdl", "deepcdl", "sporco"]
+    if args.solver is not None:
+        cdl_packages = args.solver
     cdl_configs = {
         "rosecdl": {
-            "kernel_size": (35, 30),
+            "kernel_size": (30, 30),
             "n_channels": 1,
             "n_components": 6,
             "lmbd": reg,
             "scale_lmbd": False,
-            "epochs": 5 if args.debug else 30,
-            "max_batch": None,
+            "epochs": 10 if args.debug else 50,
+            "max_batch": 20,
             "mini_batch_size": 10,
-            "sample_window": 1000,
-            "optimizer": "linesearch",
-            "n_iterations": 5 if args.debug else 50,
-            "window": True,
+            "sample_window": 960,
+            "optimizer": "adam",
+            "n_iterations": 40 if args.debug else 60,
+            "window": False,
             "device": DEVICE,
+            "positive_D": True,
+            "outliers_kwargs": None,
         },
         "sporco": {
-            "lmbda": reg,
-            "n_iter": 5 if args.debug else 30,
+            "other_params": {
+                "kernel_size": (30, 30),
+                "n_channels": 1,
+                "n_components": 6,
+                "lmbd": reg,
+                "scale_lmbd": False,
+                "epochs": 10 if args.debug else 50,
+                "n_iterations": 40 if args.debug else 60,
+                "window": False,
+                "device": DEVICE,
+                "positive_D": True,
+            },
+            "lmbda": 0.8,
+            "n_iter": 5 if args.debug else 300,
             "device": DEVICE,
         },
     }
@@ -332,18 +350,34 @@ if __name__ == "__main__":
         n_runs=n_runs,
         seed=seed,
     )
+    logger.info("Generated %d run configurations", len(run_configs))
+
+    import json
+
+    config_to_save = {
+        "cdl_configs": cdl_configs,
+        "n_runs": n_runs,
+        "seed": seed,
+        "args": vars(args),
+    }
+    with (exp_dir / "experiment_config.json").open("w") as f:
+        json.dump(config_to_save, f, indent=4, default=str)
 
     results = Parallel(n_jobs=args.n_jobs, return_as="generator_unordered")(
-        delayed(run_one)(**run_config, data_path=data_path)
+        delayed(run_one)(
+            **run_config,
+            data_path=args.data_path,
+            exp_dir=exp_dir,
+            reg=args.reg,
+        )
         for run_config in run_configs
     )
-    results = [
-        r for res in tqdm(results, "Running", total=len(run_configs)) for r in res
-    ]
+    results = [r for res in tqdm(results, "Run", total=len(run_configs)) for r in res]
 
-    # Save results
     df_results = pd.DataFrame(results)
-    df_results.to_csv(exp_dir / "df_results.csv", index=False)
+    df_results.to_csv(exp_dir / f"df_results_{cdl_packages}.csv", index=False)
+    logger.info("Results saved to %s", exp_dir / f"df_results_{cdl_packages}.csv")
+    logger.info("Experiment finished")
 
     # Plotting train loss for the different methods
     plt.figure(figsize=(10, 6))
@@ -389,4 +423,53 @@ if __name__ == "__main__":
     plt.legend()
     plt.tight_layout()
     plt.savefig(exp_dir / "loss_true.png")
+    plt.show()
+
+    # Test loss for the different methods
+    plt.figure(figsize=(10, 6))
+    ax = plt.gca()
+
+    for name in df_results.name.unique():
+        # Group by name and epoch, then calculate median and quantiles
+        name_data = df_results[df_results.name == name].groupby("epoch")
+
+        # Calculate the median curve
+        median_curve = name_data[["time", "test_loss_true"]].median()
+        median_curve["time"] = median_curve["time"].cumsum()
+        median_curve["test_loss_true"] = (
+            median_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
+        )
+
+        # Calculate the 0.2 and 0.8 quantiles
+        q02_curve = name_data[["time", "test_loss_true"]].quantile(0.2)
+        q02_curve["time"] = q02_curve["time"].cumsum()
+        q02_curve["test_loss_true"] = (
+            q02_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
+        )
+
+        q8_curve = name_data[["time", "test_loss_true"]].quantile(0.8)
+        q8_curve["time"] = q8_curve["time"].cumsum()
+        q8_curve["test_loss_true"] = (
+            q8_curve["test_loss_true"] - df_results["test_loss_true"].min() + 1e1
+        )
+
+        (line,) = ax.plot(
+            median_curve["time"], median_curve["test_loss_true"], label=name
+        )
+        color = line.get_color()
+        ax.fill_between(
+            median_curve["time"],
+            q02_curve["test_loss_true"],
+            q8_curve["test_loss_true"],
+            color=color,
+            alpha=0.2,
+        )
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Test Loss")
+    plt.title("Test performance of the different methods")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(exp_dir / "test_loss_true.png")
     plt.show()

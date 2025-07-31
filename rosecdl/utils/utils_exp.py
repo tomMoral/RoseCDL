@@ -476,8 +476,16 @@ def fista(x, D, lmbd, zO, n_iter):
     L = compute_lipschitz(D)
 
     if zO is None:
-        shape = (x.shape[0], D.shape[0], x.shape[2] - D.shape[2] + 1)
-        zO = torch.zeros(shape, device=x.device)
+        kernel_size = D.shape[2:]
+
+        support_shape = tuple(
+            fs - ks + 1 for fs, ks in zip(x.shape[2:], kernel_size, strict=False)
+        )
+        zO = torch.zeros(
+            (x.shape[0], D.shape[0], *support_shape),
+            dtype=torch.float,
+            device=x.device,
+        )
     z = zO
     w = z.clone()
     beta = 1
@@ -486,5 +494,18 @@ def fista(x, D, lmbd, zO, n_iter):
         beta_new = (1 + np.sqrt(1 + 4 * beta**2)) / 2
         z_new = w_new + (beta - 1) / beta_new * (w_new - w)
         z, w, beta = z_new, w_new, beta_new
+
+    # print("\nZ sum", z.sum())
+    # print("\nX sum", x.sum())
+    # print("\nZ shape", z.shape)
+    # print("\nX shape", x.shape)
+    # print("\nZ dtype", z.dtype)
+    # print("\nX dtype", x.dtype)
+    # print("\nZ device", z.device)
+    # print("\nX device", x.device)
+    # print("\nw_new sum", w_new.sum())
+    # print("\nw_new shape", w_new.shape)
+    # print("\nw_new dtype", w_new.dtype)
+    # print("\nw_new device", w_new.device)
 
     return w_new

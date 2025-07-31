@@ -256,7 +256,9 @@ def apply_opening(outliers_mask: torch.Tensor, window_size: int = 15) -> torch.T
 
     """
     # Input validation
-    if not isinstance(window_size, int | tuple) or window_size <= 0:
+    if not isinstance(window_size, int | tuple):
+        return outliers_mask
+    if isinstance(window_size, int) and window_size <= 0:
         return outliers_mask
 
     ndim = outliers_mask.ndim
@@ -345,7 +347,11 @@ def get_outlier_mask(
     outliers_mask = data > threshold
 
     if opening_window is not None:
-        if not isinstance(opening_window, int):
+        if isinstance(opening_window, tuple) and data.ndim == 3:
+            opening_window = opening_window[0]
+        if isinstance(opening_window, int) and data.ndim == 4:
+            opening_window = (opening_window, opening_window)
+        if opening_window is None:
             opening_window = 15  # Apply with default parameters
         outliers_mask = apply_opening(outliers_mask, window_size=opening_window)
 

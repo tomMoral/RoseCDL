@@ -127,6 +127,8 @@ class ConvolutionalSparseCoder(nn.Module):
                 dtype=self.dtype,
                 device=self.device,
             )
+        if not isinstance(D_init, torch.Tensor):
+            return torch.tensor(D_init.copy(), dtype=self.dtype, device=self.device)
         return D_init.clone().detach().to(self.dtype).to(self.device)
 
     def init_D(self, D_init):
@@ -267,5 +269,4 @@ class ConvolutionalSparseCoder(nn.Module):
             z_new = w_new + (beta - 1) / beta_new * (w_new - w)
             z, w, beta = z_new, w_new, beta_new
 
-        return w_new
         return w_new

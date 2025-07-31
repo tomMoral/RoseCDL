@@ -14,7 +14,7 @@ class Solver(BaseSolver):
     name = "Sporco"
 
     install_cmd = "conda"
-    requirements = ["pip:git+https://github.com/bwohlberg/sporco.git"]
+    requirements = ["pip::git+https://github.com/bwohlberg/sporco.git"]
 
     parameters = {
         "outliers_kwargs": [
@@ -26,7 +26,9 @@ class Solver(BaseSolver):
         ],
     }
 
-    stopping_criterion = SufficientProgressCriterion(patience=10)
+    stopping_criterion = SufficientProgressCriterion(
+        patience=10, strategy="callback"
+    )
 
     def get_next(self, stop_val):
         return stop_val + 1
@@ -50,8 +52,13 @@ class Solver(BaseSolver):
         )
         self.z_shape = (X.shape[0], D_init.shape[0], *self.z_shape)
 
-    def run(self, n_iter):
+    def run(self, cb):
         self.n_channels = self.X.shape[1]
+
+        def callback_fn(model, *args):
+            self.D = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0)
+            self.D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
+            return not cb()
 
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
 
@@ -61,19 +68,22 @@ class Solver(BaseSolver):
         # opt_cbpdn["FastSolve"] = True
 
         opt = cbpdndl.ConvBPDNDictLearn.Options(
-            {"Verbose": False, "MaxMainIter": n_iter + 1, "CBPDN": opt_cbpdn},
+            {
+                "Verbose": False,
+                "MaxMainIter": 10000,
+                # "Callback": callback_fn,
+                "CBPDN": opt_cbpdn},
             dmethod="cns",
         )
 
         X = self.X
         if self.outliers_kwargs is not None:
             X = remove_outliers_before_cdl(self.X, self.z_shape, **self.outliers_kwargs)
-        reg = self.reg * get_lambda_max(X, self.D_init).max()
 
         sporco_params = dict(
             D0=self.D_init.transpose(2, 1, 0).copy(),
             S=X.transpose(2, 1, 0).copy(),
-            lmbda=reg,
+            lmbda=self.reg,
             opt=opt,
             dmethod="cns",
             dimN=len(self.D_init.shape[2:]),
