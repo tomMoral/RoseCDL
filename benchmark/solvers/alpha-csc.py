@@ -1,29 +1,21 @@
-from benchopt import BaseSolver, safe_import_context
+from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
-from benchopt.utils import profile
 
-# Protect the import with `safe_import_context()`. This allows:
-# - skipping import to speed up autocompletion in CLI.
-# - getting requirements info when all dependencies are not installed.
-with safe_import_context() as import_ctx:
-    from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
-    from alphacsc.online_dictionary_learning import OnlineCDL
+from alphacsc.convolutional_dictionary_learning import BatchCDL, GreedyCDL
+from alphacsc.online_dictionary_learning import OnlineCDL
 
-    from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
-    ALGORITHMS = {
-        "online": OnlineCDL,
-        "batch": BatchCDL,
-        "greedy": GreedyCDL,
-    }
+ALGORITHMS = {
+    "online": OnlineCDL,
+    "batch": BatchCDL,
+    "greedy": GreedyCDL,
+}
 
 
 class Solver(BaseSolver):
     # Name to select the solver in the CLI and to display the results.
     name = "alphaCSC"
-
-    install_cmd = "conda"
-    requirements = ["pip::alphacsc"]
 
     parameters = {
         "type": ["batch", "online"],

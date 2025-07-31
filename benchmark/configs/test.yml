@@ -2,28 +2,32 @@
 # makes sure the runtime using SLS is not impacted by high noise levels.
 # Runs RoseCDL with Adam and SLS, for 3 noise levels, with 5 seeds.
 solver:
+    - alphacsc:
+        outliers_kwargs:
+        type: batch
+    - sporco:
+        outliers_kwargs:
     - rosecdl:
         outliers_kwargs:
         n_csc_iterations: 50
-        optimizer: [adam, linesearch]
+        optimizer: [linesearch]
         sample_window,mini_batch_size: [
-            [64, 256]
+            [8, 8]
         ]
 objective:
     - RoseCDL:
-        reg: [0.8]
+        reg: [0.1]
 dataset:
     - simulated:
-        n_samples: [10]
-        n_times: [131072]
+        n_samples: [2]
+        n_times: [512]
         # We use n_atoms to generate data and add 5 to run CDL,
         # making it possible to recover them. So in total, RoseCDL
         # runs with 10 atoms.
-        n_atoms: 5
-        n_times_atom: 64
-        random_state: [938425, 923842, 29081990, 4112023, 8031989]
-        noise_std: [0.01, 0.1, 0.3]
+        n_atoms: 2
+        n_times_atom: 32
+        random_state: [42]
+        noise_std: [0.01]
         contamination: False
-timeout: 1800
+timeout: 30
 max-runs: 100
-output: benchmark_noise

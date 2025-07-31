@@ -1,31 +1,26 @@
-from benchopt import BaseSolver, safe_import_context
+from benchopt import BaseSolver
+
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
-# Protect the import with `safe_import_context()`. This allows:
-# - skipping import to speed up autocompletion in CLI.
-# - getting requirements info when all dependencies are not installed.
-with safe_import_context() as import_ctx:
-    import torch
-
-    # import your reusable functions here
-    from rosecdl.rosecdl import RoseCDL
+import torch
+from rosecdl.rosecdl import RoseCDL
 
 
-# The benchmark solvers must be named `Solver` and
-# inherit from `BaseSolver` for `benchopt` to work properly.
 class Solver(BaseSolver):
-    # Name to select the solver in the CLI and to display the results.
+
     name = "DeepCDL"
 
-    # List of parameters for the solver. The benchmark will consider
-    # the cross product for each key in the dictionary.
-    # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
         # sample_window is defined as a multiple of the atom_support
-        "mini_batch_size": [1],
-        "sample_window": [10, 20, 50],
+        "mini_batch_size": [128],
+        "sample_window": [32],
         "n_csc_iterations": [50],
         "random_state": [None],
+        "outliers_kwargs": [
+            None,
+            {"method": "mad", "alpha": 3.5},
+        ],
+        "optimizer": ["adam", "linesearch"],
     }
 
     stopping_criterion = SufficientProgressCriterion(patience=15, strategy="callback")
@@ -33,19 +28,7 @@ class Solver(BaseSolver):
     def get_next(self, stop_val):
         return stop_val + 3
 
-    def set_objective(
-        self,
-        X,
-        D_init,
-        reg,
-        window,
-        has_outliers,
-    ):
-        # Define the information received by each solver from the objective.
-        # The arguments of this function are the results of the
-        # `Objective.get_objective`. This defines the benchmark's API for
-        # passing the objective to the solver.
-        # It is customizable for each benchmark.
+    def set_objective(self, X, D_init, reg, window, has_outliers):
 
         self.X, self.reg, self.D_init = X, reg, D_init
         self.window = window
@@ -79,22 +62,19 @@ class Solver(BaseSolver):
             mini_batch_size=self.mini_batch_size,
             sample_window=sample_window,
             deepcdl=True,
-            optimizer="linesearch",
+            optimizer=self.optimizer,
             n_iterations=self.n_csc_iterations,
             random_state=self.random_state,
             device=self.device,
         )
 
     def run(self, cb):
-        # This is the function that is called to evaluate the solver.
-        # It runs the algorithm for a given a number of iterations `n_iter`.
+        X = self.X
+        if self.outliers_kwargs is not None:
+            X = remove_outliers_before_cdl(X, self.z_shape, **self.outliers_kwargs)
         self.model = RoseCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
-        self.model.fit(self.X)
+        self.model.fit(X)
 
     def get_result(self):
-        # Return the result from one optimization run.
-        # The outputs of this function are the arguments of `Objective.compute`
-        # This defines the benchmark's API for solvers' results.
-        # it is customizable for each benchmark.
         return {"D": self.model.D_hat_}
