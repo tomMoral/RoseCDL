@@ -1,28 +1,22 @@
 solver:
-    - alphacsc:
-        type: [batch]
-        outliers_kwargs:
     - rosecdl:
         outliers_kwargs:
         n_csc_iterations: 50
         optimizer: [adam, linesearch]
         sample_window,mini_batch_size: [
-            [10, 1000],
-            [20, 500],
-            [50, 200],
-            [100, 100]
+            [50, 200]
         ]
 objective:
-    convolutional dictionary learning:
-        reg: [0.1]
+    - convolutional dictionary learning:
+        reg: [0.8]
 dataset:
     - simulated:
         n_samples: [10]  # , 200, 500, 1000, 2000]
-        n_times: [10000, 30000, 100000]  # , 50000, 100000]
+        n_times: [10000, 30000, 100000, 300000, 1000000]  # , 50000, 100000]
         n_atoms: 5  # We use n_atoms to generate data and add 5 for the CDL
         n_times_atom: 50
         random_state: [938425, 923842, 29081990, 4112023, 8031989]
         contamination: False
-timeout: 1800
+timeout: 3h
 max-runs: 100
-output: runtime_benchmark
+output: benchmark_scaling

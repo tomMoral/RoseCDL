@@ -1,0 +1,23 @@
+solver:
+    - rosecdl:
+        outliers_kwargs:
+        n_csc_iterations: 50
+        optimizer: [adam, linesearch]
+        sample_window,mini_batch_size: [
+            [50, 200]
+        ]
+objective:
+    - convolutional dictionary learning:
+        reg: [0.8]
+dataset:
+    - simulated:
+        n_samples: [10]  # , 200, 500, 1000, 2000]
+        n_times: [100000]  # , 50000, 100000]
+        n_atoms: 5  # We use n_atoms to generate data and add 5 for the CDL
+        n_times_atom: 50
+        random_state: [938425, 923842, 29081990, 4112023, 8031989]
+        noise_std: [0.1, 0.3]
+        contamination: False
+timeout: 1800
+max-runs: 100
+output: benchmark_noise

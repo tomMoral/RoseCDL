@@ -16,6 +16,7 @@ class Dataset(BaseDataset):
         "n_atoms, n_times_atom": [(10, 128)],
         "random_state": [None],
         "contamination": [False],
+        "noise_std": [0.01],
     }
     parameter_template = "N={n_samples},T={n_times},outliers={contamination}"
 
@@ -50,7 +51,7 @@ class Dataset(BaseDataset):
             "init_d_kwargs": {"shapes": ["sin", "gaussian"]},
             "init_z": "constant",
             "init_z_kwargs": {"value": 1},
-            "noise_std": 0.01,
+            "noise_std": self.noise_std,
             "rng": self.random_state,
             "sparsity": int(20 * size),
         }
