@@ -1,20 +1,25 @@
+# This experiment evaluates the runtime of RoseCDL and its scaling
+# with signals of increasing length.
 solver:
     - rosecdl:
         outliers_kwargs:
         n_csc_iterations: 50
         optimizer: [adam, linesearch]
         sample_window,mini_batch_size: [
-            [50, 200]
+            [64, 256]
         ]
 objective:
     - convolutional dictionary learning:
         reg: [0.8]
 dataset:
     - simulated:
-        n_samples: [10]  # , 200, 500, 1000, 2000]
-        n_times: [10000, 30000, 100000, 300000, 1000000]  # , 50000, 100000]
-        n_atoms: 5  # We use n_atoms to generate data and add 5 for the CDL
-        n_times_atom: 50
+        n_samples: [10]
+        n_times: [16384, 46340, 131072, 370727, 1048576]
+        # We use n_atoms to generate data and add 5 to run CDL,
+        # making it possible to recover them. So in total, RoseCDL
+        # runs with 10 atoms.
+        n_atoms: 5
+        n_times_atom: 64
         random_state: [938425, 923842, 29081990, 4112023, 8031989]
         contamination: False
 timeout: 3h
