@@ -83,7 +83,7 @@ class Solver(BaseSolver):
         sporco_params = dict(
             D0=self.D_init.transpose(2, 1, 0).copy(),
             S=X.transpose(2, 1, 0).copy(),
-            lmbda=reg,
+            lmbda=self.reg,
             opt=opt,
             dmethod="cns",
             dimN=len(self.D_init.shape[2:]),
