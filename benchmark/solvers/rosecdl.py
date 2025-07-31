@@ -1,10 +1,9 @@
-from benchopt import BaseSolver, safe_import_context
+from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
-with safe_import_context() as import_ctx:
-    import torch
+import torch
 
-    from rosecdl.rosecdl import RoseCDL
+from rosecdl.rosecdl import RoseCDL
 
 
 class Solver(BaseSolver):
@@ -12,8 +11,8 @@ class Solver(BaseSolver):
 
     parameters = {
         # sample_window is defined as a multiple of the atom_support
-        "mini_batch_size": [1],
-        "sample_window": [100, 50, 20, 10],
+        "mini_batch_size": [128],
+        "sample_window": [32],
         "n_csc_iterations": [50],
         "random_state": [None],
         "outliers_kwargs": [
@@ -92,8 +91,6 @@ class Solver(BaseSolver):
         )
 
     def run(self, cb):
-        # This is the function that is called to evaluate the solver.
-        # It runs the algorithm for a given a number of iterations `n_iter`.
         self.model = RoseCDL(**self.model_kwargs, callbacks=[lambda *x: not cb()])
         cb()  # Get init value
         self.model.fit(self.X)

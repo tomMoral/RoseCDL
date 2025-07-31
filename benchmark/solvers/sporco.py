@@ -1,16 +1,14 @@
-from benchopt import BaseSolver, safe_import_context
+from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
-with safe_import_context() as import_ctx:
-    import numpy as np
-    from alphacsc.utils.dictionary import get_lambda_max
-    from sporco.dictlrn import cbpdndl
+import numpy as np
+from alphacsc.utils.dictionary import get_lambda_max
+from sporco.dictlrn import cbpdndl
 
-    from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
 
 class Solver(BaseSolver):
-    # Name to select the solver in the CLI and to display the results.
     name = "Sporco"
 
     install_cmd = "conda"
@@ -19,10 +17,7 @@ class Solver(BaseSolver):
     parameters = {
         "outliers_kwargs": [
             None,
-            {"method": "quantile", "alpha": 0.2},
-            {"method": "iqr", "alpha": 1.5},
             {"method": "mad", "alpha": 3.5},
-            {"method": "zscore", "alpha": 1.5},
         ],
     }
 
@@ -56,8 +51,7 @@ class Solver(BaseSolver):
         self.n_channels = self.X.shape[1]
 
         def callback_fn(model, *args):
-            self.D = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0)
-            self.D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
+            self.D = cdl.getdict()
             return not cb()
 
         opt_cbpdn = cbpdndl.ConvBPDNOptionsDefaults()
@@ -71,7 +65,7 @@ class Solver(BaseSolver):
             {
                 "Verbose": False,
                 "MaxMainIter": 10000,
-                # "Callback": callback_fn,
+                "Callback": callback_fn,
                 "CBPDN": opt_cbpdn},
             dmethod="cns",
         )
@@ -92,8 +86,9 @@ class Solver(BaseSolver):
         cdl = cbpdndl.ConvBPDNDictLearn(**sporco_params)
         cdl.solve()
 
-        self.D = cdl.getdict()[:, :, 0, :].transpose(2, 1, 0)
-        self.D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
+        self.D = cdl.getdict()
 
     def get_result(self):
+        D = self.D[:, :, 0, :].transpose(2, 1, 0).copy()
+        D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
         return {"D": self.D}

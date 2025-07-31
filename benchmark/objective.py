@@ -18,11 +18,8 @@ with safe_import_context() as import_ctx:
 ROSECDL_DIR = Path(__file__).parent.parent
 
 
-# The benchmark objective must be named `Objective` and
-# inherit from `BaseObjective` for `benchopt` to work properly.
 class Objective(BaseObjective):
-    # Name to select the objective in the CLI and to display the results.
-    name = "Convolutional Dictionary Learning"
+    name = "RoseCDL"
 
     # URL of the main repo for this benchmark.
     url = "https://github.com/tommoral/RoseCDL"
