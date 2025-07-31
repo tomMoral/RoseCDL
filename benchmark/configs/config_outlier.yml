@@ -1,5 +1,5 @@
 objective:
-  - Convolutional Dictionary Learning:
+  - RoseCDL:
         reg: [0.8]
 solver:
     - alphacsc:

@@ -53,7 +53,7 @@ class Objective(BaseObjective):
         self.D_init = D_init.copy()
         self.outliers = outliers
         self.window = window
-        self.scaled_reg = self.reg * get_lambda_max(X, D_init).max()
+        self.scaled_reg = self.reg * get_lambda_max(self.X, D_init).max()
 
         # Auxillary variable to warm start the optimization for the loss computation
         self.z0_dict_ = {"train": None, "val": None}

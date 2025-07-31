@@ -16,7 +16,7 @@ solver:
             [128, 128]
         ]
 objective:
-    convolutional dictionary learning:
+    - RoseCDL:
         reg: [0.1, 0.3, 0.8]
 dataset:
     - simulated:

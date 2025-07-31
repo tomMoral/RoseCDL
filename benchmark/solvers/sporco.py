@@ -1,11 +1,12 @@
-from benchopt import BaseSolver
+from benchopt import BaseSolver, safe_import_context
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
-import numpy as np
-from alphacsc.utils.dictionary import get_lambda_max
-from sporco.dictlrn import cbpdndl
+with safe_import_context() as import_ctx:
+    import numpy as np
+    from alphacsc.utils.dictionary import get_lambda_max
+    from sporco.dictlrn import cbpdndl
 
-from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
+    from rosecdl.utils.utils_outlier_comparison import remove_outliers_before_cdl
 
 
 class Solver(BaseSolver):
@@ -90,5 +91,5 @@ class Solver(BaseSolver):
 
     def get_result(self):
         D = self.D[:, :, 0, :].transpose(2, 1, 0).copy()
-        D /= np.linalg.norm(self.D, axis=(1, 2), keepdims=True)
-        return {"D": self.D}
+        D /= np.linalg.norm(D, axis=(1, 2), keepdims=True)
+        return {"D": D}
