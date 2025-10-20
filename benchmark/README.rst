@@ -10,12 +10,14 @@ of patterns denoted $D$ which contains prototypical patches of the signal, and
 some sparse codes $z_k$ that indicate where these atoms are located in the
 signal's domain. The signal's model reads:
 
-$$X = \sum_{k=1}^K z_k * D_k$$
+$$X = \\sum_{k=1}^K z_k * D_k$$
 
 To infer the parameters $D$, we can use various optimization methods.
-RoseCDL has been proposed in [Yehya et al., 2025](https://arxiv.org/abs/xxxx.xxx). We evaluate here its runtime and scaling compared to other methods such as:
-- [Sporco](https://github.com/bwohlberg/sporco)
-- [AlphaCSC](https://github.com/alphacsc/alphacsc)
+RoseCDL has been proposed in `Yehya et al., 2025 <https://arxiv.org/abs/2509.07523>`_.
+We evaluate here its runtime and scaling compared to other methods such as:
+
+- `Sporco <https://github.com/bwohlberg/sporco>`_
+- `AlphaCSC <https://github.com/alphacsc/alphacsc>`_
 
 To evaluate if a method is good, we can compute several scores:
 - The loss on a left out part of the data,
