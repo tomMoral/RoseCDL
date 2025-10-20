@@ -43,5 +43,5 @@ Use ``benchopt run -h`` for more details about these options, or visit https://b
 
 .. |Build Status| image:: https://github.com/tommoral/RoseCDL/workflows/Benchopt/badge.svg
    :target: https://github.com/tommoral/RoseCDL/actions
-.. |Python 3.6+| image:: https://img.shields.io/badge/python-3.10%2B-blue
+.. |Python 3.10+| image:: https://img.shields.io/badge/python-3.10%2B-blue
    :target: https://www.python.org/downloads/release/python-3100/
