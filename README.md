@@ -24,7 +24,41 @@ pip install .
 
 # Example
 
-TBD
+```python
+from rosecdl.rosecdl import RoseCDL
+from rosecdl.utils.utils_exp import evaluate_D_hat
+from rosecdl.utils.utils_signal import generate_experiment
+
+simulation_params = {
+    "n_trials": 10,
+    "n_times": 5_000,
+    "n_atoms": 2,
+    "n_times_atom": 128,
+    "window": True,
+    "contamination_params": None,
+}
+
+# Generating simulated data
+data, _, true_dict, _ = generate_experiment(simulation_params)
+
+rosecdl = RoseCDL(
+    n_components=3,
+    kernel_size=128,
+    n_channels=1,
+    lmbd=0.8,
+    n_iterations=30,
+    epochs=30,
+    sample_window=1000,
+)
+
+# Fitting RoseCDL on data
+rosecdl.fit(data)
+learned_dict = rosecdl.D_hat_
+
+# Computing the recovery score of the learned dictionary
+recovery_score = evaluate_D_hat(learned_dict, true_dict)
+print("Dictionary recovery score : ", recovery_score)
+```
 
 # Contributing
 
