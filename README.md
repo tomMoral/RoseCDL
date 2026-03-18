@@ -122,7 +122,10 @@ true_mask = info["outliers_mask"].max(axis=1, keepdims=True)
 metrics = get_outliers_metric(
     true_mask, cdl, X, crop=True
 )
-print(f"Anomaly detection metrics: {**metrics}")
+
+print("\nAnomaly detection metrics:")
+for name, score in metrics.items():
+    print(f"{name:12}: {score:.4f}")
 ```
 
 # Contributing
