@@ -28,89 +28,11 @@ pip install .
 
 ### Dictionary Learning
 
-```python
-from rosecdl import RoseCDL
-from rosecdl.utils.utils_exp import evaluate_D_hat
-from rosecdl.utils.utils_signal import generate_experiment
+TBD
 
-simulation_params = {
-    "n_trials": 10,
-    "n_times": 5_000,
-    "n_atoms": 2,
-    "n_times_atom": 128,
-    "window": True,
-    "contamination_params": None,
-}
+# Contributing
 
-X, _, D_true, D_init = generate_experiment(simulation_params)
-
-cdl = RoseCDL(lmbd=0.8, D_init=D_init, epochs=30, sample_window=1000)
-cdl.fit(X)
-
-recovery = evaluate_D_hat(D_true, cdl.D_hat_)
-print(f"Dictionary recovery score: {recovery:.4f}")
-```
-
-### Anomaly Detection
-
-```python
-import numpy as np
-from rosecdl import RoseCDL
-from rosecdl.utils.utils_signal import generate_experiment
-from sklearn.metrics import f1_score
-
-# Generate 1D signal with injected anomalies
-simulation_params = {
-    "n_trials": 10,
-    "n_channels": 1,
-    "n_times": 5_000,
-    "n_atoms": 2,
-    "n_times_atom": 64,
-    "n_atoms_extra": 2,
-    "D_init": "random",
-    "window": True,
-    "init_d": "shapes",
-    "init_d_kwargs": {"shapes": ["sin", "gaussian"]},
-    "init_z": "constant",
-    "init_z_kwargs": {"value": 1},
-    "noise_std": 0.01,
-    "sparsity": 20,
-    "n_patterns_per_atom": 1,
-    "contamination_params": {
-        "n_atoms": 2,
-        "sparsity": 3,
-        "init_z": "constant",
-        "init_z_kwargs": {"value": 50},
-    },
-    "rng": 42,
-}
-
-X, z, D_true, D_init, info = generate_experiment(
-    simulation_params, return_info_contam=True
-)
-
-# Fit with inline outlier detection (MAD method, alpha=3.5)
-cdl = RoseCDL(
-    lmbd=0.8,
-    scale_lmbd=True,
-    D_init=D_init,
-    epochs=30,
-    n_iterations=50,
-    sample_window=960,
-    outliers_kwargs={"method": "mad", "alpha": 3.5},
-)
-cdl.fit(X)
-
-# Retrieve anomaly mask
-pred_mask = cdl.get_outlier_mask(X)
-
-# Evaluate
-true_mask = info["outliers_mask"].max(axis=1, keepdims=True)
-f1 = f1_score(true_mask.flatten(), pred_mask.flatten())
-print(f"Anomaly detection F1 score: {f1:.4f}")
-```
-
-## Contributing
+If you’d like to contribute to `rosecdl`, you should also install additional packages for code formatting, testing, and experiment dependencies. To do this, replace the `pip install` command above with:
 
 ```bash
 pip install -e .[dev,experiments]
