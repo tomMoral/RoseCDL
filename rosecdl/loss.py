@@ -199,7 +199,7 @@ class OutlierLoss(_ReconstructionLoss):
             data=err,
             threshold=threshold,
             moving_average=self.moving_average,
-            opening_window=opening if opening else None,
+            opening_window=opening or None,
             union_channels=self.union_channels,
         )
 
