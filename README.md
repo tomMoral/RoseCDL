@@ -140,4 +140,13 @@ pip install -e .[dev,experiments]
 
 If you use RoseCDL in your research, please cite:
 
-TBD
+```
+@inproceedings{
+yehya2026rosecdl,
+title={Rose{CDL}: Robust and Scalable Convolutional Dictionary Learning for rare-event and anomaly detection},
+author={Jad Yehya and Mansour Benbakoura and C{\'e}dric Allain and Beno{\^\i}t Mal{\'e}zieux and Matthieu Kowalski and Thomas Moreau},
+booktitle={The 29th International Conference on Artificial Intelligence and Statistics},
+year={2026},
+url={https://openreview.net/forum?id=4XMkOFxxfb}
+}
+```
