@@ -22,7 +22,7 @@
 ```bash
 git clone https://github.com/tomMoral/RoseCDL.git
 cd RoseCDL
-pip install . -e
+pip install -e .
 ```
 
 ## Quick Start
