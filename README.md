@@ -3,7 +3,7 @@
 # RoseCDL: Robust and Scalable Convolutional Dictionary Learning for rare-event and anomaly detection
 
 [![arXiv](https://img.shields.io/static/v1?label=arXiv&message=2509.07523&color=B31B1B&logo=arXiv)](https://arxiv.org/abs/2509.07523)
-[![Conference](https://img.shields.io/badge/AISTATS-2026-4b44ce.svg)](https://aistats.org)
+[![Conference](https://img.shields.io/badge/AISTATS-2026-4b44ce.svg)](https://virtual.aistats.org/virtual/2026/poster/13870)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -22,7 +22,7 @@
 ```bash
 git clone https://github.com/tomMoral/RoseCDL.git
 cd RoseCDL
-pip install .
+pip install -e .
 ```
 
 ## Quick Start
